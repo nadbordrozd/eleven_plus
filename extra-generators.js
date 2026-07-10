@@ -23,6 +23,10 @@ function shuffle(rng, values) {
 }
 const clean = (value) => Math.round((value + Number.EPSILON) * 1000) / 1000;
 const greatestCommonDivisor = (a,b) => b ? greatestCommonDivisor(b,a%b) : Math.abs(a);
+const fractionLabel = (numerator,denominator) => {
+  const divisor=greatestCommonDivisor(numerator,denominator);
+  return `${numerator/divisor}/${denominator/divisor}`;
+};
 const isPrime = (value) => value >= 2 && Array.from({length:Math.floor(Math.sqrt(value))-1},(_,i)=>i+2).every(divisor=>value%divisor!==0);
 const display = (value) => typeof value === 'number'
   ? clean(value).toLocaleString('en-GB', { maximumFractionDigits: 3 }) : String(value);
@@ -479,6 +483,196 @@ const UNIT_CASES = [
   ['the height of a pupil','centimetres'], ['the mass of a loaf of bread','grams'], ['the medicine in a spoon','millilitres'], ['the distance from London to Edinburgh','kilometres'],
 ];
 
+const MONEY_EXPRESSION_FORMS = [
+  (s,n,f)=>`Each ${s.items.replace(/s$/,'')} costs £x at a ${s.shop}. ${n} are bought with a fixed £${f} fee. Which expression gives the total?`,
+  (s,n,f)=>`A ${s.shop} charges £x per ${s.items.replace(/s$/,'')} plus £${f} for the order. Write the cost of ${n} ${s.items}.`,
+  (s,n,f)=>`${n} ${s.items} at £x each are ordered from a ${s.shop}, which adds £${f}. Select the expression for the final charge.`,
+  (s,n,f)=>`The bill from a ${s.shop} contains ${n} lots of £x for ${s.items} and one £${f} charge. Which algebraic expression represents it?`,
+];
+const MONEY_EXPRESSION_TEMPLATES=crossTemplates(RATE_SCENARIOS,MONEY_EXPRESSION_FORMS);
+const REMAIN_EXPRESSION_FORMS = [
+  (s,n,e)=>`${s.place[0].toUpperCase()+s.place.slice(1)} starts with x ${s.items}. After ${n} groups of ${e} are ${s.action}, which expression gives the remainder?`,
+  (s,n,e)=>`There are x ${s.items} at ${s.place}. Staff have ${s.action} ${n} equal batches of ${e}. Write an expression for what is left.`,
+  (s,n,e)=>`From an unknown stock x of ${s.items}, ${n} lots containing ${e} are ${s.action}. Select the expression for the new stock.`,
+  (s,n,e)=>`${s.place[0].toUpperCase()+s.place.slice(1)} removes ${e} ${s.items} on each of ${n} occasions from x. Which expression represents the amount remaining?`,
+];
+const REMAIN_EXPRESSION_TEMPLATES=crossTemplates(STOCK_SCENARIOS,REMAIN_EXPRESSION_FORMS);
+const COST_EQUATION_FORMS = [
+  (s,n,p,t)=>`${n} identical ${s.items} and one special item cost £${t} at a ${s.shop}. Each ${s.items.replace(/s$/,'')} is £${p}. Find the special item's price.`,
+  (s,n,p,t)=>`A bill from a ${s.shop} totals £${t}: ${n} ${s.items} at £${p} each plus one other item. What did the other item cost?`,
+  (s,n,p,t)=>`After buying ${n} £${p} ${s.items} and one extra product, a customer pays £${t}. Calculate the extra product's price.`,
+  (s,n,p,t)=>`The equation ${n} × £${p} + x = £${t} describes a purchase of ${s.items} at a ${s.shop}. Find x.`,
+];
+const COST_EQUATION_TEMPLATES=crossTemplates(RATE_SCENARIOS,COST_EQUATION_FORMS);
+const AGE_FORMS = [
+  ([a,b],older,years)=>`${a} is x years old. ${b} is ${older} years older. Which expression gives ${b}'s age in ${years} years?`,
+  ([a,b],older,years)=>`Today ${a}'s age is x and ${b} is x + ${older}. Write ${b}'s age ${years} years from now.`,
+  ([a,b],older,years)=>`${b} is ${older} years older than ${a}, whose age is x. Select the expression for ${b} after another ${years} years.`,
+  ([a,b],older,years)=>`Starting from ${a} = x, ${b}'s current age is ${older} greater. Which algebraic expression represents ${b}'s age in ${years} years?`,
+];
+const AGE_PAIRS=ORDER_SCENARIOS.map(([a,b])=>[a,b]);
+const AGE_TEMPLATES=crossTemplates(AGE_PAIRS,AGE_FORMS);
+const FORMULA_SCENARIOS = [
+  { quantity:'delivery charge', symbol:'C', first:'number of parcels', second:'distance band' },
+  { quantity:'game score', symbol:'S', first:'round value', second:'number of rounds' },
+  { quantity:'machine output', symbol:'Q', first:'production rate', second:'running time' },
+  { quantity:'reward points', symbol:'P', first:'points per task', second:'tasks completed' },
+  { quantity:'total distance', symbol:'D', first:'distance per stage', second:'stages travelled' },
+];
+const FORMULA_FORMS = [
+  (s,r,t,f)=>`A ${s.quantity} uses ${s.symbol} = rt + ${f}. Find ${s.symbol} when r = ${r} and t = ${t}.`,
+  (s,r,t,f)=>`For a ${s.quantity}, r is the ${s.first} and t is the ${s.second}. Evaluate ${s.symbol} = rt + ${f} for r = ${r}, t = ${t}.`,
+  (s,r,t,f)=>`The rule ${s.symbol} = r × t + ${f} calculates a ${s.quantity}. What is ${s.symbol} if r = ${r} and t = ${t}?`,
+  (s,r,t,f)=>`Substitute r = ${r} and t = ${t} into the ${s.quantity} formula ${s.symbol} = rt + ${f}.`,
+];
+const FORMULA_TEMPLATES=crossTemplates(FORMULA_SCENARIOS,FORMULA_FORMS);
+const REVERSE_FRACTION_FORMS = [
+  (s,u,d,r)=>`After ${u}/${d} of some ${s.items} is ${s.action}, ${r} remain at ${s.place}. How many were there initially?`,
+  (s,u,d,r)=>`${s.place[0].toUpperCase()+s.place.slice(1)} has ${r} ${s.items} left after ${u}/${d} of its stock was ${s.action}. Find the original stock.`,
+  (s,u,d,r)=>`Using ${u}/${d} of an unknown collection of ${s.items} leaves ${r}. Calculate the starting number.`,
+  (s,u,d,r)=>`A stock of ${s.items} at ${s.place} is reduced by ${u}/${d}, leaving ${r}. What was the whole amount?`,
+];
+const REVERSE_FRACTION_TEMPLATES=crossTemplates(STOCK_SCENARIOS,REVERSE_FRACTION_FORMS);
+const QUANTIFIER_CASES = [
+  ['blue shapes','triangular'],['library books','non-fiction'],['team members','goalkeepers'],['garden plants','herbs'],['concert tickets','child tickets'],
+  ['survey responses','positive'],['marbles','green'],['pupils','left-handed'],['vehicles','electric'],['cakes','chocolate flavoured'],
+  ['coins','silver coloured'],['flags','striped'],['pets','dogs'],['parcels','fragile'],['chairs','wooden'],
+  ['songs','instrumental'],['trees','oak trees'],['cards','picture cards'],['bottles','recyclable'],['paths','paved'],
+];
+const MASS_TOTAL_FORMS = [
+  (s,n,g)=>`${n} ${s.groups} at ${s.place} each have mass ${g} g. What is their total mass in kilograms?`,
+  (s,n,g)=>`At ${s.place}, ${n} identical ${s.groups} weigh ${g} g apiece. Convert their combined mass to kilograms.`,
+  (s,n,g)=>`A delivery to ${s.place} contains ${n} equal ${s.groups}, each ${g} g. Find the whole shipment's mass in kg.`,
+  (s,n,g)=>`The total mass of ${n} ${s.groups} from ${s.place}, at ${g} g each, is how many kilograms?`,
+];
+const MASS_TOTAL_TEMPLATES=crossTemplates(PRODUCT_SCENARIOS,MASS_TOTAL_FORMS);
+const DURATION_SCENARIOS = [
+  { event:'film', action:'misses' }, { event:'sports match', action:'misses' }, { event:'workshop', action:'is absent for' },
+  { event:'train journey', action:'sleeps through' }, { event:'concert', action:'arrives late for' },
+];
+const DURATION_FORMS = [
+  (s,t,n,d)=>`A ${s.event} lasts ${t} minutes. A person ${s.action} ${n}/${d} of it. How many minutes is that?`,
+  (s,t,n,d)=>`${n}/${d} of a ${t}-minute ${s.event} is missed. Calculate the missed time.`,
+  (s,t,n,d)=>`During a ${s.event} of ${t} minutes, someone ${s.action} a fraction ${n}/${d}. For how many minutes?`,
+  (s,t,n,d)=>`The full ${s.event} takes ${t} minutes. Find the duration represented by ${n}/${d} of it.`,
+];
+const DURATION_TEMPLATES=crossTemplates(DURATION_SCENARIOS,DURATION_FORMS);
+const TIMEZONE_PAIRS = [
+  ['Paris','ahead'],['New York','behind'],['Tokyo','ahead'],['Reykjavík','behind'],['Dubai','ahead'],
+  ['Toronto','behind'],['Singapore','ahead'],['Chicago','behind'],['Athens','ahead'],['Vancouver','behind'],
+  ['Seoul','ahead'],['Mexico City','behind'],['Delhi','ahead'],['Los Angeles','behind'],['Helsinki','ahead'],
+  ['Honolulu','behind'],['Bangkok','ahead'],['Denver','behind'],['Cairo','ahead'],['Lima','behind'],
+];
+const TABLE_SCENARIOS = [
+  { units:'tables', place:'a hall', capacity:'seats' }, { units:'boats', place:'a lake centre', capacity:'passenger places' },
+  { units:'cabins', place:'a camp', capacity:'beds' }, { units:'boxes', place:'a warehouse', capacity:'item spaces' },
+  { units:'minibuses', place:'a depot', capacity:'passenger seats' },
+];
+const TABLE_FORMS = [
+  (s,n,a,b,t)=>`${s.place[0].toUpperCase()+s.place.slice(1)} has ${n} ${s.units}, each with either ${a} or ${b} ${s.capacity}. Together they hold ${t}. How many are the larger type?`,
+  (s,n,a,b,t)=>`At ${s.place}, ${n} ${s.units} have capacities ${a} and ${b}, totalling ${t} ${s.capacity}. Find the number with capacity ${b}.`,
+  (s,n,a,b,t)=>`There are ${n} ${s.units} in ${s.place}. Some hold ${a} and the rest ${b}; the complete capacity is ${t}. How many hold ${b}?`,
+  (s,n,a,b,t)=>`${n} mixed-size ${s.units} provide ${t} ${s.capacity} at ${s.place}. If the sizes are ${a} and ${b}, calculate the count of larger ones.`,
+];
+const TABLE_TEMPLATES=crossTemplates(TABLE_SCENARIOS,TABLE_FORMS);
+const EQUIVALENCE_SCENARIOS = [
+  ['erasers','pencil','notebook'],['red tokens','blue token','gold token'],['small shells','medium shell','large shell'],['copper counters','silver counter','gold counter'],['paper clips','binder clip','folder'],
+];
+const EQUIVALENCE_FORMS = [
+  (s,a,b)=>`${a} ${s[0]} equal 1 ${s[1]}; ${b} ${s[1]} equal 1 ${s[2]}. How many ${s[0]} equal 1 ${s[2]}?`,
+  (s,a,b)=>`The value chain is ${a} ${s[0]} = 1 ${s[1]} and ${b} ${s[1]} = 1 ${s[2]}. Convert one ${s[2]} to ${s[0]}.`,
+  (s,a,b)=>`It takes ${a} ${s[0]} to match a ${s[1]}, and ${b} ${s[1]} to match a ${s[2]}. Find the equivalent number of ${s[0]}.`,
+  (s,a,b)=>`Using ${s[0]}, ${s[1]}, and ${s[2]} as exchange objects, ${a} of the first make one second and ${b} seconds make one third. How many first objects make a third?`,
+];
+const EQUIVALENCE_TEMPLATES=crossTemplates(EQUIVALENCE_SCENARIOS,EQUIVALENCE_FORMS);
+const TWO_GROUP_SCENARIOS = [
+  ['girls','boys','a school'],['adults','children','a concert'],['red counters','blue counters','a box'],['oak trees','beech trees','a park'],['fiction books','non-fiction books','a library'],
+];
+const TWO_GROUP_FORMS = [
+  (s,t,d)=>`${s[2][0].toUpperCase()+s[2].slice(1)} has ${t} ${s[0]} and ${s[1]} altogether. There are ${d} more ${s[0]} than ${s[1]}. How many ${s[1]} are there?`,
+  (s,t,d)=>`The total number of ${s[0]} and ${s[1]} in ${s[2]} is ${t}. The ${s[0]} outnumber the ${s[1]} by ${d}. Find the smaller group.`,
+  (s,t,d)=>`At ${s[2]}, two groups total ${t}: ${s[0]} and ${s[1]}. If the first group is ${d} larger, calculate the second group.`,
+  (s,t,d)=>`${s[2][0].toUpperCase()+s[2].slice(1)} records ${t} across ${s[0]} and ${s[1]}, with a difference of ${d}. How many belong to the smaller ${s[1]} group?`,
+];
+const TWO_GROUP_TEMPLATES=crossTemplates(TWO_GROUP_SCENARIOS,TWO_GROUP_FORMS);
+const COMMISSION_SCENARIOS = [
+  { worker:'book seller',items:'books',income:'earnings' },{ worker:'ticket agent',items:'tickets',income:'pay' },{ worker:'craft seller',items:'items',income:'earnings' },{ worker:'fundraiser',items:'sponsorship packs',income:'total raised' },{ worker:'market trader',items:'products',income:'pay' },
+];
+const COMMISSION_FORMS = [
+  (s,b,r,p,n,d)=>`A ${s.worker} receives £${b} basic pay plus ${r}% of each £${p} ${s.items.replace(/s$/,'')} sold. They sell ${n} per day for ${d} days. Find total ${s.income}.`,
+  (s,b,r,p,n,d)=>`The ${s.income} for a ${s.worker} is £${b} plus ${r}% commission on £${p} ${s.items}. With ${n} sales on each of ${d} days, calculate the total.`,
+  (s,b,r,p,n,d)=>`Over ${d} days, a ${s.worker} sells ${n} £${p} ${s.items} daily. Add ${r}% commission to basic pay of £${b}. What is the result?`,
+  (s,b,r,p,n,d)=>`A ${s.worker}'s pay combines £${b} fixed and ${r}% of sales. Sales are ${n} ${s.items} at £${p} for ${d} days. Work out the full ${s.income}.`,
+];
+const COMMISSION_TEMPLATES=crossTemplates(COMMISSION_SCENARIOS,COMMISSION_FORMS);
+const PAYBACK_SCENARIOS = [
+  { item:'carpet cleaner',income:'rental income' },{ item:'market stall',income:'monthly profit' },{ item:'printing machine',income:'printing income' },{ item:'sports equipment set',income:'hire income' },{ item:'garden tool',income:'rental income' },
+];
+const PAYBACK_FORMS = [
+  (s,c,m)=>`A ${s.item} costs £${c} and produces £${m} in ${s.income} each month. During which month is its cost first covered?`,
+  (s,c,m)=>`An initial £${c} spent on a ${s.item} is recovered at £${m} per month. Find the first break-even month.`,
+  (s,c,m)=>`Monthly ${s.income} from a ${s.item} is £${m}, after buying it for £${c}. When do cumulative earnings first reach the cost?`,
+  (s,c,m)=>`A £${c} ${s.item} returns £${m} every month. Calculate the month in which total returns first cover the purchase.`,
+];
+const PAYBACK_TEMPLATES=crossTemplates(PAYBACK_SCENARIOS,PAYBACK_FORMS);
+const UNIT_PERCENT_SCENARIOS = [
+  { whole:'litres',part:'ml',factor:1000,thing:'a water tank' },{ whole:'kilograms',part:'g',factor:1000,thing:'a food parcel' },{ whole:'metres',part:'cm',factor:100,thing:'a length of rope' },{ whole:'pounds',part:'p',factor:100,thing:'a savings target' },{ whole:'kilometres',part:'metres',factor:1000,thing:'a walking route' },
+];
+const UNIT_PERCENT_FORMS = [
+  (s,w,p)=>`What percentage of ${w} ${s.whole} is ${p} ${s.part} in ${s.thing}?`,
+  (s,w,p)=>`${s.thing[0].toUpperCase()+s.thing.slice(1)} has a whole amount of ${w} ${s.whole}. Express ${p} ${s.part} as a percentage of it.`,
+  (s,w,p)=>`Compare ${p} ${s.part} with ${w} ${s.whole} for ${s.thing}. What percentage of the whole is the smaller quantity?`,
+  (s,w,p)=>`After converting units, calculate ${p} ${s.part} as a percentage of ${w} ${s.whole} in ${s.thing}.`,
+];
+const UNIT_PERCENT_TEMPLATES=crossTemplates(UNIT_PERCENT_SCENARIOS,UNIT_PERCENT_FORMS);
+const PROBABILITY_COMPARE_FORMS = [
+  (s,a,b)=>`A ${s.container} has ${a} ${s.success} and ${b} ${s.other}. Which statement about their probabilities is true?`,
+  (s,a,b)=>`One item is drawn from ${a} ${s.success} and ${b} ${s.other} in a ${s.container}. Compare the chances of the two types.`,
+  (s,a,b)=>`There are ${a} ${s.success} versus ${b} ${s.other}. Select the correct probability comparison.`,
+  (s,a,b)=>`For a random choice from this ${s.container}—${a} ${s.success}, ${b} ${s.other}—which likelihood statement is correct?`,
+];
+const PROBABILITY_COMPARE_TEMPLATES=crossTemplates(PROBABILITY_SCENARIOS,PROBABILITY_COMPARE_FORMS);
+const OVERLAP_SCENARIOS = [
+  ['chess','music','pupils'],['football','swimming','children'],['fiction','non-fiction','readers'],['French','Spanish','students'],['art','drama','club members'],
+];
+const OVERLAP_FORMS = [
+  (s,t,a,b)=>`Among ${t} ${s[2]}, ${a} like ${s[0]} and ${b} like ${s[1]}. What is the minimum number who must like both?`,
+  (s,t,a,b)=>`A group of ${t} ${s[2]} contains ${a} in ${s[0]} and ${b} in ${s[1]}. Find the smallest possible overlap.`,
+  (s,t,a,b)=>`Of ${t} ${s[2]}, set A (${s[0]}) has ${a} and set B (${s[1]}) has ${b}. Calculate the minimum intersection.`,
+  (s,t,a,b)=>`${a} of ${t} ${s[2]} choose ${s[0]}, while ${b} choose ${s[1]}. At least how many choose both?`,
+];
+const OVERLAP_TEMPLATES=crossTemplates(OVERLAP_SCENARIOS,OVERLAP_FORMS);
+const RESOURCE_SCENARIOS = [
+  { consumers:'dogs',resource:'food' },{ consumers:'campers',resource:'drinking water' },{ consumers:'horses',resource:'hay' },{ consumers:'machines',resource:'fuel' },{ consumers:'pupils',resource:'art materials' },
+];
+const RESOURCE_FORMS = [
+  (s,n,d,m)=>`A supply of ${s.resource} lasts ${d} days for ${n} ${s.consumers}. How long will it last for ${m} at the same rate?`,
+  (s,n,d,m)=>`${n} ${s.consumers} use all the ${s.resource} in ${d} days. Find the duration if only ${m} consume it.`,
+  (s,n,d,m)=>`There are ${n} ${s.consumers} sharing ${s.resource} for ${d} days. With ${m} consumers instead, how many days does the same supply last?`,
+  (s,n,d,m)=>`The available ${s.resource} provides ${d} days for ${n} ${s.consumers}. Calculate its life for ${m} equally consuming ${s.consumers}.`,
+];
+const RESOURCE_TEMPLATES=crossTemplates(RESOURCE_SCENARIOS,RESOURCE_FORMS);
+const SHADOW_SCENARIOS = [
+  ['pole','tree'],['metre stick','flagpole'],['signpost','building'],['fence post','tower'],['garden cane','statue'],
+];
+const SHADOW_FORMS = [
+  (s,h,sh,bigSh)=>`A ${h} m ${s[0]} casts a ${sh} m shadow. At the same time, a ${s[1]} casts a ${bigSh} m shadow. Find its height.`,
+  (s,h,sh,bigSh)=>`Under the same sunlight, a ${s[0]} of height ${h} m has shadow ${sh} m. The ${s[1]}'s shadow is ${bigSh} m. How tall is it?`,
+  (s,h,sh,bigSh)=>`Use similar triangles: a ${h} m ${s[0]} gives a ${sh} m shadow, while a ${s[1]} gives ${bigSh} m. Calculate the ${s[1]}'s height.`,
+  (s,h,sh,bigSh)=>`The height-to-shadow ratio for a ${s[0]} is ${h}:${sh}. Apply it to a ${bigSh} m shadow from a ${s[1]}.`,
+];
+const SHADOW_TEMPLATES=crossTemplates(SHADOW_SCENARIOS,SHADOW_FORMS);
+const COMPOUND_SCENARIOS = [
+  { consumers:'animals',resource:'food',unit:'kg' },{ consumers:'printers',resource:'paper',unit:'sheets' },{ consumers:'machines',resource:'fuel',unit:'litres' },{ consumers:'workers',resource:'materials',unit:'kg' },{ consumers:'lamps',resource:'electricity',unit:'units' },
+];
+const COMPOUND_FORMS = [
+  (s,n,a,d,m,e)=>`${n} ${s.consumers} use ${a} ${s.unit} of ${s.resource} in ${d} days. How much will ${m} use in ${e} days?`,
+  (s,n,a,d,m,e)=>`The ${s.resource} rate is ${a} ${s.unit} for ${n} ${s.consumers} over ${d} days. Scale it to ${m} consumers and ${e} days.`,
+  (s,n,a,d,m,e)=>`In ${d} days, ${n} ${s.consumers} consume ${a} ${s.unit}. Calculate consumption for ${m} ${s.consumers} during ${e} days.`,
+  (s,n,a,d,m,e)=>`A compound rate gives ${a} ${s.unit} of ${s.resource} per ${n} ${s.consumers} per ${d} days. What is needed for ${m} over ${e} days?`,
+];
+const COMPOUND_TEMPLATES=crossTemplates(COMPOUND_SCENARIOS,COMPOUND_FORMS);
+
 const generators = {
   simple_equation_solve: gen('simple_equation_solve', 'alg_equations_linear', (r, d) => {
     const x = integer(r, 2, size(d, 12, 25, 50)); const a = integer(r, 2, size(d, 5, 8, 12)); const b = integer(r, 1, 15); const total = a * x + b;
@@ -815,39 +1009,212 @@ const generators = {
     const count=d==='easy'?5:7; const values=Array.from({length:count},()=>integer(r,3,size(d,20,40,80))).sort((a,b)=>a-b); const answer=values[Math.floor(count/2)];
     return { prompt:`Find the median of: ${shuffle(r,values).join(', ')}.`, answer, distractors:[values[0],values.at(-1),clean(values.reduce((a,b)=>a+b,0)/count),values[Math.floor(count/2)-1]], explanation:`In order the values are ${values.join(', ')}. The middle value is ${answer}.` };
   }),
+  expression_money_or_units: gen('expression_money_or_units','alg_expressions_from_words',(r,d)=>{
+    const fixed=integer(r,2,12),copies=integer(r,2,size(d,5,9,14)); const answer=`${copies}x + ${fixed}`;
+    return {prompt:pick(r,MONEY_EXPRESSION_TEMPLATES)(copies,fixed),answer,distractors:[`${copies}(x + ${fixed})`,`x + ${copies+fixed}`,`${fixed}x + ${copies}`,`${copies} + x + ${fixed}`],explanation:`The items cost ${copies}x pounds, then the £${fixed} fee is added: ${answer}.`};
+  }),
+  expression_remaining_after_repeated_subtraction: gen('expression_remaining_after_repeated_subtraction','alg_expressions_from_words',(r,d)=>{
+    const groups=integer(r,2,size(d,5,9,15)),each=integer(r,2,12); const answer=`x − ${groups*each}`;
+    return {prompt:pick(r,REMAIN_EXPRESSION_TEMPLATES)(groups,each),answer,distractors:[`x − ${groups} − ${each}`,`${groups*each} − x`,`x + ${groups*each}`,`${groups}(x − ${each})`],explanation:`A total of ${groups} × ${each} = ${groups*each} is removed, leaving ${answer}.`};
+  }),
+  simultaneous_costs_simple: gen('simultaneous_costs_simple','alg_relationship_word_problems',(r,d)=>{
+    const pen=integer(r,2,size(d,6,10,15)),book=integer(r,3,size(d,9,15,25)); const count=integer(r,2,5),total=count*pen+book;
+    return {prompt:pick(r,COST_EQUATION_TEMPLATES)(count,pen,total),answer:book,distractors:[total-pen,total/count,book+pen,total-book],formatter:v=>`£${display(v)}`,explanation:`The repeated items cost ${count} × £${pen} = £${count*pen}; £${total} − £${count*pen} = £${book}.`};
+  }),
+  symbolic_age_expression: gen('symbolic_age_expression','alg_relationship_word_problems',(r)=>{
+    const older=integer(r,2,12),years=integer(r,2,8); const answer=`x + ${older+years}`;
+    return {prompt:pick(r,AGE_TEMPLATES)(older,years),answer,distractors:[`x + ${older}`,`x + ${years}`,`x + ${older-years}`,`${older}x + ${years}`],explanation:`The older person is x + ${older} now and gains another ${years} years: ${answer}.`};
+  }),
+  formula_evaluate_context: gen('formula_evaluate_context','alg_substitution',(r,d)=>{
+    const speed=integer(r,3,size(d,10,20,35)),time=integer(r,2,8),fixed=integer(r,1,10),answer=speed*time+fixed;
+    return {prompt:pick(r,FORMULA_TEMPLATES)(speed,time,fixed),answer,distractors:[speed+time+fixed,speed*(time+fixed),answer-fixed,answer+time],explanation:`Substitute the values: ${speed} × ${time} + ${fixed} = ${answer}.`};
+  }),
+  equivalent_calculation_identity: gen('equivalent_calculation_identity','ar_missing_calculation',(r,d)=>{
+    const a=integer(r,3,size(d,12,30,60)),b=integer(r,2,12),c=integer(r,2,10); const answer=`${a} × ${c} + ${b} × ${c}`;
+    return {prompt:`Which calculation is equivalent to (${a} + ${b}) × ${c}?`,answer,distractors:[`${a} + ${b} × ${c}`,`${a} × ${c} + ${b}`,`${a+b} + ${c}`,`${a} × (${b} + ${c})`],explanation:`Distribute × ${c} across both terms: ${answer}.`};
+  }),
+  missing_digit_product: gen('missing_digit_product','ar_missing_calculation',(r,d)=>{
+    const tens=integer(r,1,size(d,5,8,9)),digit=integer(r,0,9),multiplier=integer(r,2,size(d,6,9,12)),number=tens*10+digit,product=number*multiplier;
+    return {prompt:`Find the missing digit: ${tens}□ × ${multiplier} = ${product}.`,answer:digit,distractors:[tens,multiplier,Math.abs(digit-1),(digit+1)%10],explanation:`${product} ÷ ${multiplier} = ${number}, so the missing ones digit is ${digit}.`};
+  }),
+  fraction_percent_decimal_equivalence: gen('fraction_percent_decimal_equivalence','dec_fraction_percent_conversion',(r,d)=>{
+    const denominator=pick(r,d==='easy'?[2,4,5,10]:d==='hard'?[8,20,25,40]:[4,5,8,20]); const numerator=integer(r,1,denominator-1); const value=numerator/denominator,answer=`${display(value)} = ${display(value*100)}%`;
+    return {prompt:`Which decimal and percentage are equivalent to ${fractionLabel(numerator,denominator)}?`,answer,distractors:[`${display(value*10)} = ${display(value)}%`,`${display(value/10)} = ${display(value*10)}%`,`${display(1-value)} = ${display((1-value)*100)}%`,`${display(value)} = ${display(value*10)}%`],explanation:`${fractionLabel(numerator,denominator)} = ${display(value)} = ${display(value*100)}%.`};
+  }),
+  equivalent_fraction_missing_denominator: gen('equivalent_fraction_missing_denominator','frac_compare_equivalence',(r,d)=>{
+    const denominator=integer(r,3,size(d,10,16,24)),numerator=integer(r,1,denominator-1),factor=integer(r,2,8),answer=denominator*factor;
+    return {prompt:`Complete the equivalent fraction: ${fractionLabel(numerator,denominator)} = ${numerator*factor}/□.`,answer,distractors:[denominator+factor,answer-factor,numerator*factor,denominator],explanation:`The numerator was multiplied by ${factor}, so the denominator is also multiplied by ${factor}: ${answer}.`};
+  }),
+  division_by_fraction: gen('division_by_fraction','frac_operations',(r,d)=>{
+    const a=integer(r,1,size(d,5,9,12)),b=integer(r,2,size(d,6,10,15)),c=integer(r,1,b-1); const numerator=a*b,denominator=c,answer=fractionLabel(numerator,denominator);
+    return {prompt:`Calculate ${a} ÷ ${c}/${b}. Give the answer as a simplified fraction.`,answer,distractors:[fractionLabel(a*c,b),fractionLabel(a,b*c),fractionLabel(a*c,b),`${Math.floor(numerator/denominator)}`],explanation:`Divide by multiplying by the reciprocal: ${a} × ${b}/${c} = ${answer}.`};
+  }),
+  fraction_operations_mixed_numbers: gen('fraction_operations_mixed_numbers','frac_operations',(r,d)=>{
+    const wholeA=integer(r,1,size(d,3,6,10)),wholeB=integer(r,1,size(d,3,6,10)),den=pick(r,[2,3,4,5,6,8]),numA=integer(r,1,den-1),numB=integer(r,1,den-1); const improper=(wholeA+wholeB)*den+numA+numB,answerWhole=Math.floor(improper/den),rem=improper%den,answer=rem?`${answerWhole} ${fractionLabel(rem,den)}`:`${answerWhole}`;
+    return {prompt:`Calculate ${wholeA} ${numA}/${den} + ${wholeB} ${numB}/${den}.`,answer,distractors:[`${wholeA+wholeB} ${fractionLabel((numA+numB)%den,den)}`,`${wholeA+wholeB+1} ${fractionLabel(Math.abs(numA-numB)||1,den)}`,`${wholeA+wholeB} ${numA+numB}/${den*2}`,`${answerWhole+1}`],explanation:`Add the whole numbers and fractional parts, regrouping if needed, to get ${answer}.`};
+  }),
+  reverse_fraction_given_remainder: gen('reverse_fraction_given_remainder','frac_reverse_remainder',(r,d)=>{
+    const denominator=pick(r,d==='easy'?[3,4,5]:[5,6,8,10,12]),used=integer(r,1,denominator-1),unit=integer(r,3,size(d,12,25,40)),total=denominator*unit,remainder=(denominator-used)*unit;
+    return {prompt:pick(r,REVERSE_FRACTION_TEMPLATES)(used,denominator,remainder),answer:total,distractors:[remainder*denominator/used,remainder+used,remainder*denominator,total-remainder],explanation:`The remainder is ${denominator-used}/${denominator}. One part is ${remainder} ÷ ${denominator-used} = ${unit}, so the whole is ${total}.`};
+  }),
+  unit_fractions_in_whole: gen('unit_fractions_in_whole','frac_unit_fractions',(r,d)=>{
+    const denominator=integer(r,2,size(d,8,12,20)),whole=integer(r,1,size(d,5,10,15)),answer=denominator*whole;
+    return {prompt:`How many 1/${denominator} pieces make ${whole} whole${whole===1?'':'s'}?`,answer,distractors:[denominator+whole,denominator,whole,answer-denominator],explanation:`Each whole contains ${denominator} unit fractions, so ${whole} × ${denominator} = ${answer}.`};
+  }),
+  logic_quantifier_must_true: gen('logic_quantifier_must_true','logic_must_be_true',(r)=>{
+    const [group,subset]=pick(r,QUANTIFIER_CASES),answer=`At least one of the ${group} is ${subset}`;
+    return {prompt:`Some ${group} are ${subset}. Which statement must be true?`,answer,distractors:[`All ${group} are ${subset}`,`Only ${subset} are ${group}`,`No ${group} are ${subset}`,`More than half of the ${group} are ${subset}`],explanation:`“Some” guarantees at least one, but does not mean all or most.`};
+  }),
+  timezone_offset: gen('timezone_offset','meas_calendar_timetable_timezone',(r,d)=>{
+    const hour=integer(r,6,20),minute=pick(r,[0,15,30,45]),[city,direction]=pick(r,TIMEZONE_PAIRS),magnitude=integer(r,1,d==='hard'?10:5),offset=direction==='ahead'?magnitude:-magnitude,total=(hour*60+minute+offset*60+1440)%1440,answer=`${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
+    return {prompt:`The time in London is ${String(hour).padStart(2,'0')}:${String(minute).padStart(2,'0')}. ${city} is ${magnitude} hours ${direction}. What is the local time in ${city}?`,answer,distractors:[`${hour+magnitude}:${String(minute).padStart(2,'0')}`,`${hour}:${String((minute+offset+60)%60).padStart(2,'0')}`,`${Math.abs(hour-offset)}:${String(minute).padStart(2,'0')}`,`${hour}:${minute}`],explanation:`Apply the ${offset>0?'+':'−'}${magnitude} hour difference, wrapping around midnight if needed: ${answer}.`};
+  }),
+  mass_total_convert: gen('mass_total_convert','meas_mass_weight',(r,d)=>{
+    const count=integer(r,2,size(d,6,12,20)),grams=integer(r,2,20)*50,total=count*grams,answer=clean(total/1000);
+    return {prompt:pick(r,MASS_TOTAL_TEMPLATES)(count,grams),answer,distractors:[total,total/100,count*grams/100,answer+grams/1000],formatter:v=>`${display(v)} kg`,explanation:`${count} × ${grams} = ${total} g, and ${total} ÷ 1000 = ${display(answer)} kg.`};
+  }),
+  film_time_fraction: gen('film_time_fraction','meas_time_duration',(r,d)=>{
+    const denominator=pick(r,[2,3,4,5,6]),numerator=integer(r,1,denominator-1),unit=integer(r,10,size(d,20,35,50)),duration=denominator*unit,answer=numerator*unit;
+    return {prompt:pick(r,DURATION_TEMPLATES)(duration,numerator,denominator),answer,distractors:[unit,duration-answer,duration/numerator,answer+unit],formatter:v=>`${display(v)} minutes`,explanation:`${duration} ÷ ${denominator} × ${numerator} = ${answer} minutes.`};
+  }),
+  modular_remainder_constraints: gen('modular_remainder_constraints','nm_lcm_remainders',(r,d)=>{
+    const divisor=integer(r,3,size(d,7,12,18)),remainder=integer(r,1,divisor-1),k=integer(r,3,20),answer=divisor*k+remainder;
+    return {prompt:`Which number leaves remainder ${remainder} when divided by ${divisor}?`,answer,distractors:[divisor*k,answer+1,answer+divisor-remainder,divisor*(k+1)],explanation:`${answer} = ${divisor} × ${k} + ${remainder}.`};
+  }),
+  round_nearest_unit_interval: gen('round_nearest_unit_interval','np_rounding',(r,d)=>{
+    const unit=pick(r,d==='easy'?[10,100]:[10,100,1000]),rounded=integer(r,2,size(d,20,60,200))*unit,half=unit/2,answer=`${rounded-half} to ${rounded+half-1}`;
+    return {prompt:`A whole number rounds to ${rounded} to the nearest ${unit}. Which interval contains every possible original whole number?`,answer,distractors:[`${rounded-half+1} to ${rounded+half}`,`${rounded-unit} to ${rounded+unit}`,`${rounded} to ${rounded+unit-1}`,`${rounded-half} to ${rounded+half}`],explanation:`The values run from halfway below (${rounded-half}) to one before halfway above (${rounded+half-1}).`};
+  }),
+  round_to_nearest_multiple: gen('round_to_nearest_multiple','np_rounding',(r,d)=>{
+    const multiple=pick(r,d==='easy'?[10,20,50]:d==='hard'?[25,50,200,500]:[10,20,50,100]),value=integer(r,1,size(d,200,1000,5000)),answer=Math.round(value/multiple)*multiple;
+    return {prompt:`Round ${value} to the nearest multiple of ${multiple}.`,answer,distractors:[Math.floor(value/multiple)*multiple,Math.ceil(value/multiple)*multiple,answer+multiple,answer-multiple],explanation:`${value} is closest to ${answer}, a multiple of ${multiple}.`};
+  }),
+  mean_find_total: gen('mean_find_total','stat_mean',(r,d)=>{
+    const count=integer(r,3,size(d,6,10,15)),mean=integer(r,5,size(d,20,40,80)),answer=count*mean;
+    return {prompt:`The mean of ${count} values is ${mean}. What is their total?`,answer,distractors:[mean+count,mean,count*(mean-1),answer+mean],explanation:`Total = mean × number of values = ${mean} × ${count} = ${answer}.`};
+  }),
+  mean_transform: gen('mean_transform','stat_mean',(r,d)=>{
+    const mean=integer(r,5,size(d,20,40,80)),change=integer(r,2,12),multiply=d==='hard'&&r()<.5,answer=multiply?mean*change:mean+change;
+    return {prompt:`A data set has mean ${mean}. Every value is ${multiply?`multiplied by ${change}`:`increased by ${change}`}. What is the new mean?`,answer,distractors:[mean,mean*2,mean+1,multiply?mean+change:mean*change],explanation:`Applying the same ${multiply?'multiplication':'increase'} to every value applies it to the mean, giving ${answer}.`};
+  }),
+  mode_list: gen('mode_list','stat_median_mode_range',(r,d)=>{
+    const answer=integer(r,2,size(d,12,30,60)),others=shuffle(r,Array.from({length:20},(_,i)=>i+1).filter(v=>v!==answer)).slice(0,d==='easy'?4:6),values=shuffle(r,[answer,answer,answer,...others]);
+    return {prompt:`Find the mode of: ${values.join(', ')}.`,answer,distractors:[Math.max(...values)-Math.min(...values),values.sort((a,b)=>a-b)[Math.floor(values.length/2)],clean(values.reduce((a,b)=>a+b,0)/values.length),others[0]],explanation:`${answer} occurs more often than any other value, so it is the mode.`};
+  }),
+  range_measurements: gen('range_measurements','stat_median_mode_range',(r,d)=>{
+    const values=Array.from({length:d==='easy'?5:8},()=>integer(r,2,size(d,30,70,150))),answer=Math.max(...values)-Math.min(...values);
+    return {prompt:`Find the range of these measurements: ${values.join(', ')} cm.`,answer,distractors:[Math.max(...values),Math.min(...values),answer+1,clean(values.reduce((a,b)=>a+b,0)/values.length)],formatter:v=>`${display(v)} cm`,explanation:`Range = maximum − minimum = ${Math.max(...values)} − ${Math.min(...values)} = ${answer} cm.`};
+  }),
+  constraint_two_table_sizes: gen('constraint_two_table_sizes','mixed_constraints',(r,d)=>{
+    const small=integer(r,2,5),large=small+integer(r,1,d==='hard'?3:2),tables=integer(r,8,size(d,16,28,40)),answer=integer(r,1,tables-1),seats=(tables-answer)*small+answer*large;
+    return {prompt:pick(r,TABLE_TEMPLATES)(tables,small,large,seats),answer,distractors:[tables-answer,seats/tables,answer+small,answer-1],explanation:`If all units had capacity ${small}, the total would be ${tables*small}. The extra ${seats-tables*small} places require ${answer} larger units.`};
+  }),
+  equivalence_chain_objects: gen('equivalence_chain_objects','mixed_constraints',(r,d)=>{
+    const erasers=integer(r,2,size(d,4,7,10)),pencils=integer(r,2,size(d,4,7,10)),answer=erasers*pencils;
+    return {prompt:pick(r,EQUIVALENCE_TEMPLATES)(erasers,pencils),answer,distractors:[erasers+pencils,pencils,answer-erasers,answer+pencils],explanation:`Multiply along the equivalence chain: ${pencils} × ${erasers} = ${answer}.`};
+  }),
+  multi_step_balanced_groups: gen('multi_step_balanced_groups','mixed_multistep',(r,d)=>{
+    const smaller=integer(r,20,size(d,80,180,350)),difference=2*integer(r,2,size(d,12,30,60)),larger=smaller+difference,total=smaller+larger;
+    return {prompt:pick(r,TWO_GROUP_TEMPLATES)(total,difference),answer:smaller,distractors:[total/2,larger,total-difference,smaller+difference/2],explanation:`Remove the difference, then halve: (${total} − ${difference}) ÷ 2 = ${smaller}.`};
+  }),
+  multi_step_money_commission: gen('multi_step_money_commission','mixed_multistep',(r,d)=>{
+    const base=integer(r,8,size(d,20,40,70))*10,price=pick(r,[10,20,25,40,50]),rate=pick(r,[5,10,20]),items=integer(r,2,size(d,6,10,15)),days=integer(r,3,6),commission=price*rate/100*items*days,answer=base+commission;
+    return {prompt:pick(r,COMMISSION_TEMPLATES)(base,rate,price,items,days),answer,distractors:[base+price*items,commission,base+rate*items*days,base+price*items*days],formatter:v=>`£${display(v)}`,explanation:`Commission is £${price} × ${rate}% × ${items} × ${days} = £${display(commission)}. Adding basic pay gives £${display(answer)}.`};
+  }),
+  payback_month: gen('payback_month','mixed_multistep',(r,d)=>{
+    const monthly=integer(r,2,size(d,8,15,25))*10,months=integer(r,3,size(d,8,15,24)),initial=monthly*(months-1)+integer(r,1,monthly-1),answer=months;
+    return {prompt:pick(r,PAYBACK_TEMPLATES)(initial,monthly),answer,distractors:[months-1,months+1,Math.floor(initial/monthly),initial/monthly],formatter:v=>`Month ${display(v)}`,explanation:`£${initial} ÷ £${monthly} = ${display(initial/monthly)}, so the cost is first covered during month ${months}.`};
+  }),
+  percentage_of_quantity_units: gen('percentage_of_quantity_units','pct_percent_of_amount',(r,d)=>{
+    const context=pick(r,UNIT_PERCENT_SCENARIOS),whole=integer(r,2,size(d,6,12,20)),percent=pick(r,d==='easy'?[10,20,25,50]:[5,15,20,25,30,40,60,75]),part=whole*context.factor*percent/100,answer=percent;
+    return {prompt:pick(r,UNIT_PERCENT_FORMS)(context,whole,part),answer,distractors:[part/whole,part/(whole*10),100-percent,whole/part*100],formatter:v=>`${display(v)}%`,explanation:`${whole} ${context.whole} = ${whole*context.factor} ${context.part}; ${part} ÷ ${whole*context.factor} × 100 = ${percent}%.`};
+  }),
+  probability_permutation_position: gen('probability_permutation_position','prob_basic',(r,d)=>{
+    const count=d==='easy'?3:d==='hard'?5:4,digits=shuffle(r,[1,2,3,4,5,6,7,8,9]).slice(0,count),target=pick(r,digits),answer=`1/${count}`;
+    return {prompt:`The digits ${digits.join(', ')} are arranged randomly, each used once. What is the probability that the number ends in ${target}?`,answer,distractors:[`${count-1}/${count}`,`1/${count-1}`,`1/${count*count}`,`${target}/${count}`],explanation:`Each of the ${count} digits is equally likely to be last, so the probability is ${answer}.`};
+  }),
+  probability_compare_statements: gen('probability_compare_statements','prob_compare_complement',(r,d)=>{
+    const red=integer(r,2,size(d,8,15,25)),blue=integer(r,2,size(d,8,15,25)),templateIndex=Math.floor(r()*PROBABILITY_COMPARE_TEMPLATES.length),context=PROBABILITY_SCENARIOS[Math.floor(templateIndex/PROBABILITY_COMPARE_FORMS.length)],answer=red===blue?`${context.success} and ${context.other} are equally likely`:red>blue?`${context.success} are more likely than ${context.other}`:`${context.other} are more likely than ${context.success}`;
+    return {prompt:PROBABILITY_COMPARE_TEMPLATES[templateIndex](red,blue),answer,distractors:[`${context.success} are impossible`,`${context.other} are impossible`,red>blue?`${context.other} are more likely than ${context.success}`:`${context.success} are more likely than ${context.other}`,'Both types are certain'],explanation:`Compare the counts: ${red} for ${context.success} and ${blue} for ${context.other}. ${answer}.`};
+  }),
+  set_overlap_minimum: gen('set_overlap_minimum','sets_venn_overlap',(r,d)=>{
+    const total=integer(r,20,size(d,40,80,150)),groupA=integer(r,Math.ceil(total*.4),Math.floor(total*.8)),groupB=integer(r,Math.ceil(total*.4),Math.floor(total*.8)),answer=Math.max(0,groupA+groupB-total);
+    return {prompt:pick(r,OVERLAP_TEMPLATES)(total,groupA,groupB),answer,distractors:[Math.min(groupA,groupB),groupA+groupB,total-Math.max(groupA,groupB),Math.abs(groupA-groupB)],explanation:`The two group totals exceed ${total} by ${answer}, so at least ${answer} must be in both.`};
+  }),
+  resource_consumption_inverse: gen('resource_consumption_inverse','prop_inverse_workers',(r,d)=>{
+    const consumers=integer(r,4,size(d,8,14,20)),days=integer(r,4,15),consumerDays=consumers*days,candidates=Array.from({length:consumers-2},(_,i)=>i+2).filter(value=>consumerDays%value===0),newConsumers=pick(r,candidates.length?candidates:[consumers]),answer=consumerDays/newConsumers;
+    return {prompt:pick(r,RESOURCE_TEMPLATES)(consumers,days,newConsumers),answer,distractors:[days*newConsumers/consumers,days+consumers-newConsumers,consumerDays,answer+1],explanation:`The supply provides ${consumerDays} consumer-days; ${consumerDays} ÷ ${newConsumers} = ${answer} days.`};
+  }),
+  similar_shadow_height: gen('similar_shadow_height','prop_similarity',(r,d)=>{
+    const poleHeight=pick(r,[1,1.5,2,2.5,3]),poleShadow=pick(r,[1,2,2.5,3,4]),factor=integer(r,2,size(d,5,8,12)),treeShadow=poleShadow*factor,answer=poleHeight*factor;
+    return {prompt:pick(r,SHADOW_TEMPLATES)(poleHeight,poleShadow,treeShadow),answer,distractors:[treeShadow/poleHeight,poleHeight+treeShadow,poleShadow*factor,answer+poleHeight],formatter:v=>`${display(v)} m`,explanation:`The shadow scale factor is ${treeShadow} ÷ ${poleShadow} = ${factor}; ${poleHeight} × ${factor} = ${display(answer)} m.`};
+  }),
+  compound_rate_scaling: gen('compound_rate_scaling','prop_unit_rate',(r,d)=>{
+    const animals=integer(r,2,size(d,6,10,15)),days=integer(r,2,6),unit=integer(r,1,5),amount=animals*days*unit,newAnimals=integer(r,2,size(d,8,14,20)),newDays=integer(r,2,8),answer=newAnimals*newDays*unit,templateIndex=Math.floor(r()*COMPOUND_TEMPLATES.length),context=COMPOUND_SCENARIOS[Math.floor(templateIndex/COMPOUND_FORMS.length)];
+    return {prompt:COMPOUND_TEMPLATES[templateIndex](animals,amount,days,newAnimals,newDays),answer,distractors:[amount*newAnimals/animals,amount*newDays/days,amount+newAnimals*newDays,unit*newAnimals],formatter:v=>`${display(v)} ${context.unit}`,explanation:`The rate is ${unit} ${context.unit} per consumer per day; ${unit} × ${newAnimals} × ${newDays} = ${answer} ${context.unit}.`};
+  }),
+  sequence_fibonacci_like: gen('sequence_fibonacci_like','seq_arithmetic_geometric',(r,d)=>{
+    const first=integer(r,1,size(d,5,10,20)),second=integer(r,1,size(d,7,14,25)),values=[first,second]; for(let i=2;i<6;i++)values.push(values[i-1]+values[i-2]); const answer=values[5];
+    return {prompt:`What is the next term? ${values.slice(0,5).join(', ')}, …`,answer,distractors:[values[4]+values[3]+1,values[4]*2,values[4]+second,values[4]],explanation:`Each term is the sum of the previous two: ${values[3]} + ${values[4]} = ${answer}.`};
+  }),
+  sequence_geometric: gen('sequence_geometric','seq_arithmetic_geometric',(r,d)=>{
+    const start=integer(r,1,size(d,5,10,15)),ratio=integer(r,2,d==='hard'?5:4),values=Array.from({length:5},(_,i)=>start*ratio**i),answer=values[4];
+    return {prompt:`Find the missing term: ${values[0]}, ${values[1]}, ${values[2]}, ${values[3]}, □.`,answer,distractors:[values[3]+ratio,values[3]*2,values[3]+values[2],answer+ratio],explanation:`Each term is multiplied by ${ratio}, so ${values[3]} × ${ratio} = ${answer}.`};
+  }),
 };
 
 export const extraGenerators = generators;
 export const extraSkillIds = [...new Set(Object.values(generators).map((generator) => generator(1).skill_id))];
 export const extraWordProblemGeneratorIds = [
   'expression_from_repeated_group',
+  'expression_money_or_units',
+  'expression_remaining_after_repeated_subtraction',
   'inequality_age_order',
   'algebra_relationship_two_variables',
+  'simultaneous_costs_simple',
+  'symbolic_age_expression',
+  'formula_evaluate_context',
   'addition_subtraction_word_total_difference',
   'division_groups_round_up',
   'inverse_operations_find_start',
   'multiplication_integer_context',
   'fraction_as_share',
+  'reverse_fraction_given_remainder',
   'logic_conditional_order',
+  'logic_quantifier_must_true',
   'capacity_remaining_after_pouring',
   'drain_fill_rate_time',
   'mass_container_difference',
+  'mass_total_convert',
   'coins_value_count',
   'shopping_offer_bundle',
   'time_duration_start_end',
+  'film_time_fraction',
+  'timezone_offset',
   'plausible_measure_unit',
   'balanced_percentage_completion',
+  'constraint_two_table_sizes',
+  'equivalence_chain_objects',
   'capacity_people_containers',
+  'multi_step_balanced_groups',
+  'multi_step_money_commission',
+  'payback_month',
   'percentage_discount_final_price',
   'percentage_composition_after_change',
   'reverse_percentage_original_price',
+  'percentage_of_quantity_units',
   'probability_simple_count',
   'probability_after_removal',
+  'probability_compare_statements',
+  'set_overlap_minimum',
   'inverse_workers_time',
+  'resource_consumption_inverse',
   'recipe_direct_scaling',
   'map_scale_map_distance',
+  'similar_shadow_height',
   'speed_distance_time',
   'direct_rate_scaling',
+  'compound_rate_scaling',
   'ratio_mixture_component',
   'share_total_in_ratio',
 ];

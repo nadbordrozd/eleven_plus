@@ -310,7 +310,7 @@ function showNextQuestion() {
   const availableGenerators = archetypes
     .filter((item) => item.skill_id === currentSkill.id && generators[item.id])
     .map((item) => item.id);
-  const archetypeId = selectedArchetypeId || choose(seededRng(seed ^ 0xA53A9E1D), availableGenerators);
+  const archetypeId = selectedArchetypeId || chooseArchetypeId(seed, availableGenerators);
   currentQuestion = generators[archetypeId](seed, { difficulty });
   questionAnswered = false;
   updateDifficultyIndicator(difficulty);
@@ -395,6 +395,11 @@ function seededRng(seed) {
 }
 
 function choose(rng, items) { return items[Math.floor(rng() * items.length)]; }
+
+export function chooseArchetypeId(seed, archetypeIds) {
+  if (!archetypeIds.length) throw new Error('No implemented archetypes are available for this skill.');
+  return choose(seededRng(seed ^ 0xA53A9E1D), archetypeIds);
+}
 
 function shuffle(rng, items) {
   const result = [...items];

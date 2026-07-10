@@ -2,7 +2,7 @@
 
 A dependency-free prototype of the 11+ maths practice site. It loads all 116 skills from the supplied coding-agent content pack and groups them by topic. Every skill with at least one non-visual archetype is available for practice; skills that currently depend entirely on visual content remain inactive.
 
-The current taxonomy contains 77 skills eligible for text-only practice. Normal sessions mix the implemented archetypes for a skill, while the **Question types** developer view can launch a specific implementation.
+The current taxonomy contains 77 skills and 118 archetypes eligible for text-only practice. All 118 are implemented. Normal sessions uniformly mix the available archetypes for a skill, while the **Question types** developer view can launch a specific implementation.
 
 Progress is stored in the browser under `eleven_plus_maths_state_v1`.
 Each correct answer adds 7 points, each wrong answer removes 10 points (with a floor of 0), and a skill is completed at 100 points.
