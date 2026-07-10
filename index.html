@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Friendly, focused 11+ maths practice." />
+    <title>Eleven Plus Maths</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="#" aria-label="Eleven Plus Maths home">
+        <span class="brand-mark" aria-hidden="true">11+</span>
+        <span>Maths practice</span>
+      </a>
+      <div class="header-score" aria-label="Your overall score">
+        <span id="header-correct">0</span> correct
+      </div>
+    </header>
+
+    <main id="catalogue-view">
+      <section class="hero">
+        <div>
+          <p class="eyebrow">Build confidence, one skill at a time</p>
+          <h1>What would you like to practise?</h1>
+          <p class="hero-copy">Choose an available exercise below. More exercises will unlock as we build them.</p>
+        </div>
+        <div class="progress-panel" aria-label="Overall progress">
+          <div class="progress-number"><strong id="skills-started">0</strong><span>of <span id="active-skill-count">0</span> started</span></div>
+          <div class="progress-track"><span id="overall-progress"></span></div>
+          <p id="question-summary">No questions answered yet</p>
+          <button id="reset-all-button" class="reset-button reset-all" type="button">Reset all progress</button>
+        </div>
+      </section>
+
+      <section class="catalogue-heading">
+        <div>
+          <p class="eyebrow">Exercise library</p>
+          <h2>Skills by topic</h2>
+        </div>
+        <div class="legend" aria-label="Exercise status key">
+          <span><i class="dot active"></i> Available</span>
+          <span><i class="dot inactive"></i> Coming soon</span>
+        </div>
+      </section>
+
+      <div id="topic-list" class="topic-list" aria-live="polite">
+        <p class="loading">Loading exercises…</p>
+      </div>
+    </main>
+
+    <main id="practice-view" class="practice-view" hidden>
+      <button id="back-button" class="back-button" type="button">← All exercises</button>
+      <section class="practice-shell">
+        <div class="practice-meta">
+          <div class="practice-context">
+            <span id="practice-topic" class="topic-pill"></span>
+            <span id="difficulty-indicator" class="difficulty-indicator" aria-label="Current difficulty">
+              <i></i><i></i><i></i>
+            </span>
+          </div>
+          <span id="practice-score"></span>
+        </div>
+        <h1 id="practice-title"></h1>
+        <div class="skill-progress" aria-label="Skill completion progress">
+          <div class="skill-progress-label">
+            <strong>Skill progress</strong>
+            <span id="practice-points">0 / 100 points</span>
+          </div>
+          <div class="skill-progress-track">
+            <span id="practice-progress-bar"></span>
+          </div>
+        </div>
+        <div class="question-card">
+          <p class="question-label">Choose one answer</p>
+          <h2 id="question-prompt"></h2>
+          <div id="answer-options" class="answer-options"></div>
+          <div id="feedback" class="feedback" role="status" aria-live="polite" hidden></div>
+          <button id="next-button" class="primary-button" type="button" hidden>Next question →</button>
+        </div>
+      </section>
+    </main>
+
+    <dialog id="archetype-dialog" class="archetype-dialog" aria-labelledby="archetype-dialog-title">
+      <div class="dialog-header">
+        <div>
+          <p class="eyebrow">Developer view</p>
+          <h2 id="archetype-dialog-title">Question types</h2>
+          <p id="archetype-dialog-description"></p>
+        </div>
+        <button id="close-dialog" class="close-button" type="button" aria-label="Close question types">×</button>
+      </div>
+      <div id="archetype-list" class="archetype-list"></div>
+    </dialog>
+
+    <template id="topic-template">
+      <section class="topic-section">
+        <button class="topic-header" type="button" aria-expanded="true">
+          <span class="topic-icon" aria-hidden="true"></span>
+          <span class="topic-heading"><strong></strong><small></small></span>
+          <span class="topic-count"></span>
+          <span class="chevron" aria-hidden="true">⌃</span>
+        </button>
+        <div class="exercise-grid"></div>
+      </section>
+    </template>
+
+    <script type="module" src="app.js"></script>
+  </body>
+</html>

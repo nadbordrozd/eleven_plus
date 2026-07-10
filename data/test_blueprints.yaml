@@ -1,0 +1,70 @@
+blueprints:
+- id: grammar_11plus_30q_v1
+  title: 30-question grammar-style diagnostic
+  duration_minutes: 30
+  question_count: 30
+  sampling_level: archetype
+  exclude_visual_components: false
+  topic_weights:
+    number_place_value: 3
+    arithmetic: 4
+    factors_multiples_powers: 3
+    fractions: 3
+    decimals: 2
+    percentages: 3
+    ratio_proportion_rates: 3
+    measurement_units: 4
+    geometry: 5
+    algebra: 3
+    sequences_patterns: 2
+    data_statistics: 3
+    probability_sets_logic: 2
+    mixed_problem_solving: 2
+  difficulty_mix:
+    easy: 6
+    medium: 16
+    hard: 8
+  selection_rules:
+  - Sample at archetype level, then generate a fresh question from that archetype.
+  - Avoid selecting two archetypes from the same skill unless the test is longer than 40 questions.
+  - Cap visual-heavy questions at about 35-45% for V1 unless using a visual-enabled blueprint.
+  notes: Balanced from corpus plus app practicality; not a claim about any single school.
+- id: text_only_11plus_30q_v1
+  title: 30-question text-only diagnostic
+  duration_minutes: 30
+  question_count: 30
+  sampling_level: archetype
+  exclude_visual_components: true
+  topic_weights:
+    number_place_value: 4
+    arithmetic: 5
+    factors_multiples_powers: 3
+    fractions: 4
+    decimals: 3
+    percentages: 3
+    ratio_proportion_rates: 4
+    measurement_units: 4
+    algebra: 4
+    sequences_patterns: 2
+    data_statistics: 2
+    probability_sets_logic: 2
+    mixed_problem_solving: 3
+  difficulty_mix:
+    easy: 7
+    medium: 17
+    hard: 6
+  notes: Use this before diagram renderers are ready.
+- id: quick_10q_weakness_probe_v1
+  title: 10-question adaptive weakness probe
+  duration_minutes: 10
+  question_count: 10
+  sampling_level: archetype
+  topic_weights: dynamic_from_low_mastery_topics
+  difficulty_mix:
+    easy: 2
+    medium: 6
+    hard: 2
+  selection_rules:
+  - Prefer skills marked in_progress or not_attempted with prerequisites already nearby in the graph.
+  - Include one easier prerequisite item for any failed hard archetype.
+  notes: For post-test recommendations.

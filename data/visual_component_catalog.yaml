@@ -1,0 +1,145 @@
+bar_chart:
+  description: Render a simple bar chart with labelled categories and integer y-axis values. Question should ask for total,
+    difference, comparison, or which statement follows.
+  renderer_data: categories, values, y_axis_scale, title optional
+pie_chart:
+  description: Render a pie chart with labelled slices or legend, usually percentages or counts.
+  renderer_data: slice labels, percentages/counts, total count when needed
+line_graph:
+  description: Render a line graph with ordered x-axis categories and numeric y-values.
+  renderer_data: x labels, y values, scale
+pictogram:
+  description: Render a pictogram with a key such as one icon = n items.
+  renderer_data: categories, icon counts, key value
+table:
+  description: Render a compact data table.
+  renderer_data: row labels, column labels, numeric or money cells
+coordinate_grid:
+  description: Render integer coordinate axes/grid, points, and optionally a polygon/shape.
+  renderer_data: axis bounds, points, labels, optional polygon edges
+coordinate_grid_optional:
+  description: May be rendered as a coordinate grid, but text-only variants are possible.
+  renderer_data: axis bounds, points, labels optional
+number_line:
+  description: Render a number line with ticks and one or more marked points/arrows.
+  renderer_data: min, max, tick interval, marked positions
+angle_diagram:
+  description: Render lines/rays/polygon fragments with labelled angles and unknown x.
+  renderer_data: angle measures, labels, line/point relationships
+angle_diagram_optional:
+  description: Prefer a visual angle diagram but can also be generated as text for simple classification.
+  renderer_data: angle value or drawn ray geometry
+triangle_angle_diagram:
+  description: Render a triangle or composite involving triangle angle facts.
+  renderer_data: triangle type, known angles, unknown labels
+line_diagram:
+  description: Render line segments/parallel/perpendicular relationships, usually with labelled options.
+  renderer_data: lines with slopes/orientations and labels
+polygon_angle_diagram:
+  description: Render a regular polygon or polygon fragment with labelled angle.
+  renderer_data: polygon sides, known angle labels
+area_shape_optional:
+  description: Render a basic shape with dimensions, though text-only dimensions also work.
+  renderer_data: shape type, base/height/length/width labels
+shape_optional:
+  description: May use a simple shape diagram or pure text.
+  renderer_data: shape dimensions and scaling factors
+circle_diagram:
+  description: Render circle(s), diameters/radii, or rectangle/circle arrangement if needed.
+  renderer_data: circle centers, radius/diameter, labels
+composite_area:
+  description: Render a composite/tiled/shaded shape where the visual layout is essential.
+  renderer_data: grid cells or polygon pieces, shaded regions, dimensions
+perimeter_shape:
+  description: Render a composite outline with some side lengths labelled.
+  renderer_data: rectilinear/triangle/tile outline, known lengths
+3d_shape:
+  description: Render or use a named 3D solid; visual is useful for faces/edges/vertices.
+  renderer_data: solid type, dimensions optional, marked faces/edges optional
+3d_shape_optional:
+  description: Text-only cuboid/cube problems are possible; diagram helps.
+  renderer_data: solid type and dimensions
+cube_stack:
+  description: Render a stack or cuboid made from identical cubes.
+  renderer_data: 3D occupancy grid or cuboid dimensions, cube side length
+shaded_shape:
+  description: Render a shape/grid partitioned into equal parts, some shaded.
+  renderer_data: partition count, shaded cells/regions
+net_diagram:
+  description: Render a net of squares/rectangles that folds into a box/solid.
+  renderer_data: 2D cell layout, side length, fold interpretation
+symmetry_completion:
+  description: Render partial shape with one or more mirror lines and ask about completion/name.
+  renderer_data: grid/polygon, mirror lines
+text_symmetry:
+  description: Use uppercase text rendered in a symmetry-consistent block font.
+  renderer_data: letter strings/options
+shape_symmetry:
+  description: Render simple shapes and ask line symmetry count/property.
+  renderer_data: shape geometry or options
+shape_options:
+  description: Render several shape options.
+  renderer_data: option labels and shape geometry
+grid_symmetry:
+  description: Render a square grid with shaded cells and line of symmetry.
+  renderer_data: grid size, shaded cells, mirror line
+grid_packing:
+  description: Render a unit-square grid and polyomino-like shapes to pack.
+  renderer_data: grid dimensions, shape cell coordinates
+tiling_diagram_optional:
+  description: May render tiles/rectangle or use text dimensions.
+  renderer_data: area dimensions, tile dimensions
+equation_layout:
+  description: Render a calculation with a blank/box/missing digit if plain text is awkward.
+  renderer_data: expression tokens and blank index
+function_machine:
+  description: Render a function-machine flow with input, operations, and output/blank.
+  renderer_data: input/output, ordered operations
+price_table_optional:
+  description: May render a small price table or present prices in text.
+  renderer_data: items, quantities, prices, offers
+price_table:
+  description: Render a price/package table.
+  renderer_data: package sizes and prices
+timetable:
+  description: Render timetable with routes/times.
+  renderer_data: rows/columns of times, requested journey
+network_diagram:
+  description: Render route/network distances.
+  renderer_data: nodes, edges, distances
+logic_grid:
+  description: Render a small grid with blanks/symbols and row/column constraints.
+  renderer_data: grid cells, row/column totals, diagonal/product constraints
+symbol_grid:
+  description: Render a grid of symbols with totals.
+  renderer_data: symbols, row/column sums
+circle_diagram_optional:
+  description: May use circle diagram if needed.
+  renderer_data: circle dimensions
+scale_diagram_optional:
+  description: May show a scale drawing with labelled dimensions.
+  renderer_data: scale ratio, drawing measurements
+scale_area_diagram:
+  description: Render a scaled shape/plot where area conversion is tested.
+  renderer_data: scale, drawing dimensions/area
+grid_paths:
+  description: Render a grid/path diagram.
+  renderer_data: grid dimensions, start/end, blocked cells optional
+venn_diagram:
+  description: Render a Venn diagram or set table.
+  renderer_data: sets, regions, labels
+visual_pattern:
+  description: Render first few terms of a growing visual pattern.
+  renderer_data: term index, object counts/arrangement rule
+polygon_angle_diagram_optional:
+  description: Optionally render regular polygon angle diagram.
+  renderer_data: polygon geometry
+number_line_optional:
+  description: Optionally render a number line.
+  renderer_data: bounds/ticks/marker
+thermometer:
+  description: Render thermometer scale, usually with negative numbers.
+  renderer_data: min/max/tick interval/current temperature
+clock_optional:
+  description: Optional clock face rendering.
+  renderer_data: hour/minute hands

@@ -1,0 +1,48 @@
+# Eleven Plus Maths
+
+A dependency-free prototype of the 11+ maths practice site. It loads all 116 skills from the supplied coding-agent content pack and groups them by topic. Every skill with at least one non-visual archetype is available for practice; skills that currently depend entirely on visual content remain inactive.
+
+The current taxonomy contains 77 skills eligible for text-only practice. Normal sessions mix the implemented archetypes for a skill, while the **Question types** developer view can launch a specific implementation.
+
+Progress is stored in the browser under `eleven_plus_maths_state_v1`.
+Each correct answer adds 7 points, each wrong answer removes 10 points (with a floor of 0), and a skill is completed at 100 points.
+Question difficulty adapts to skill progress: easy below 25 points, medium from 25 through 75, and hard above 75. Press `X` during practice to skip the current question and award the normal 7 points.
+
+Every skill card also has a **Question types** developer view. It lists the underlying archetypes and allows an implemented archetype to be practised directly.
+
+Generator implementation standards are documented in `docs/GENERATOR_IMPLEMENTATION_GUIDELINES.md`.
+
+## Repository structure
+
+```text
+data/       Taxonomy, coverage data, blueprints, and JSON schemas
+docs/       Product notes, implementation guidance, and content documentation
+src/types/  Shared TypeScript content-model definitions
+tests/      Coverage, correctness, and generator-diversity checks
+```
+
+## Validate generators
+
+Run the deterministic validation suite with Node:
+
+```sh
+node tests/validate-generators.mjs
+```
+
+It checks 250 seeds at each supported difficulty for every registered generator. The companion
+`tests/validate-word-problem-diversity.mjs` test verifies that each registered word-problem
+generator produces at least 20 distinct prompt structures after changing numbers are removed.
+Additional audits in `tests/audit-numeric-diversity.mjs`,
+`tests/validate-place-value-diversity.mjs`, and
+`tests/validate-compare-order-diversity.mjs` guard against narrow numeric ranges and repeated
+question shapes in direct-calculation skills.
+
+## Run locally
+
+The site fetches its YAML content, so it must be served rather than opened directly as a file:
+
+```sh
+python3 -m http.server 8000
+```
+
+Then open `http://localhost:8000`.

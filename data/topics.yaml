@@ -1,0 +1,42 @@
+- id: number_place_value
+  title: Number & place value
+  description: Reading, comparing, rounding and locating whole numbers, decimals and negative numbers.
+- id: arithmetic
+  title: Arithmetic operations
+  description: Addition, subtraction, multiplication, division, order of operations and inverse operations.
+- id: factors_multiples_powers
+  title: Factors, multiples & powers
+  description: Divisibility, factors, multiples, primes, square/cube numbers, powers and LCM-style reasoning.
+- id: fractions
+  title: Fractions
+  description: Fraction meaning, equivalence, comparison, operations and fraction word problems.
+- id: decimals
+  title: Decimals
+  description: Decimal place value, operations, scaling by powers of ten, comparison and conversion.
+- id: percentages
+  title: Percentages
+  description: Percent of amounts, discounts, reverse percentages and percent comparisons.
+- id: ratio_proportion_rates
+  title: Ratio, proportion & rates
+  description: Sharing ratios, direct and inverse proportion, recipes, rates, speed and scale.
+- id: measurement_units
+  title: Measurement & units
+  description: Metric units, money, mass, capacity, time, timetables, calendars and compound measures.
+- id: geometry
+  title: Geometry & spatial reasoning
+  description: 2D/3D shapes, angles, perimeter, area, volume, surface area, coordinates and transformations.
+- id: algebra
+  title: Algebra
+  description: Expressions, substitution, formulas, equations, inequalities and symbolic reasoning.
+- id: sequences_patterns
+  title: Sequences & patterns
+  description: Number sequences, visual growth patterns, repeating patterns and nth-term style rules.
+- id: data_statistics
+  title: Data & statistics
+  description: Tables, charts, pictograms, line graphs, pie charts, mean, median, mode and range.
+- id: probability_sets_logic
+  title: Probability, sets & logic
+  description: Probability, counting, Venn diagrams, set overlap and must-be-true logical reasoning.
+- id: mixed_problem_solving
+  title: Mixed problem solving
+  description: Multi-step arithmetic, constraints, puzzles, custom notation and exam-style reasoning that spans topics.

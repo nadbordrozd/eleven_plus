@@ -1,0 +1,979 @@
+- id: alg_equations_formulas
+  title: Solve formulae for an unknown
+  topic_id: algebra
+  description: Given a formula and all but one value, solve for the missing variable.
+  prerequisites:
+  - alg_equations_linear
+  exam_facing: true
+  source_problem_count: 5
+- id: alg_equations_linear
+  title: Solve simple linear equations
+  topic_id: algebra
+  description: Solve one-step and two-step equations, including brackets, by inverse operations.
+  prerequisites:
+  - ar_inverse_operations
+  - alg_substitution
+  exam_facing: true
+  source_problem_count: 0
+- id: alg_equivalent_forms
+  title: Recognise equivalent algebraic forms
+  topic_id: algebra
+  description: Choose an algebraically equivalent rearrangement or spot an incorrect one.
+  prerequisites:
+  - alg_equations_linear
+  exam_facing: true
+  source_problem_count: 4
+- id: alg_expressions_from_words
+  title: Write expressions from words
+  topic_id: algebra
+  description: Translate verbal descriptions of repeated quantities, money, age, or units into algebraic expressions.
+  prerequisites:
+  - ar_multi_step_numeric
+  exam_facing: true
+  source_problem_count: 7
+- id: alg_inequalities_order
+  title: Use inequalities and ordered variables
+  topic_id: algebra
+  description: Represent older/younger, larger/smaller and symbolic ordering with inequalities.
+  prerequisites:
+  - np_compare_order_numbers
+  exam_facing: true
+  source_problem_count: 0
+- id: alg_parity_generalisation
+  title: Reason about algebraic parity and generality
+  topic_id: algebra
+  description: Decide whether expressions are always odd/even or must satisfy a property.
+  prerequisites:
+  - nm_divisibility_tests
+  exam_facing: true
+  source_problem_count: 0
+- id: alg_relationship_word_problems
+  title: Solve algebraic relationship word problems
+  topic_id: algebra
+  description: Use variables or equations for ages, totals, costs, and relationships between quantities.
+  prerequisites:
+  - alg_equations_linear
+  exam_facing: true
+  source_problem_count: 2
+- id: alg_substitution
+  title: Substitute into expressions
+  topic_id: algebra
+  description: Evaluate expressions or formulae after substituting given values.
+  prerequisites:
+  - alg_expressions_from_words
+  - ar_order_operations
+  exam_facing: true
+  source_problem_count: 19
+- id: ar_add_subtract_word
+  title: Add and subtract in word problems
+  topic_id: arithmetic
+  description: Use addition/subtraction for totals, differences, increases and decreases.
+  prerequisites:
+  - np_digit_place_value
+  exam_facing: true
+  source_problem_count: 8
+- id: ar_divide_equal_groups
+  title: Divide into equal groups
+  topic_id: arithmetic
+  description: Divide totals by a group size or group count to find size/count.
+  prerequisites:
+  - ar_multiplication_context
+  exam_facing: true
+  source_problem_count: 29
+- id: ar_divide_remainders
+  title: Divide with remainders
+  topic_id: arithmetic
+  description: Find remainders and interpret divisibility in word and numeric contexts.
+  prerequisites:
+  - ar_divide_equal_groups
+  exam_facing: true
+  source_problem_count: 8
+- id: ar_divide_round_up
+  title: Divide and round up for groups needed
+  topic_id: arithmetic
+  description: Find how many containers, coaches, packs, crates, or groups are needed when leftovers require another group.
+  prerequisites:
+  - ar_divide_equal_groups
+  exam_facing: true
+  source_problem_count: 5
+- id: ar_inverse_operations
+  title: Reverse multi-step operations
+  topic_id: arithmetic
+  description: Undo a sequence of operations to recover a starting number or missing input.
+  prerequisites:
+  - ar_order_operations
+  exam_facing: true
+  source_problem_count: 0
+- id: ar_missing_calculation
+  title: Find missing values in calculations
+  topic_id: arithmetic
+  description: Find a missing digit, missing operator, blank, or equivalent calculation.
+  prerequisites:
+  - ar_multi_step_numeric
+  exam_facing: true
+  source_problem_count: 4
+- id: ar_multi_step_numeric
+  title: Evaluate multi-step numeric calculations
+  topic_id: arithmetic
+  description: Combine several arithmetic operations accurately, including comparison of alternative expressions.
+  prerequisites:
+  - ar_order_operations
+  exam_facing: true
+  source_problem_count: 44
+- id: ar_multiplication_context
+  title: Multiply whole numbers in context
+  topic_id: arithmetic
+  description: Multiply integer quantities in practical contexts, including dozen/group language.
+  prerequisites:
+  - ar_add_subtract_word
+  exam_facing: true
+  source_problem_count: 8
+- id: ar_order_operations
+  title: Use brackets and order of operations
+  topic_id: arithmetic
+  description: Evaluate expressions using brackets and standard operation order.
+  prerequisites:
+  - ar_add_subtract_word
+  - ar_multiplication_context
+  - ar_divide_equal_groups
+  exam_facing: true
+  source_problem_count: 0
+- id: count_combinatorics
+  title: Count arrangements and paths
+  topic_id: probability_sets_logic
+  description: Count simple arrangements, choices or paths without listing all outcomes naively.
+  prerequisites:
+  - nm_integer_combinations
+  exam_facing: true
+  source_problem_count: 0
+- id: data_bar_charts
+  title: Read bar charts
+  topic_id: data_statistics
+  description: Read values from bar charts and calculate totals/differences or evaluate statements.
+  prerequisites:
+  - data_tables
+  exam_facing: true
+  source_problem_count: 25
+- id: data_line_graphs
+  title: Read line graphs
+  topic_id: data_statistics
+  description: Read trends and values from line graphs.
+  prerequisites:
+  - data_tables
+  exam_facing: true
+  source_problem_count: 0
+- id: data_pictograms
+  title: Read pictograms
+  topic_id: data_statistics
+  description: Use pictogram keys to convert symbols into counts and compare values.
+  prerequisites:
+  - ar_multiplication_context
+  exam_facing: true
+  source_problem_count: 2
+- id: data_pie_charts
+  title: Read pie charts
+  topic_id: data_statistics
+  description: Use percentages/fractions in a pie chart to find counts.
+  prerequisites:
+  - pct_percent_of_amount
+  exam_facing: true
+  source_problem_count: 7
+- id: data_tables
+  title: Read tables
+  topic_id: data_statistics
+  description: Read values from tables and calculate differences, totals or percentages.
+  prerequisites:
+  - ar_add_subtract_word
+  exam_facing: true
+  source_problem_count: 7
+- id: dec_add_subtract
+  title: Add and subtract decimals
+  topic_id: decimals
+  description: Add/subtract decimal quantities, often money/measure contexts.
+  prerequisites:
+  - np_digit_place_value
+  - ar_add_subtract_word
+  exam_facing: true
+  source_problem_count: 11
+- id: dec_fraction_percent_conversion
+  title: Convert between fractions, decimals and percentages
+  topic_id: decimals
+  description: Recognise or convert equivalent fraction, decimal and percentage forms.
+  prerequisites:
+  - frac_compare_equivalence
+  - dec_scale_powers_ten
+  exam_facing: true
+  source_problem_count: 2
+- id: dec_multiplication
+  title: Multiply decimals
+  topic_id: decimals
+  description: Multiply decimal numbers and place the decimal point correctly.
+  prerequisites:
+  - dec_scale_powers_ten
+  - ar_multiplication_context
+  exam_facing: true
+  source_problem_count: 7
+- id: dec_scale_powers_ten
+  title: Scale decimals by powers of ten
+  topic_id: decimals
+  description: Multiply/divide decimals by 10, 100, 1000 and related values.
+  prerequisites:
+  - np_digit_place_value
+  exam_facing: true
+  source_problem_count: 7
+- id: frac_compare_equivalence
+  title: Compare and make equivalent fractions
+  topic_id: fractions
+  description: Compare fractions and find missing numerator/denominator in equivalent fractions.
+  prerequisites:
+  - frac_unit_fractions
+  - nm_factors_multiples_basic
+  exam_facing: true
+  source_problem_count: 5
+- id: frac_of_amount
+  title: Find a fraction of an amount
+  topic_id: fractions
+  description: Calculate a proper fraction of a whole-number quantity.
+  prerequisites:
+  - frac_unit_fractions
+  - ar_multiplication_context
+  - ar_divide_equal_groups
+  exam_facing: true
+  source_problem_count: 9
+- id: frac_operations
+  title: Combine and calculate with fractions
+  topic_id: fractions
+  description: Add/subtract/combine fractional parts and do simple fraction operations.
+  prerequisites:
+  - frac_compare_equivalence
+  - frac_of_amount
+  exam_facing: true
+  source_problem_count: 5
+- id: frac_reverse_remainder
+  title: Reverse fraction problems with a remainder
+  topic_id: fractions
+  description: Given a fraction used/remaining and one amount, reconstruct another amount.
+  prerequisites:
+  - frac_of_amount
+  - frac_compare_equivalence
+  exam_facing: true
+  source_problem_count: 1
+- id: frac_shaded_visual
+  title: Find fractions from shaded diagrams
+  topic_id: fractions
+  description: Interpret shaded parts of shapes or grids as fractions.
+  prerequisites:
+  - frac_unit_fractions
+  exam_facing: true
+  source_problem_count: 3
+- id: frac_unit_fractions
+  title: Understand unit fractions and sharing
+  topic_id: fractions
+  description: Interpret unit fractions, sharing, and “how many nths” questions.
+  prerequisites:
+  - ar_divide_equal_groups
+  exam_facing: true
+  source_problem_count: 12
+- id: geom_3d_shape_properties
+  title: Count faces, edges and vertices
+  topic_id: geometry
+  description: Count/compare faces, edges and vertices of 3D solids.
+  prerequisites:
+  - geom_shape_names
+  exam_facing: true
+  source_problem_count: 10
+- id: geom_3d_spatial_reasoning
+  title: Reason about 3D spatial relationships
+  topic_id: geometry
+  description: Use a 3D solid diagram to compare positions, distances or marked points.
+  prerequisites:
+  - geom_3d_shape_properties
+  exam_facing: true
+  source_problem_count: 1
+- id: geom_angle_facts
+  title: Use basic angle facts
+  topic_id: geometry
+  description: Use angles on a line, around a point and in triangles.
+  prerequisites:
+  - geom_angle_types
+  exam_facing: true
+  source_problem_count: 22
+- id: geom_angle_types
+  title: Identify and estimate angles
+  topic_id: geometry
+  description: Classify acute/right/obtuse/reflex angles and estimate sizes.
+  prerequisites:
+  - geom_shape_names
+  exam_facing: true
+  source_problem_count: 5
+- id: geom_area_basic
+  title: Find area of basic shapes
+  topic_id: geometry
+  description: Find area of rectangles, triangles, parallelograms and missing dimensions.
+  prerequisites:
+  - ar_multiplication_context
+  - meas_unit_conversion
+  exam_facing: true
+  source_problem_count: 20
+- id: geom_area_composite_visual
+  title: Find area of composite or shaded shapes
+  topic_id: geometry
+  description: Split/combine visual shapes or grids to find total or shaded area.
+  prerequisites:
+  - geom_area_basic
+  exam_facing: true
+  source_problem_count: 6
+- id: geom_area_scaling
+  title: Reason about area under scaling
+  topic_id: geometry
+  description: Predict area changes when lengths are scaled.
+  prerequisites:
+  - geom_area_basic
+  - pct_percent_of_amount
+  exam_facing: true
+  source_problem_count: 3
+- id: geom_circle_measure
+  title: Use circle area and circumference contexts
+  topic_id: geometry
+  description: Use circle diameter/radius in simple area/circumference contexts when allowed by exam level.
+  prerequisites:
+  - geom_area_basic
+  exam_facing: true
+  source_problem_count: 13
+- id: geom_compass_rotation
+  title: Use compass directions and rotations
+  topic_id: geometry
+  description: Rotate compass directions by multiples of 45° or 90°.
+  prerequisites:
+  - geom_angle_facts
+  exam_facing: true
+  source_problem_count: 0
+- id: geom_coordinate_transformations
+  title: Transform coordinates
+  topic_id: geometry
+  description: Reflect or translate points/shapes on coordinate grids.
+  prerequisites:
+  - geom_coordinates_read_plot
+  - geom_symmetry_completion
+  exam_facing: true
+  source_problem_count: 7
+- id: geom_coordinates_missing_vertex
+  title: Find missing vertices on coordinate grids
+  topic_id: geometry
+  description: Find a missing vertex of a rectangle/parallelogram/kite from given points.
+  prerequisites:
+  - geom_coordinates_read_plot
+  - geom_shape_names
+  exam_facing: true
+  source_problem_count: 7
+- id: geom_coordinates_read_plot
+  title: Read and plot coordinates
+  topic_id: geometry
+  description: Read or place points on first-quadrant or four-quadrant coordinate grids.
+  prerequisites:
+  - np_number_line
+  exam_facing: true
+  source_problem_count: 3
+- id: geom_grid_packing
+  title: Pack shapes into grids
+  topic_id: geometry
+  description: Fit polyomino-style shapes into a unit-square grid and count vacancies.
+  prerequisites:
+  - geom_tiling_count
+  exam_facing: true
+  source_problem_count: 0
+- id: geom_line_symmetry_shapes
+  title: Find lines of symmetry in shapes
+  topic_id: geometry
+  description: Count or identify line symmetry of shapes.
+  prerequisites:
+  - geom_shape_names
+  exam_facing: true
+  source_problem_count: 6
+- id: geom_line_symmetry_text
+  title: Recognise symmetry in letters and words
+  topic_id: geometry
+  description: Choose uppercase letter strings with horizontal/vertical line symmetry.
+  prerequisites:
+  - geom_angle_types
+  exam_facing: true
+  source_problem_count: 6
+- id: geom_nets
+  title: Use nets of 3D shapes
+  topic_id: geometry
+  description: Infer a box/solid from a net and calculate dimensions/volume.
+  prerequisites:
+  - geom_3d_shape_properties
+  - geom_area_basic
+  exam_facing: true
+  source_problem_count: 2
+- id: geom_painted_cubes
+  title: Count painted cube faces
+  topic_id: geometry
+  description: Count small cubes with 0/1/2/3 painted faces after painting a large cuboid.
+  prerequisites:
+  - geom_volume
+  - geom_surface_area
+  exam_facing: true
+  source_problem_count: 0
+- id: geom_parallel_perpendicular
+  title: Recognise parallel and perpendicular lines
+  topic_id: geometry
+  description: Identify parallel/perpendicular lines in diagrams or coordinate grids.
+  prerequisites:
+  - geom_angle_types
+  exam_facing: true
+  source_problem_count: 3
+- id: geom_perimeter_composite
+  title: Find perimeter of composite shapes
+  topic_id: geometry
+  description: Find perimeter of rectilinear or tiled composite shapes.
+  prerequisites:
+  - ar_add_subtract_word
+  - geom_shape_names
+  exam_facing: true
+  source_problem_count: 8
+- id: geom_regular_polygon_angles
+  title: Use regular polygon angle facts
+  topic_id: geometry
+  description: Find angles in regular polygons.
+  prerequisites:
+  - geom_angle_facts
+  exam_facing: true
+  source_problem_count: 1
+- id: geom_rotational_symmetry
+  title: Recognise rotational symmetry
+  topic_id: geometry
+  description: Determine whether shapes have rotational symmetry.
+  prerequisites:
+  - geom_shape_names
+  exam_facing: true
+  source_problem_count: 3
+- id: geom_shape_names
+  title: Name 2D and 3D shapes
+  topic_id: geometry
+  description: Identify common 2D and 3D shapes from diagrams/descriptions.
+  prerequisites:
+  - meas_unit_selection
+  exam_facing: true
+  source_problem_count: 14
+- id: geom_special_triangle_angles
+  title: Use isosceles and equilateral angle facts
+  topic_id: geometry
+  description: Find angles in isosceles/equilateral triangles and simple composites.
+  prerequisites:
+  - geom_angle_facts
+  exam_facing: true
+  source_problem_count: 18
+- id: geom_surface_area
+  title: Find surface area
+  topic_id: geometry
+  description: Calculate exposed/painted/unpainted surface area of cuboids/prisms/cube shapes.
+  prerequisites:
+  - geom_area_basic
+  - geom_volume
+  exam_facing: true
+  source_problem_count: 3
+- id: geom_symmetry_completion
+  title: Complete shapes using symmetry
+  topic_id: geometry
+  description: Use mirror lines/grid cells to infer missing parts or completed shapes.
+  prerequisites:
+  - geom_line_symmetry_shapes
+  exam_facing: true
+  source_problem_count: 3
+- id: geom_tessellation
+  title: Recognise tessellating shapes
+  topic_id: geometry
+  description: Decide whether a shape tiles the plane without gaps.
+  prerequisites:
+  - geom_shape_names
+  exam_facing: true
+  source_problem_count: 1
+- id: geom_tiling_count
+  title: Count tiles covering areas
+  topic_id: geometry
+  description: Count how many tiles/squares fit into a rectangle/wall/area.
+  prerequisites:
+  - geom_area_basic
+  - meas_unit_conversion
+  exam_facing: true
+  source_problem_count: 6
+- id: geom_volume
+  title: Find volume of cubes and cuboids
+  topic_id: geometry
+  description: Calculate cube/cuboid volume or count unit cubes.
+  prerequisites:
+  - geom_area_basic
+  exam_facing: true
+  source_problem_count: 11
+- id: logic_must_be_true
+  title: Choose must-be-true statements
+  topic_id: probability_sets_logic
+  description: Identify what logically follows from given conditions.
+  prerequisites:
+  - alg_inequalities_order
+  exam_facing: true
+  source_problem_count: 3
+- id: meas_calendar_timetable_timezone
+  title: Use calendars, timetables and time zones
+  topic_id: measurement_units
+  description: Read timetables, offset weekdays/dates, and apply time-zone differences.
+  prerequisites:
+  - meas_time_duration
+  exam_facing: true
+  source_problem_count: 10
+- id: meas_capacity
+  title: Calculate capacity remaining or used
+  topic_id: measurement_units
+  description: Use litres/millilitres and repeated pouring/container contexts.
+  prerequisites:
+  - meas_unit_conversion
+  - ar_add_subtract_word
+  exam_facing: true
+  source_problem_count: 5
+- id: meas_capacity_rate
+  title: Use fill and drain rates
+  topic_id: measurement_units
+  description: Find time from capacity and constant ml/min or l/min rate.
+  prerequisites:
+  - meas_capacity
+  - prop_unit_rate
+  exam_facing: true
+  source_problem_count: 3
+- id: meas_clock_angles
+  title: Find clock-hand angles
+  topic_id: measurement_units
+  description: Find acute/obtuse angles between hands at simple times.
+  prerequisites:
+  - geom_angle_facts
+  - meas_time_duration
+  exam_facing: true
+  source_problem_count: 0
+- id: meas_distance_networks
+  title: Use distance diagrams and route tables
+  topic_id: measurement_units
+  description: Read a distance diagram/table and add or compare path lengths.
+  prerequisites:
+  - meas_unit_conversion
+  - ar_add_subtract_word
+  exam_facing: true
+  source_problem_count: 2
+- id: meas_mass_weight
+  title: Calculate mass and weight with units
+  topic_id: measurement_units
+  description: Add/subtract masses and convert kg/g in context.
+  prerequisites:
+  - meas_unit_conversion
+  exam_facing: true
+  source_problem_count: 1
+- id: meas_money_coins
+  title: Work with coins and denominations
+  topic_id: measurement_units
+  description: Find coin counts, total value, or weight of coins.
+  prerequisites:
+  - ar_divide_equal_groups
+  - dec_add_subtract
+  exam_facing: true
+  source_problem_count: 8
+- id: meas_money_offers_packages
+  title: Use offers, bundles and least-cost buying
+  topic_id: measurement_units
+  description: Apply repeating offers, bundle discounts, package sizes or least-cost combinations.
+  prerequisites:
+  - meas_money_shopping
+  - ar_divide_round_up
+  exam_facing: true
+  source_problem_count: 2
+- id: meas_money_shopping
+  title: Calculate shopping totals and change
+  topic_id: measurement_units
+  description: Calculate totals, per-item prices, discounts and change.
+  prerequisites:
+  - dec_add_subtract
+  - ar_multiplication_context
+  exam_facing: true
+  source_problem_count: 29
+- id: meas_time_duration
+  title: Calculate elapsed time
+  topic_id: measurement_units
+  description: Find start/end/duration, including crossing hours or midnight.
+  prerequisites:
+  - ar_add_subtract_word
+  exam_facing: true
+  source_problem_count: 18
+- id: meas_unit_conversion
+  title: Convert metric units
+  topic_id: measurement_units
+  description: Convert between mm/cm/m/km, g/kg, ml/l and use conversions in calculations.
+  prerequisites:
+  - meas_unit_selection
+  - dec_scale_powers_ten
+  exam_facing: true
+  source_problem_count: 9
+- id: meas_unit_selection
+  title: Choose sensible units and estimates
+  topic_id: measurement_units
+  description: Pick plausible units or quantities for everyday measures.
+  prerequisites: []
+  exam_facing: true
+  source_problem_count: 9
+- id: mixed_constraints
+  title: Solve constraint puzzles
+  topic_id: mixed_problem_solving
+  description: Use totals, rates, balances, or equivalence chains to satisfy constraints.
+  prerequisites:
+  - mixed_multistep
+  - alg_relationship_word_problems
+  exam_facing: true
+  source_problem_count: 3
+- id: mixed_custom_notation
+  title: Evaluate custom notation
+  topic_id: mixed_problem_solving
+  description: Interpret a new operation/notation and calculate with it.
+  prerequisites:
+  - ar_order_operations
+  exam_facing: true
+  source_problem_count: 2
+- id: mixed_grid_logic
+  title: Solve grid and symbol logic puzzles
+  topic_id: mixed_problem_solving
+  description: Use row/column sums, products or symbol totals in grids.
+  prerequisites:
+  - alg_relationship_word_problems
+  - ar_multi_step_numeric
+  exam_facing: true
+  source_problem_count: 1
+- id: mixed_multistep
+  title: Solve multi-step word problems
+  topic_id: mixed_problem_solving
+  description: Combine several operations and topics in one word problem.
+  prerequisites:
+  - ar_multi_step_numeric
+  exam_facing: true
+  source_problem_count: 4
+- id: nm_divisibility_tests
+  title: Use divisibility tests
+  topic_id: factors_multiples_powers
+  description: Decide whether numbers are divisible by 2,3,4,5,8,9,10 etc.
+  prerequisites:
+  - ar_divide_remainders
+  exam_facing: true
+  source_problem_count: 2
+- id: nm_factors_multiples_basic
+  title: Recognise factors and multiples
+  topic_id: factors_multiples_powers
+  description: Identify factors, multiples and common factors.
+  prerequisites:
+  - nm_divisibility_tests
+  exam_facing: true
+  source_problem_count: 5
+- id: nm_integer_combinations
+  title: Count combinations of small integers
+  topic_id: factors_multiples_powers
+  description: Count possible combinations that make a target using small denominations/values.
+  prerequisites:
+  - ar_add_subtract_word
+  - nm_multiples_in_range
+  exam_facing: true
+  source_problem_count: 1
+- id: nm_lcm_remainders
+  title: Use common multiples and remainders
+  topic_id: factors_multiples_powers
+  description: Solve repeated-event and remainder constraint problems.
+  prerequisites:
+  - nm_multiples_in_range
+  exam_facing: true
+  source_problem_count: 3
+- id: nm_multiples_in_range
+  title: Find multiples in a range
+  topic_id: factors_multiples_powers
+  description: Count or identify multiples between lower and upper bounds.
+  prerequisites:
+  - nm_factors_multiples_basic
+  exam_facing: true
+  source_problem_count: 8
+- id: nm_powers
+  title: Use powers and repeated multiplication
+  topic_id: factors_multiples_powers
+  description: Interpret exponent notation as repeated multiplication.
+  prerequisites:
+  - ar_multiplication_context
+  exam_facing: true
+  source_problem_count: 0
+- id: nm_prime_numbers
+  title: Recognise prime numbers
+  topic_id: factors_multiples_powers
+  description: Identify primes and reason about prime properties.
+  prerequisites:
+  - nm_factors_multiples_basic
+  exam_facing: true
+  source_problem_count: 2
+- id: nm_square_cube_numbers
+  title: Recognise square and cube numbers
+  topic_id: factors_multiples_powers
+  description: Identify square/cube numbers and powers.
+  prerequisites:
+  - nm_factors_multiples_basic
+  exam_facing: true
+  source_problem_count: 3
+- id: np_compare_order_numbers
+  title: Compare and order numbers
+  topic_id: number_place_value
+  description: Compare whole numbers, decimals, fractions, percentages and mixed representations.
+  prerequisites:
+  - np_digit_place_value
+  exam_facing: true
+  source_problem_count: 8
+- id: np_digit_place_value
+  title: Understand digit place value
+  topic_id: number_place_value
+  description: Identify the value of a digit in whole numbers or decimals.
+  prerequisites: []
+  exam_facing: true
+  source_problem_count: 1
+- id: np_digit_rearrangement
+  title: Rearrange digits to form numbers
+  topic_id: number_place_value
+  description: Use digit cards or digits once to form largest/smallest numbers.
+  prerequisites:
+  - np_digit_place_value
+  exam_facing: true
+  source_problem_count: 3
+- id: np_negative_numbers
+  title: Use negative numbers in context
+  topic_id: number_place_value
+  description: Work with negative values, usually temperature or number lines.
+  prerequisites:
+  - np_number_line
+  exam_facing: true
+  source_problem_count: 2
+- id: np_number_line
+  title: Read and use number lines
+  topic_id: number_place_value
+  description: Locate values on number lines, find offsets, and find midpoints.
+  prerequisites:
+  - np_compare_order_numbers
+  exam_facing: true
+  source_problem_count: 5
+- id: np_rounding
+  title: Round numbers
+  topic_id: number_place_value
+  description: Round whole numbers and decimals to stated precision, and reason about possible originals.
+  prerequisites:
+  - np_digit_place_value
+  - np_compare_order_numbers
+  exam_facing: true
+  source_problem_count: 11
+- id: np_words_to_digits
+  title: Write number words as digits
+  topic_id: number_place_value
+  description: Convert large number names into figures.
+  prerequisites:
+  - np_digit_place_value
+  exam_facing: true
+  source_problem_count: 6
+- id: pct_discount_sale_price
+  title: Find sale price after a discount
+  topic_id: percentages
+  description: Calculate the final price after a percentage reduction.
+  prerequisites:
+  - pct_percent_of_amount
+  - meas_money_shopping
+  exam_facing: true
+  source_problem_count: 4
+- id: pct_percent_change_scaling
+  title: Reason about percentage changes in area
+  topic_id: percentages
+  description: Combine percentage changes in length/width to find area change.
+  prerequisites:
+  - pct_percent_of_amount
+  - geom_area_scaling
+  exam_facing: true
+  source_problem_count: 0
+- id: pct_percent_of_amount
+  title: Find percentages of amounts
+  topic_id: percentages
+  description: Calculate common percentages of numbers, money, or measures.
+  prerequisites:
+  - frac_of_amount
+  - dec_scale_powers_ten
+  exam_facing: true
+  source_problem_count: 13
+- id: pct_percentage_composition
+  title: Find percentage composition after changes
+  topic_id: percentages
+  description: Find what percentage of a changed collection has a property.
+  prerequisites:
+  - pct_percent_of_amount
+  - ar_add_subtract_word
+  exam_facing: true
+  source_problem_count: 2
+- id: pct_reverse_percentage
+  title: Find original value after percentage change
+  topic_id: percentages
+  description: Recover the original amount from a discounted/increased value.
+  prerequisites:
+  - pct_percent_of_amount
+  - alg_equations_linear
+  exam_facing: true
+  source_problem_count: 4
+- id: prob_basic
+  title: Calculate simple probabilities
+  topic_id: probability_sets_logic
+  description: Find probabilities from equally likely outcomes or simple counts.
+  prerequisites:
+  - frac_unit_fractions
+  - ar_divide_equal_groups
+  exam_facing: true
+  source_problem_count: 6
+- id: prob_compare_complement
+  title: Compare probability statements
+  topic_id: probability_sets_logic
+  description: Reason about likely/even/impossible events and probability after removal.
+  prerequisites:
+  - prob_basic
+  - frac_compare_equivalence
+  exam_facing: true
+  source_problem_count: 1
+- id: prop_inverse_workers
+  title: Use inverse proportion
+  topic_id: ratio_proportion_rates
+  description: Solve workers/time or people/resource problems where more workers means less time.
+  prerequisites:
+  - prop_unit_rate
+  exam_facing: true
+  source_problem_count: 4
+- id: prop_recipe_scaling
+  title: Scale recipes and quantities
+  topic_id: ratio_proportion_rates
+  description: Scale ingredient quantities to a different number of servings.
+  prerequisites:
+  - ratio_share
+  - pct_percent_of_amount
+  exam_facing: true
+  source_problem_count: 2
+- id: prop_scale_maps
+  title: Use map and drawing scales
+  topic_id: ratio_proportion_rates
+  description: Convert between map/drawing distances and real distances, including area scale.
+  prerequisites:
+  - ratio_equivalence
+  - meas_unit_conversion
+  exam_facing: true
+  source_problem_count: 8
+- id: prop_similarity
+  title: Use proportional similarity
+  topic_id: ratio_proportion_rates
+  description: Use similar shapes/shadows/enlargements to scale lengths.
+  prerequisites:
+  - ratio_equivalence
+  - geom_area_basic
+  exam_facing: true
+  source_problem_count: 3
+- id: prop_speed_distance_time
+  title: Use speed, distance and time
+  topic_id: ratio_proportion_rates
+  description: Calculate speed, distance or time in simple contexts.
+  prerequisites:
+  - prop_unit_rate
+  - meas_time_duration
+  exam_facing: true
+  source_problem_count: 3
+- id: prop_unit_rate
+  title: Use unit rates and best value
+  topic_id: ratio_proportion_rates
+  description: Calculate price per unit, direct-rate scaling, or compound rate quantities.
+  prerequisites:
+  - ar_divide_equal_groups
+  - ratio_equivalence
+  exam_facing: true
+  source_problem_count: 4
+- id: ratio_equivalence
+  title: Recognise equivalent ratios
+  topic_id: ratio_proportion_rates
+  description: Scale ratio parts up/down and compare forms.
+  prerequisites:
+  - nm_factors_multiples_basic
+  - ratio_share
+  exam_facing: true
+  source_problem_count: 2
+- id: ratio_mixture_fraction
+  title: Find components in a ratio mixture
+  topic_id: ratio_proportion_rates
+  description: Use a ratio to find one component of a mixture or sample.
+  prerequisites:
+  - ratio_share
+  - meas_capacity
+  exam_facing: true
+  source_problem_count: 1
+- id: ratio_share
+  title: Share a total in a ratio
+  topic_id: ratio_proportion_rates
+  description: Divide a total into parts in a given ratio.
+  prerequisites:
+  - frac_unit_fractions
+  - ar_divide_equal_groups
+  exam_facing: true
+  source_problem_count: 3
+- id: seq_arithmetic_geometric
+  title: Continue arithmetic/geometric sequences
+  topic_id: sequences_patterns
+  description: Find next/missing terms in additive, multiplicative, Fibonacci-like or alternating sequences.
+  prerequisites:
+  - ar_add_subtract_word
+  - ar_multiplication_context
+  exam_facing: true
+  source_problem_count: 11
+- id: seq_recurrence
+  title: Use recurrence rules
+  topic_id: sequences_patterns
+  description: Apply a stated rule from one term to the next.
+  prerequisites:
+  - seq_arithmetic_geometric
+  - ar_multi_step_numeric
+  exam_facing: true
+  source_problem_count: 3
+- id: seq_repeating_patterns
+  title: Reason about repeating patterns
+  topic_id: sequences_patterns
+  description: Use cycle length to answer large-position or fraction questions.
+  prerequisites:
+  - ar_divide_remainders
+  exam_facing: true
+  source_problem_count: 0
+- id: seq_visual_patterns
+  title: Generalise visual growing patterns
+  topic_id: sequences_patterns
+  description: Use a picture pattern to find later terms or differences.
+  prerequisites:
+  - seq_arithmetic_geometric
+  - geom_shape_names
+  exam_facing: true
+  source_problem_count: 0
+- id: sets_venn_overlap
+  title: Use sets, Venn diagrams and overlap
+  topic_id: probability_sets_logic
+  description: Use set membership, intersections, overlap min/max and Venn regions.
+  prerequisites:
+  - nm_factors_multiples_basic
+  - prob_basic
+  exam_facing: true
+  source_problem_count: 8
+- id: stat_mean
+  title: Calculate and use the mean
+  topic_id: data_statistics
+  description: Use mean as total divided by count; find totals or missing values.
+  prerequisites:
+  - ar_divide_equal_groups
+  - ar_add_subtract_word
+  exam_facing: true
+  source_problem_count: 24
+- id: stat_median_mode_range
+  title: Find median, mode and range
+  topic_id: data_statistics
+  description: Sort/list data to find median, mode or range.
+  prerequisites:
+  - np_compare_order_numbers
+  exam_facing: true
+  source_problem_count: 12

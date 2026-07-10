@@ -1,0 +1,12 @@
+{
+  "version": "v1",
+  "created_for": "11+ maths client-side practice app",
+  "contains_original_questions": false,
+  "counts": {
+    "topics": 14,
+    "skills": 116,
+    "archetypes": 177,
+    "skill_edges": 167,
+    "source_questions_mapped_safe": 715
+  }
+}

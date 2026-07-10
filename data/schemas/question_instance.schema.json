@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.local/11plus/question_instance.schema.json",
+  "title": "QuestionInstance",
+  "type": "object",
+  "required": [
+    "id",
+    "skill_id",
+    "archetype_id",
+    "prompt",
+    "answer",
+    "answer_format"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "skill_id": {
+      "type": "string"
+    },
+    "archetype_id": {
+      "type": "string"
+    },
+    "prompt": {
+      "type": "string"
+    },
+    "answer_format": {
+      "enum": [
+        "multiple_choice",
+        "free_response"
+      ]
+    },
+    "options": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "text"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "answer": {
+      "type": [
+        "string",
+        "number",
+        "object"
+      ]
+    },
+    "visual": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "explanation": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "difficulty": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 5
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}
