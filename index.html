@@ -19,6 +19,22 @@
     </header>
 
     <main id="catalogue-view">
+      <section class="diagnostic-banner" aria-labelledby="diagnostic-heading">
+        <div>
+          <p class="eyebrow">Not sure where to start?</p>
+          <h1 id="diagnostic-heading">Take the maths skills check</h1>
+          <p>Try one question from every available skill, organised by topic. Mark anything you want to practise later.</p>
+        </div>
+        <div class="diagnostic-start">
+          <label for="diagnostic-difficulty">Question difficulty</label>
+          <select id="diagnostic-difficulty">
+            <option value="hard" selected>Hard</option>
+            <option value="medium">Medium</option>
+            <option value="easy">Easy</option>
+          </select>
+          <button id="start-diagnostic-button" class="primary-button" type="button">Start skills check →</button>
+        </div>
+      </section>
       <section class="hero">
         <div>
           <p class="eyebrow">Build confidence, one skill at a time</p>
@@ -38,15 +54,57 @@
           <p class="eyebrow">Exercise library</p>
           <h2>Skills by topic</h2>
         </div>
-        <div class="legend" aria-label="Exercise status key">
-          <span><i class="dot active"></i> Available</span>
-          <span><i class="dot inactive"></i> Coming soon</span>
+        <div class="catalogue-tools">
+          <div class="skill-filter" role="group" aria-label="Filter skills">
+            <button class="active" data-filter="all" type="button">All skills</button>
+            <button data-filter="todo" type="button">TODO <span id="todo-count">0</span></button>
+          </div>
+          <div class="legend" aria-label="Exercise status key">
+            <span><i class="dot active"></i> Available</span>
+            <span><i class="dot inactive"></i> Coming soon</span>
+          </div>
         </div>
       </section>
 
       <div id="topic-list" class="topic-list" aria-live="polite">
         <p class="loading">Loading exercises…</p>
       </div>
+    </main>
+
+    <main id="diagnostic-view" class="practice-view" hidden>
+      <button id="diagnostic-exit-button" class="back-button" type="button">← Exit skills check</button>
+      <section class="practice-shell diagnostic-shell" data-difficulty="hard">
+        <div class="diagnostic-test-header">
+          <div>
+            <p class="eyebrow">Maths skills check</p>
+            <h1 id="diagnostic-topic-title"></h1>
+          </div>
+          <strong id="diagnostic-overall-progress"></strong>
+        </div>
+        <div class="progress-track diagnostic-progress"><span id="diagnostic-progress-bar"></span></div>
+        <div class="diagnostic-section-meta">
+          <span id="diagnostic-section-progress"></span>
+          <button id="diagnostic-skip-section" class="text-button" type="button">Skip to next section →</button>
+        </div>
+        <div id="diagnostic-question-card" class="question-card">
+          <p id="diagnostic-skill-name" class="question-label"></p>
+          <h2 id="diagnostic-question-prompt"></h2>
+          <div id="diagnostic-question-visual" class="question-visual" hidden></div>
+          <div id="diagnostic-answer-options" class="answer-options"></div>
+          <label class="todo-choice"><input id="diagnostic-todo-checkbox" type="checkbox"> <span>I need to practise this skill</span></label>
+          <div id="diagnostic-feedback" class="feedback" role="status" aria-live="polite" hidden></div>
+          <div class="diagnostic-question-actions">
+            <button id="diagnostic-skip-question" class="secondary-button" type="button">Skip question</button>
+            <button id="diagnostic-next-question" class="primary-button" type="button" hidden>Next question →</button>
+          </div>
+        </div>
+        <div id="diagnostic-complete" class="diagnostic-complete" hidden>
+          <p class="eyebrow">Skills check complete</p>
+          <h2>Now you know what to work on.</h2>
+          <p id="diagnostic-result-summary"></p>
+          <button id="diagnostic-finish-button" class="primary-button" type="button">View my TODO skills →</button>
+        </div>
+      </section>
     </main>
 
     <main id="practice-view" class="practice-view" hidden>
@@ -74,6 +132,7 @@
         <div class="question-card">
           <p class="question-label">Choose one answer</p>
           <h2 id="question-prompt"></h2>
+          <div id="question-visual" class="question-visual" hidden></div>
           <div id="answer-options" class="answer-options"></div>
           <div id="feedback" class="feedback" role="status" aria-live="polite" hidden></div>
           <button id="next-button" class="primary-button" type="button" hidden>Next question →</button>

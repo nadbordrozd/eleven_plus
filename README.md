@@ -1,14 +1,18 @@
 # Eleven Plus Maths
 
-A dependency-free prototype of the 11+ maths practice site. It loads all 116 skills from the supplied coding-agent content pack and groups them by topic. Every skill with at least one non-visual archetype is available for practice; skills that currently depend entirely on visual content remain inactive.
+A dependency-free prototype of the 11+ maths practice site. It loads all 116 skills from the supplied coding-agent content pack and groups them by topic. Skills become available as soon as at least one of their question archetypes is implemented.
 
 The current taxonomy contains 77 skills and 118 archetypes eligible for text-only practice. All 118 are implemented. Normal sessions uniformly mix the available archetypes for a skill, while the **Question types** developer view can launch a specific implementation.
+
+Visual support covers 46 straightforward archetypes using original structured data rendered as responsive SVG or HTML: charts, tables, number lines, coordinate grids, shapes, angles, clocks, measurement diagrams and similar questions. Thirteen materially more complex visual archetypes are listed in [docs/DEFERRED_VISUAL_ARCHETYPES.md](docs/DEFERRED_VISUAL_ARCHETYPES.md). Private source-paper crops are reference material only and are excluded from Git.
 
 Progress is stored in the browser under `eleven_plus_maths_state_v1`.
 Each correct answer adds 7 points, each wrong answer removes 10 points (with a floor of 0), and a skill is completed at 100 points.
 Question difficulty adapts to skill progress: easy below 25 points, medium from 25 through 75, and hard above 75. Press `X` during practice to skip the current question and award the normal 7 points.
 
 Every skill card also has a **Question types** developer view. It lists the underlying archetypes and allows an implemented archetype to be practised directly.
+
+Skills can be marked **TODO** for later practice and filtered from the exercise library. The prominent skills check asks one adjustable-difficulty question from every available skill in topic order; students can skip questions or sections and curate their TODO list as they go.
 
 Generator implementation standards are documented in `docs/GENERATOR_IMPLEMENTATION_GUIDELINES.md`.
 

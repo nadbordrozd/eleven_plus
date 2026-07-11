@@ -43,6 +43,16 @@ button { font: inherit; }
 
 #catalogue-view, .practice-view { width: min(1160px, calc(100% - 40px)); margin: 0 auto; }
 
+.diagnostic-banner { margin-top: 34px; padding: 30px 34px; display: grid; grid-template-columns: 1fr 260px; gap: 38px; align-items: center; color: white; background: linear-gradient(125deg, #263f9f, #5a3f9f); border-radius: 22px; box-shadow: 0 14px 34px rgba(52, 67, 145, .2); }
+.diagnostic-banner .eyebrow { color: #dce4ff; }
+.diagnostic-banner h1 { margin-bottom: 10px; font-size: clamp(27px, 4vw, 38px); letter-spacing: -.03em; }
+.diagnostic-banner p:last-child { margin: 0; color: #edf0ff; line-height: 1.55; }
+.diagnostic-start { display: grid; gap: 8px; }
+.diagnostic-start label { color: #e7eaff; font-size: 12px; font-weight: 750; }
+.diagnostic-start select { width: 100%; padding: 12px; color: var(--ink); border: 0; border-radius: 10px; background: white; font: inherit; }
+.diagnostic-start .primary-button { margin-top: 4px; color: #2947b8; background: white; }
+.diagnostic-start .primary-button:hover { background: #eef2ff; }
+
 .hero { display: grid; grid-template-columns: 1fr 330px; gap: 64px; padding: 66px 0 54px; align-items: center; }
 .eyebrow { margin: 0 0 10px; color: var(--blue); font-weight: 750; font-size: 13px; letter-spacing: .08em; text-transform: uppercase; }
 h1, h2, p { margin-top: 0; }
@@ -63,6 +73,11 @@ h1, h2, p { margin-top: 0; }
 
 .catalogue-heading { display: flex; justify-content: space-between; align-items: end; padding-bottom: 20px; }
 .catalogue-heading h2 { margin: 0; font-size: 28px; letter-spacing: -.02em; }
+.catalogue-tools { display: grid; justify-items: end; gap: 12px; }
+.skill-filter { display: flex; padding: 3px; border: 1px solid var(--line); border-radius: 10px; background: white; }
+.skill-filter button { padding: 7px 12px; border: 0; border-radius: 7px; color: var(--muted); background: transparent; font-size: 12px; font-weight: 750; cursor: pointer; }
+.skill-filter button.active { color: var(--blue); background: var(--blue-pale); }
+.skill-filter span { display: inline-grid; min-width: 19px; height: 19px; margin-left: 4px; place-items: center; border-radius: 99px; color: white; background: var(--blue); font-size: 10px; }
 .legend { display: flex; gap: 18px; color: var(--muted); font-size: 13px; }
 .legend span { display: flex; gap: 7px; align-items: center; }
 .dot { width: 8px; height: 8px; border-radius: 50%; }
@@ -94,6 +109,7 @@ h1, h2, p { margin-top: 0; }
 .card-progress-track, .skill-progress-track { height: 7px; overflow: hidden; border-radius: 99px; background: #e6eaf2; }
 .card-progress-track span, .skill-progress-track span { display: block; height: 100%; border-radius: inherit; background: var(--blue); transition: width .3s ease; }
 .exercise-card.completed .card-progress-track span { background: var(--green); }
+.exercise-card.todo { border-color: #e7b35f; box-shadow: inset 4px 0 #d58b1d; }
 .status { display: inline-flex; padding: 4px 8px; border-radius: 99px; font-size: 11px; font-weight: 800; letter-spacing: .02em; text-transform: uppercase; }
 .status.not_attempted { color: var(--blue); background: var(--blue-pale); }
 .status.in_progress { color: var(--amber); background: var(--amber-pale); }
@@ -108,6 +124,7 @@ h1, h2, p { margin-top: 0; }
 .card-action.practice:hover { color: white; background: var(--blue-dark); }
 .card-action.reset { color: var(--red); border-color: #e6b8bd; }
 .card-action.reset:hover:not(:disabled) { color: var(--red); border-color: var(--red); background: #fff1f2; }
+.card-action.todo-action.selected { color: #8a4c05; border-color: #e7b35f; background: var(--amber-pale); }
 .card-action:disabled { opacity: .45; cursor: not-allowed; }
 
 .practice-view { padding: 40px 0 80px; }
@@ -137,6 +154,15 @@ h1, h2, p { margin-top: 0; }
 .question-card { padding: clamp(24px, 5vw, 42px); background: white; border: 1px solid var(--line); border-top: 4px solid var(--difficulty-color); border-radius: 22px; box-shadow: var(--shadow); }
 .question-label { color: var(--muted); font-size: 12px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
 .question-card h2 { margin: 10px 0 28px; font-size: clamp(23px, 4vw, 31px); line-height: 1.35; }
+.question-visual { margin: -4px 0 28px; padding: 16px 12px 8px; overflow-x: auto; border: 1px solid var(--line); border-radius: 14px; background: #fbfcff; }
+.question-visual svg { display: block; width: 100%; min-width: 480px; height: auto; }
+.visual-table { width: 100%; border-collapse: collapse; color: var(--ink); background: white; }
+.visual-table th, .visual-table td { padding: 10px 12px; border: 1px solid #cfd7e5; text-align: center; }
+.visual-table th { color: #263758; background: #eef2ff; font-weight: 800; }
+.pictogram { display: grid; gap: 10px; padding: 4px 8px; }
+.pictogram-row { display: grid; grid-template-columns: minmax(90px, 1fr) 3fr; align-items: center; gap: 14px; }
+.pictogram-row span { color: var(--blue); font-size: 23px; letter-spacing: 5px; }
+.pictogram-key { margin: 5px 0 0; color: var(--muted); font-size: 13px; }
 .answer-options { display: grid; gap: 10px; }
 .answer-button { width: 100%; padding: 15px 17px; display: flex; align-items: center; gap: 14px; text-align: left; color: var(--ink); border: 1px solid var(--line); border-radius: 12px; background: white; cursor: pointer; }
 .answer-button:hover:not(:disabled) { border-color: var(--blue); background: var(--blue-pale); }
@@ -148,7 +174,23 @@ h1, h2, p { margin-top: 0; }
 .feedback.wrong { color: var(--red); background: #fff1f2; }
 .primary-button { width: 100%; margin-top: 14px; padding: 15px; border: 0; border-radius: 11px; color: white; background: var(--blue); font-weight: 800; cursor: pointer; }
 .primary-button:hover { background: var(--blue-dark); }
-.error, .loading { padding: 30px; color: var(--muted); text-align: center; }
+.secondary-button, .text-button { border: 1px solid var(--line); color: var(--muted); background: white; font-weight: 750; cursor: pointer; }
+.secondary-button { width: 100%; margin-top: 14px; padding: 14px; border-radius: 11px; }
+.secondary-button:hover, .text-button:hover { color: var(--blue); border-color: var(--blue); }
+.text-button { padding: 7px 9px; border-radius: 8px; font-size: 12px; }
+.diagnostic-test-header { margin: 14px 0 8px; display: flex; justify-content: space-between; align-items: end; }
+.diagnostic-test-header h1 { margin: 0; font-size: 34px; }
+.diagnostic-test-header > strong { color: var(--muted); font-size: 14px; }
+.diagnostic-progress { margin: 16px 0 10px; }
+.diagnostic-section-meta { margin-bottom: 22px; display: flex; justify-content: space-between; align-items: center; color: var(--muted); font-size: 13px; }
+.todo-choice { margin-top: 18px; padding: 13px 15px; display: flex; align-items: center; gap: 9px; border: 1px solid var(--line); border-radius: 11px; color: var(--muted); background: #fafbfc; cursor: pointer; }
+.todo-choice.selected { color: #8a4c05; border-color: #e7b35f; background: var(--amber-pale); }
+.todo-choice input { width: 18px; height: 18px; accent-color: #c06a18; }
+.diagnostic-question-actions .primary-button { margin-top: 14px; }
+.diagnostic-complete { padding: 42px; text-align: center; border: 1px solid var(--line); border-radius: 20px; background: white; box-shadow: var(--shadow); }
+.diagnostic-complete p:not(.eyebrow) { color: var(--muted); line-height: 1.6; }
+.error, .loading, .empty-filter { padding: 30px; color: var(--muted); text-align: center; }
+.empty-filter { border: 1px dashed #cbd4e2; border-radius: 14px; background: white; }
 
 .archetype-dialog { width: min(720px, calc(100% - 28px)); max-height: min(760px, calc(100vh - 40px)); padding: 0; color: var(--ink); border: 0; border-radius: 20px; box-shadow: 0 24px 80px rgba(16, 24, 40, .25); }
 .archetype-dialog::backdrop { background: rgba(20, 29, 48, .55); backdrop-filter: blur(3px); }
@@ -171,7 +213,9 @@ h1, h2, p { margin-top: 0; }
   .site-header { height: 64px; padding: 0 20px; }
   #catalogue-view, .practice-view { width: min(100% - 28px, 1160px); }
   .hero { grid-template-columns: 1fr; gap: 28px; padding: 44px 0; }
+  .diagnostic-banner { grid-template-columns: 1fr; padding: 25px; }
   .catalogue-heading { display: block; }
+  .catalogue-tools { margin-top: 16px; justify-items: start; }
   .legend { margin-top: 16px; }
   .topic-header { grid-template-columns: 44px 1fr 20px; padding: 16px; }
   .topic-heading small, .topic-count { display: none; }

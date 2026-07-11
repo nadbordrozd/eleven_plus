@@ -60,7 +60,7 @@ function question(id, skill, seed, config, build) {
   return {
     id: `${id}-${seed}`, skill_id: skill, archetype_id: id, prompt: data.prompt,
     answer_format: 'multiple_choice', ...options(rng, data.answer, data.distractors, data.formatter),
-    explanation: data.explanation, difficulty: difficulty === 'easy' ? 1 : difficulty === 'hard' ? 3 : 2,
+    visual: data.visual ?? null, explanation: data.explanation, difficulty: difficulty === 'easy' ? 1 : difficulty === 'hard' ? 3 : 2,
     tags: [skill, difficulty],
   };
 }
@@ -809,6 +809,19 @@ const generators = {
     const formatter=(value)=>display(value/scale); const answer=formatter(answerValue); const labels=candidateScaled.map(formatter);
     return { prompt:`Which number is closest to ${formatter(targetScaled)}?`, answer, distractors:labels.filter(label=>label!==answer), explanation:`${answer} has the smallest difference from ${formatter(targetScaled)}.` };
   }),
+  number_line_value_or_offset: gen('number_line_value_or_offset','np_number_line',(r,d)=>{
+    const tickCount=10;
+    const step=pick(r,d==='easy'?[5,10,20]:d==='hard'?[.1,.25,.5,1.5,2.5]:[1,2,2.5,5]);
+    const min=d==='easy'?integer(r,0,20)*step:d==='hard'?integer(r,-20,20)*step:integer(r,-15,20)*step;
+    const markerIndex=pick(r,[2,3,4,6,7,8]),markerValue=clean(min+markerIndex*step),askDirect=d==='easy'?r()<.55:r()<.35;
+    const offsetSteps=integer(r,1,d==='hard'?5:3),direction=r()<.5?-1:1,offset=clean(offsetSteps*step),answer=askDirect?markerValue:clean(markerValue+direction*offset);
+    const prompt=askDirect?'What value is marked by the arrow on the number line?':`The arrow marks a number. What is ${display(offset)} ${direction<0?'less':'greater'} than that number?`;
+    return {
+      prompt,answer,distractors:[markerValue,clean(markerValue-direction*offset),clean(answer+step),clean(answer-step)],
+      explanation:`Each interval is ${display(step)}, so the arrow marks ${display(markerValue)}.${askDirect?'':` Applying ${direction<0?'−':'+'}${display(offset)} gives ${display(answer)}.`}`,
+      visual:{type:'number_line',min,max:clean(min+tickCount*step),step,tickCount,markerIndex,labelIndices:[0,5,10]},
+    };
+  }),
   digit_place_value_whole_decimal: gen('digit_place_value_whole_decimal', 'np_digit_place_value', (r, d) => {
     const placeNames = { 6:'millions', 5:'hundred-thousands', 4:'ten-thousands', 3:'thousands', 2:'hundreds', 1:'tens', 0:'units', '-1':'tenths', '-2':'hundredths', '-3':'thousandths' };
     const exponents = d === 'easy' ? [0,1,2,3,4] : d === 'hard' ? [-3,-2,-1,0,1,2,3,4,5,6] : [-2,-1,0,1,2,3,4,5];
@@ -1160,6 +1173,215 @@ const generators = {
   sequence_geometric: gen('sequence_geometric','seq_arithmetic_geometric',(r,d)=>{
     const start=integer(r,1,size(d,5,10,15)),ratio=integer(r,2,d==='hard'?5:4),values=Array.from({length:5},(_,i)=>start*ratio**i),answer=values[4];
     return {prompt:`Find the missing term: ${values[0]}, ${values[1]}, ${values[2]}, ${values[3]}, □.`,answer,distractors:[values[3]+ratio,values[3]*2,values[3]+values[2],answer+ratio],explanation:`Each term is multiplied by ${ratio}, so ${values[3]} × ${ratio} = ${answer}.`};
+  }),
+  line_graph_interpretation: gen('line_graph_interpretation','data_line_graphs',(r,d)=>{
+    const labels=['Mon','Tue','Wed','Thu','Fri'],values=Array.from({length:5},()=>integer(r,2,size(d,12,25,50))),first=integer(r,0,3),second=integer(r,first+1,4),answer=Math.abs(values[second]-values[first]);
+    return {prompt:`What is the difference between the values on ${labels[first]} and ${labels[second]}?`,answer,distractors:[values[first]+values[second],values[first],values[second],answer+1],explanation:`The values are ${values[first]} and ${values[second]}; their difference is ${answer}.`,visual:{type:'line_graph',label:'Values recorded during the week',labels,values,showValues:true}};
+  }),
+  pictogram_key_count: gen('pictogram_key_count','data_pictograms',(r,d)=>{
+    const iconValue=pick(r,d==='easy'?[2,5]:[2,4,5,10]),rows=['Apples','Pears','Plums','Oranges'].map(label=>({label,icons:integer(r,1,size(d,5,8,12))})),chosen=pick(r,rows),answer=chosen.icons*iconValue;
+    return {prompt:`How many ${chosen.label.toLowerCase()} does the pictogram represent?`,answer,distractors:[chosen.icons,chosen.icons+iconValue,answer+iconValue,answer-iconValue],explanation:`Each symbol represents ${iconValue}; ${chosen.icons} × ${iconValue} = ${answer}.`,visual:{type:'pictogram',icon:'●',iconValue,rows}};
+  }),
+  pie_chart_percent_count: gen('pie_chart_percent_count','data_pie_charts',(r,d)=>{
+    const percentages=shuffle(r,[10,20,30,40]),labels=['Walking','Bus','Car','Bicycle'],total=pick(r,[50,100,150,200]),index=integer(r,0,3),answer=total*percentages[index]/100;
+    return {prompt:`The chart shows how ${total} pupils travel to school. How many travel by ${labels[index].toLowerCase()}?`,answer,distractors:[percentages[index],total-answer,answer+10,total/percentages[index]],explanation:`${percentages[index]}% of ${total} = ${answer}.`,visual:{type:'pie_chart',label:'Travel to school',total:100,segments:labels.map((label,i)=>({label,value:percentages[i]}))}};
+  }),
+  bar_chart_difference_total: gen('bar_chart_difference_total','data_bar_charts',(r,d)=>{
+    const labels=['Red','Blue','Green','Yellow'],values=Array.from({length:4},()=>integer(r,3,size(d,15,30,60))),a=integer(r,0,2),b=integer(r,a+1,3),askTotal=r()<.5,answer=askTotal?values[a]+values[b]:Math.abs(values[a]-values[b]);
+    return {prompt:`What is the ${askTotal?'total':'difference'} for ${labels[a]} and ${labels[b]}?`,answer,distractors:[values[a],values[b],askTotal?Math.abs(values[a]-values[b]):values[a]+values[b],answer+2],explanation:`The chart gives ${values[a]} and ${values[b]}; the ${askTotal?'total':'difference'} is ${answer}.`,visual:{type:'bar_chart',label:'Survey results',labels,values,showValues:true}};
+  }),
+  chart_statement_must_be_true: gen('chart_statement_must_be_true','data_bar_charts',(r,d)=>{
+    const labels=['North','South','East','West'],unit=integer(r,2,size(d,5,10,18)),values=shuffle(r,[1,2,3,4].map(value=>value*unit)),maxIndex=values.indexOf(Math.max(...values)),answer=`${labels[maxIndex]} has the greatest value`;
+    return {prompt:'Which statement must be true from the chart?',answer,distractors:[`${labels[(maxIndex+1)%4]} has the greatest value`,'All four values are equal',`${labels[maxIndex]} has the smallest value`,'The first two bars have the same value'],explanation:`The tallest bar is ${labels[maxIndex]}, with value ${values[maxIndex]}.`,visual:{type:'bar_chart',label:'Regional totals',labels,values,showValues:true}};
+  }),
+  percentage_table_counts: gen('percentage_table_counts','data_tables',(r,d)=>{
+    const yes=integer(r,2,size(d,8,15,30))*5,no=integer(r,1,size(d,8,15,30))*5,total=yes+no,answer=clean(yes/total*100);
+    return {prompt:'What percentage of the responses are “Yes”?',answer,distractors:[yes,total-yes,clean(no/total*100),answer+5],formatter:value=>`${display(value)}%`,explanation:`${yes} out of ${total} is ${display(answer)}%.`,visual:{type:'table',headers:['Response','Count'],rows:[['Yes',yes],['No',no],['Total',total]]}};
+  }),
+  table_lookup_difference: gen('table_lookup_difference','data_tables',(r,d)=>{
+    const labels=['Monday','Tuesday','Wednesday','Thursday'],values=labels.map(()=>integer(r,10,size(d,40,80,150))),a=integer(r,0,2),b=integer(r,a+1,3),answer=Math.abs(values[a]-values[b]);
+    return {prompt:`What is the difference between ${labels[a]} and ${labels[b]}?`,answer,distractors:[values[a]+values[b],values[a],values[b],answer+5],explanation:`|${values[a]} − ${values[b]}| = ${answer}.`,visual:{type:'table',headers:['Day','Visitors'],rows:labels.map((label,i)=>[label,values[i]])}};
+  }),
+  unit_rate_best_value: gen('unit_rate_best_value','prop_unit_rate',(r,d)=>{
+    const labels=['Pack A','Pack B','Pack C','Pack D'],sizes=[4,6,8,10],unitCosts=shuffle(r,[.45,.5,.55,.65]),prices=sizes.map((size,i)=>clean(size*unitCosts[i])),best=unitCosts.indexOf(Math.min(...unitCosts)),answer=labels[best];
+    return {prompt:'Which pack has the lowest cost per item?',answer,distractors:labels.filter(label=>label!==answer),explanation:`${answer} costs £${display(unitCosts[best])} per item, the lowest unit price.`,visual:{type:'table',headers:['Pack','Items','Price'],rows:labels.map((label,i)=>[label,sizes[i],`£${prices[i].toFixed(2)}`])}};
+  }),
+  timetable_duration: gen('timetable_duration','meas_calendar_timetable_timezone',(r,d)=>{
+    const routes=['A','B','C','D'],starts=routes.map((_,i)=>8*60+i*35+integer(r,0,10)),durations=routes.map(()=>pick(r,d==='easy'?[30,45,60]:[35,50,65,80,95])),index=integer(r,0,3),answer=durations[index],time=value=>`${String(Math.floor(value/60)).padStart(2,'0')}:${String(value%60).padStart(2,'0')}`;
+    return {prompt:`How long does journey ${routes[index]} take?`,answer,distractors:[answer+10,answer-10,starts[index]%60,durations[(index+1)%4]],formatter:value=>`${display(value)} minutes`,explanation:`From ${time(starts[index])} to ${time(starts[index]+answer)} is ${answer} minutes.`,visual:{type:'timetable',headers:['Journey','Departs','Arrives'],rows:routes.map((route,i)=>[route,time(starts[i]),time(starts[i]+durations[i])])}};
+  }),
+  money_total_and_change: gen('money_total_and_change','meas_money_shopping',(r,d)=>{
+    const items=['Sandwich','Drink','Fruit','Cake'],prices=items.map(()=>integer(r,2,size(d,8,15,25))*.5),a=integer(r,0,3),b=(a+integer(r,1,3))%4,total=clean(prices[a]+prices[b]),payment=Math.ceil(total/5)*5+5,answer=clean(payment-total);
+    return {prompt:`One ${items[a].toLowerCase()} and one ${items[b].toLowerCase()} are bought. What is the change from £${payment}?`,answer,distractors:[total,payment+total,answer+.5,payment-prices[a]],formatter:value=>`£${display(value)}`,explanation:`The items cost £${display(total)}; £${payment} − £${display(total)} = £${display(answer)}.`,visual:{type:'table',headers:['Item','Price'],rows:items.map((item,i)=>[item,`£${prices[i].toFixed(2)}`])}};
+  }),
+  pack_purchase_least_cost: gen('pack_purchase_least_cost','meas_money_offers_packages',(r,d)=>{
+    const packA=integer(r,3,6),packB=packA+integer(r,3,7),sizes=[1,packA,packB],single=pick(r,[.4,.5,.6,.75]),prices=[single,clean(packA*single*pick(r,[.8,.85,.9])),clean(packB*single*pick(r,[.7,.75,.8,.85]))],needed=integer(r,packB+1,size(d,packB*2,packB*4,packB*7));let best=Infinity;
+    for(let singles=0;singles<=needed;singles++)for(let a=0;a<=Math.ceil(needed/packA);a++)for(let b=0;b<=Math.ceil(needed/packB);b++){if(singles+packA*a+packB*b>=needed)best=Math.min(best,clean(singles*prices[0]+a*prices[1]+b*prices[2]));}
+    return {prompt:`What is the least cost of buying at least ${needed} pencils?`,answer:best,distractors:[clean(needed*single),clean(best+single),clean(best+1),clean(Math.ceil(needed/packA)*prices[1])],formatter:value=>`£${display(value)}`,explanation:`Comparing valid pack combinations gives a minimum cost of £${display(best)}.`,visual:{type:'table',headers:['Pack','Price'],rows:[['Single',`£${prices[0].toFixed(2)}`],[`Pack of ${packA}`,`£${prices[1].toFixed(2)}`],[`Pack of ${packB}`,`£${prices[2].toFixed(2)}`]]}};
+  }),
+  function_machine_one_step_chain: gen('function_machine_one_step_chain','ar_inverse_operations',(r,d)=>{
+    const input=integer(r,2,size(d,12,30,60)),multiply=integer(r,2,size(d,5,8,12)),add=integer(r,1,15),answer=input*multiply+add;
+    return {prompt:'What is the output of the function machine?',answer,distractors:[(input+add)*multiply,input*multiply,answer+multiply,answer-add],explanation:`${input} × ${multiply} + ${add} = ${answer}.`,visual:{type:'function_machine',input,operations:[`× ${multiply}`,`+ ${add}`],output:'?'}};
+  }),
+  visual_arithmetic_box_equation: gen('visual_arithmetic_box_equation','ar_missing_calculation',(r,d)=>{
+    const missing=integer(r,2,size(d,15,35,70)),factor=integer(r,2,9),add=integer(r,1,15),total=missing*factor+add;
+    return {prompt:'What number belongs in the box?',answer:missing,distractors:[total-add,total/factor,missing+add,missing-1],explanation:`Undo the addition and multiplication: (${total} − ${add}) ÷ ${factor} = ${missing}.`,visual:{type:'equation',tokens:['□','×',factor,'+',add,'=',total]}};
+  }),
+  coordinates_inside_shape: gen('coordinates_inside_shape','geom_coordinates_read_plot',(r,d)=>{
+    const left=integer(r,-4,-1),bottom=integer(r,-4,-1),right=integer(r,1,4),top=integer(r,1,4),inside={label:'A',x:integer(r,left+1,right-1),y:integer(r,bottom+1,top-1),highlight:true},outside=[{label:'B',x:left-1,y:bottom},{label:'C',x:right+1,y:top},{label:'D',x:left,y:top+1},{label:'E',x:right,y:bottom-1}],answer='A';
+    return {prompt:'Which labelled point lies inside the rectangle?',answer,distractors:['B','C','D','E'],explanation:`Point A lies between x = ${left} and ${right}, and between y = ${bottom} and ${top}.`,visual:{type:'coordinate_grid',min:-5,max:5,polygon:[[left,bottom],[right,bottom],[right,top],[left,top]],points:[inside,...outside]}};
+  }),
+  coordinates_missing_rectangle: gen('coordinates_missing_rectangle','geom_coordinates_missing_vertex',(r,d)=>{
+    const x1=integer(r,-4,0),x2=integer(r,1,5),y1=integer(r,-4,0),y2=integer(r,1,5),answer=`(${x2}, ${y2})`;
+    return {prompt:'Three vertices of an axis-aligned rectangle are shown. What are the coordinates of the missing fourth vertex?',answer,distractors:[`(${x1}, ${y1})`,`(${x1}, ${y2})`,`(${x2}, ${y1})`,`(${y2}, ${x2})`],explanation:`The missing point combines the right-hand x-coordinate ${x2} with the upper y-coordinate ${y2}.`,visual:{type:'coordinate_grid',min:-5,max:5,points:[{x:x1,y:y1,label:'A'},{x:x2,y:y1,label:'B'},{x:x1,y:y2,label:'C'}]}};
+  }),
+  coordinates_read_points: gen('coordinates_read_points','geom_coordinates_read_plot',(r,d)=>{
+    const x=integer(r,-5,5),y=integer(r,-5,5),answer=`(${x}, ${y})`;
+    return {prompt:'What are the coordinates of point P?',answer,distractors:[`(${y}, ${x})`,`(${-x}, ${y})`,`(${x}, ${-y})`,`(${-x}, ${-y})`],explanation:`Read x first, then y: P = ${answer}.`,visual:{type:'coordinate_grid',min:-5,max:5,points:[{x,y,label:'P',highlight:true}]}};
+  }),
+  coordinate_reflection: gen('coordinate_reflection','geom_coordinate_transformations',(r,d)=>{
+    const x=integer(r,1,5),y=integer(r,-5,5),axis=r()<.5?'y':'x',answer=axis==='y'?`(${-x}, ${y})`:`(${x}, ${-y})`;
+    return {prompt:`Point P is reflected in the ${axis}-axis. What are its new coordinates?`,answer,distractors:[`(${y}, ${x})`,`(${-x}, ${-y})`,`(${x}, ${y})`,`(${-y}, ${x})`],explanation:`Reflecting in the ${axis}-axis changes the sign of the ${axis==='y'?'x':'y'}-coordinate.`,visual:{type:'coordinate_grid',min:-5,max:5,points:[{x,y,label:'P',highlight:true}]}};
+  }),
+  coordinate_translation: gen('coordinate_translation','geom_coordinate_transformations',(r,d)=>{
+    const x=integer(r,-4,4),y=integer(r,-4,4),dx=integer(r,-3,3)||2,dy=integer(r,-3,3)||-2,answer=`(${x+dx}, ${y+dy})`;
+    return {prompt:`Point P is translated by (${dx}, ${dy}). What are its new coordinates?`,answer,distractors:[`(${x-dx}, ${y-dy})`,`(${x+dy}, ${y+dx})`,`(${x+dx}, ${y-dy})`,`(${x}, ${y})`],explanation:`Add the translation vector: (${x} + ${dx}, ${y} + ${dy}) = ${answer}.`,visual:{type:'coordinate_grid',min:-7,max:7,points:[{x,y,label:'P',highlight:true}]}};
+  }),
+  shaded_fraction_shape: gen('shaded_fraction_shape','frac_shaded_visual',(r,d)=>{
+    const rows=pick(r,[2,3,4]),cols=pick(r,[3,4,5]),total=rows*cols,shadedCount=integer(r,1,total-1),cells=shuffle(r,Array.from({length:total},(_,i)=>[Math.floor(i/cols),i%cols])).slice(0,shadedCount),answer=fractionLabel(shadedCount,total);
+    return {prompt:'What fraction of the grid is shaded? Give the fraction in its simplest form.',answer,distractors:[fractionLabel(total-shadedCount,total),`${shadedCount}/${rows+cols}`,fractionLabel(shadedCount,cols),fractionLabel(shadedCount,rows)],explanation:`${shadedCount} of ${total} equal cells are shaded, which simplifies to ${answer}.`,visual:{type:'grid',rows,cols,shaded:cells}};
+  }),
+  shade_to_make_symmetry: gen('shade_to_make_symmetry','geom_symmetry_completion',(r,d)=>{
+    const rows=6,cols=8,row=integer(r,0,5),col=integer(r,0,3),mirror=cols-1-col,answer=`Row ${row+1}, column ${mirror+1}`;
+    return {prompt:'Which cell should also be shaded to make the pattern symmetrical about the vertical centre line?',answer,distractors:[`Row ${rows-row}, column ${col+1}`,`Row ${row+1}, column ${col+2}`,`Row ${rows-row}, column ${mirror+1}`,`Row ${row+1}, column ${col+1}`],explanation:`Reflect column ${col+1} across the vertical centre to column ${mirror+1}, keeping the same row.`,visual:{type:'grid',rows,cols,shaded:[[row,col]]}};
+  }),
+  negative_temperature_change: gen('negative_temperature_change','np_negative_numbers',(r,d)=>{
+    const start=integer(r,-15,10),change=integer(r,2,size(d,8,14,20)),rises=r()<.6,answer=rises?start+change:start-change;
+    return {prompt:`The thermometer shows ${start}°C. The temperature ${rises?'rises':'falls'} by ${change}°C. What is the new temperature?`,answer,distractors:[rises?start-change:start+change,Math.abs(start)+change,answer+1,change],formatter:value=>`${display(value)}°C`,explanation:`${start} ${rises?'+':'−'} ${change} = ${answer}°C.`,visual:{type:'thermometer',min:-20,max:20,step:5,value:start}};
+  }),
+  number_line_decimal_negative: gen('number_line_decimal_negative','np_number_line',(r,d)=>{
+    const tickCount=10,step=pick(r,d==='easy'?[1,2,5]:[.1,.25,.5,1,2]),min=clean(integer(r,-10,5)*step),markerIndex=pick(r,[2,3,4,6,7,8]),answer=clean(min+markerIndex*step);
+    return {prompt:'What value is marked by the arrow?',answer,distractors:[clean(answer+step),clean(answer-step),clean(-answer),markerIndex],explanation:`Each interval is ${display(step)}, so counting from ${display(min)} gives ${display(answer)}.`,visual:{type:'number_line',min,max:clean(min+tickCount*step),step,tickCount,markerIndex,labelIndices:[0,5,10]}};
+  }),
+  venn_diagram_region: gen('venn_diagram_region','sets_venn_overlap',(r,d)=>{
+    const max=size(d,30,60,100),target=integer(r,2,max),even=target%2===0,multiple3=target%3===0,answer=even&&multiple3?'Both sets':even?'Even numbers only':multiple3?'Multiples of 3 only':'Outside both sets',candidate=filter=>pick(r,Array.from({length:max-1},(_,i)=>i+2).filter(filter));
+    return {prompt:`Where should the number ${target} be placed?`,answer,distractors:[...['Even numbers only','Multiples of 3 only','Both sets','Outside both sets'].filter(value=>value!==answer),'On the boundary of both sets'],explanation:`${target} is ${even?'':'not '}even and is ${multiple3?'':'not '}a multiple of 3.`,visual:{type:'venn',leftLabel:'Even numbers',rightLabel:'Multiples of 3',items:[{label:String(candidate(value=>value%2===0&&value%3!==0)),region:'left'},{label:String(candidate(value=>value%2!==0&&value%3===0)),region:'right'},{label:String(candidate(value=>value%6===0)),region:'overlap'},{label:String(candidate(value=>value%2!==0&&value%3!==0)),region:'outside'}]}};
+  }),
+  angle_type_identification: gen('angle_type_identification','geom_angle_types',(r,d)=>{
+    const cases=[['acute',integer(r,20,80)],['right',90],['obtuse',integer(r,100,170)],['reflex',integer(r,190,330)]],chosen=pick(r,d==='easy'?cases.slice(0,3):cases),answer=chosen[0];
+    return {prompt:'What type of angle is shown?',answer,distractors:['acute','right','obtuse','reflex','straight'].filter(value=>value!==answer).slice(0,4),explanation:`The angle is ${chosen[1]}°, so it is ${answer}.`,visual:{type:'angle',degrees:chosen[1],displayLabel:'?'}};
+  }),
+  angles_on_line_around_point: gen('angles_on_line_around_point','geom_angle_facts',(r,d)=>{
+    const given=integer(r,20,160),answer=180-given;
+    return {prompt:`One angle on a straight line is ${given}°. What is the adjacent angle?`,answer,distractors:[given,360-given,90-given,answer+10],formatter:value=>`${display(value)}°`,explanation:`Angles on a straight line total 180°: 180 − ${given} = ${answer}°.`,visual:{type:'angle',degrees:given,displayLabel:`${given}°`,context:'straight_line'}};
+  }),
+  isosceles_equilateral_angles: gen('isosceles_equilateral_angles','geom_special_triangle_angles',(r,d)=>{
+    const equilateral=d==='easy'&&r()<.5,base=equilateral?60:integer(r,35,75),answer=equilateral?60:180-2*base;
+    return {prompt:equilateral?'What is the missing angle in this equilateral triangle?':'The triangle is isosceles and its two base angles are equal. What is the missing top angle?',answer,distractors:[base,180-base,90-base,answer+10],formatter:value=>`${display(value)}°`,explanation:equilateral?'Every angle in an equilateral triangle is 60°.':`180 − ${base} − ${base} = ${answer}°.`,visual:{type:'shape',kind:'triangle',labels:[{x:115,y:294,text:`${base}°`},{x:415,y:294,text:`${base}°`},{x:265,y:45,text:'?'}]}};
+  }),
+  parallel_perpendicular_lines: gen('parallel_perpendicular_lines','geom_parallel_perpendicular',(r)=>{
+    const answer=r()<.5?'parallel':'perpendicular';
+    return {prompt:'What is the relationship between the two lines?',answer,distractors:['parallel','perpendicular','intersecting but not perpendicular','curved','coincident'].filter(value=>value!==answer),explanation:answer==='parallel'?'Parallel lines remain the same distance apart.':'The lines meet at a right angle, so they are perpendicular.',visual:{type:'parallel_lines',relationship:answer}};
+  }),
+  regular_polygon_angles: gen('regular_polygon_angles','geom_regular_polygon_angles',(r,d)=>{
+    const sides=pick(r,d==='easy'?[3,4,6]:[3,4,5,6,8,10]),answer=clean((sides-2)*180/sides);
+    return {prompt:`What is one interior angle of this regular ${sides}-sided polygon?`,answer,distractors:[360/sides,(sides-2)*180,180-answer,answer+10],formatter:value=>`${display(value)}°`,explanation:`The interior-angle sum is ${(sides-2)*180}°; divide by ${sides} to get ${display(answer)}°.`,visual:{type:'shape',kind:'regular_polygon',sides,labels:[{x:475,y:175,text:'regular'}]}};
+  }),
+  triangle_angle_sum: gen('triangle_angle_sum','geom_angle_facts',(r,d)=>{
+    const a=integer(r,25,80),b=integer(r,25,Math.min(100,150-a)),answer=180-a-b;
+    return {prompt:'What is the missing angle in the triangle?',answer,distractors:[180-a,180-b,a+b,answer+10],formatter:value=>`${display(value)}°`,explanation:`Angles in a triangle total 180°: 180 − ${a} − ${b} = ${answer}°.`,visual:{type:'shape',kind:'triangle',labels:[{x:115,y:294,text:`${a}°`},{x:415,y:294,text:`${b}°`},{x:265,y:45,text:'?'}]}};
+  }),
+  area_rectangle_triangle_parallelogram: gen('area_rectangle_triangle_parallelogram','geom_area_basic',(r,d)=>{
+    const kind=pick(r,d==='easy'?['rectangle','right_triangle']:['rectangle','right_triangle','parallelogram']),base=integer(r,3,size(d,12,20,35)),height=integer(r,3,size(d,12,20,30)),answer=kind==='right_triangle'?base*height/2:base*height;
+    return {prompt:`Find the area of the ${kind.replace('_',' ')}.`,answer,distractors:[base+height,2*(base+height),base*height,answer+base],formatter:value=>`${display(value)} cm²`,explanation:`Area = ${kind==='right_triangle'?'½ × ':''}${base} × ${height} = ${display(answer)} cm².`,visual:{type:'shape',kind:kind==='right_triangle'?'right_triangle':kind,labels:[{x:275,y:315,text:`${base} cm`},{x:78,y:180,text:`${height} cm`}]}};
+  }),
+  area_scaling_length_changes: gen('area_scaling_length_changes','geom_area_scaling',(r,d)=>{
+    const length=integer(r,3,12),width=integer(r,2,10),factor=pick(r,d==='easy'?[2,3]:[1.5,2,2.5,3]),answer=clean(length*width*factor*factor);
+    return {prompt:`The rectangle is enlarged by scale factor ${factor}. What is its new area?`,answer,distractors:[length*width*factor,length*width+factor,answer*factor,length*width],formatter:value=>`${display(value)} cm²`,explanation:`Area scales by ${factor}²: ${length} × ${width} × ${factor}² = ${display(answer)} cm².`,visual:{type:'shape',kind:'rectangle',labels:[{x:265,y:315,text:`${length} cm`},{x:78,y:180,text:`${width} cm`}]}};
+  }),
+  circle_circumference_area_context: gen('circle_circumference_area_context','geom_circle_measure',(r,d)=>{
+    const radius=integer(r,2,size(d,7,12,20)),askArea=r()<.5,answer=askArea?clean(3.14*radius*radius):clean(2*3.14*radius);
+    return {prompt:`Using π = 3.14, find the ${askArea?'area':'circumference'} of the circle.`,answer,distractors:[3.14*radius,2*3.14*radius,3.14*radius*radius,answer+radius],formatter:value=>`${display(value)} ${askArea?'cm²':'cm'}`,explanation:`${askArea?'Area = πr²':'Circumference = 2πr'} = ${display(answer)} ${askArea?'cm²':'cm'}.`,visual:{type:'circle',radius,unit:'cm'}};
+  }),
+  perimeter_grid_composite: gen('perimeter_grid_composite','geom_perimeter_composite',(r,d)=>{
+    const limits=d==='easy'?{w:[7,12],h:[5,9],cuts:[1,2]}:d==='hard'?{w:[10,18],h:[7,13],cuts:[1,4]}:{w:[8,15],h:[6,11],cuts:[1,3]};
+    let width,height;
+    do{width=integer(r,...limits.w);height=integer(r,...limits.h);}while(width/height>2.25||height/width>1.6);
+    const corners=['top-left','top-right','bottom-right','bottom-left'],cutCount=integer(r,...limits.cuts),selected=shuffle(r,corners).slice(0,cutCount),maxCutWidth=Math.max(1,Math.floor((width-2)/2)),maxCutHeight=Math.max(1,Math.floor((height-2)/2)),cuts={};
+    selected.forEach(corner=>{cuts[corner]={width:integer(r,1,maxCutWidth),height:integer(r,1,maxCutHeight)};});
+    const tl=cuts['top-left'],tr=cuts['top-right'],br=cuts['bottom-right'],bl=cuts['bottom-left'],raw=[];
+    if(tl)raw.push([0,tl.height],[tl.width,tl.height],[tl.width,0]);else raw.push([0,0]);
+    if(tr)raw.push([width-tr.width,0],[width-tr.width,tr.height],[width,tr.height]);else raw.push([width,0]);
+    if(br)raw.push([width,height-br.height],[width-br.width,height-br.height],[width-br.width,height]);else raw.push([width,height]);
+    if(bl)raw.push([bl.width,height],[bl.width,height-bl.height],[0,height-bl.height]);else raw.push([0,height]);
+    const scale=Math.min(380/width,230/height),left=110,top=45,points=raw.map(([x,y])=>[left+x*scale,top+y*scale]),labels=[{x:left+width*scale/2,y:top+height*scale+27,text:`${width} cm`},{x:left-38,y:top+height*scale/2,text:`${height} cm`}];
+    const labelPositions={'top-left':cut=>[left+cut.width*scale/2,top+cut.height*scale/2],'top-right':cut=>[left+(width-cut.width/2)*scale,top+cut.height*scale/2],'bottom-right':cut=>[left+(width-cut.width/2)*scale,top+(height-cut.height/2)*scale],'bottom-left':cut=>[left+cut.width*scale/2,top+(height-cut.height/2)*scale]};
+    selected.forEach(corner=>{const cut=cuts[corner],[x,y]=labelPositions[corner](cut);labels.push({x,y,text:`${cut.width} × ${cut.height}`});});
+    const answer=2*(width+height),removedArea=selected.reduce((total,corner)=>total+cuts[corner].width*cuts[corner].height,0);
+    return {prompt:`Find the perimeter of this shape. ${cutCount} rectangular corner${cutCount===1?' has':'s have'} been cut out.`,answer,distractors:[width*height-removedArea,width+height,answer-removedArea,answer+selected.reduce((total,corner)=>total+cuts[corner].width+cuts[corner].height,0)],formatter:value=>`${display(value)} cm`,explanation:`Each cut-out replaces two outside lengths with equal inside lengths. The perimeter is therefore 2 × (${width} + ${height}) = ${answer} cm.`,visual:{type:'shape',kind:'composite',points,labels}};
+  }),
+  shape_edges_faces_vertices: gen('shape_edges_faces_vertices','geom_3d_shape_properties',(r)=>{
+    const property=pick(r,['faces','edges','vertices']),answers={faces:6,edges:12,vertices:8},answer=answers[property];
+    return {prompt:`How many ${property} does the cuboid have?`,answer,distractors:[4,6,8,12,answer+2].filter(value=>value!==answer).slice(0,4),explanation:`A cuboid has 6 faces, 12 edges and 8 vertices.`,visual:{type:'cuboid',label:'Cuboid'}};
+  }),
+  shape_name_2d_3d: gen('shape_name_2d_3d','geom_shape_names',(r,d)=>{
+    const shapes=[['triangle','triangle',3],['quadrilateral','rectangle',4],['pentagon','regular_polygon',5],['hexagon','regular_polygon',6]],chosen=pick(r,shapes),answer=chosen[0];
+    return {prompt:'What is the name of this shape?',answer,distractors:['triangle','quadrilateral','pentagon','hexagon','octagon'].filter(value=>value!==answer),explanation:`The shape has ${chosen[2]} sides, so it is a ${answer}.`,visual:{type:'shape',kind:chosen[1],sides:chosen[2]}};
+  }),
+  line_symmetry_letters_words: gen('line_symmetry_letters_words','geom_line_symmetry_text',(r)=>{
+    const cases=[['A',1,'vertical'],['H',2,'vertical'],['I',2,'vertical'],['M',1,'vertical'],['O',2,'vertical'],['T',1,'vertical'],['U',1,'vertical'],['V',1,'vertical'],['X',2,'vertical'],['Y',1,'vertical']],chosen=pick(r,cases),answer=chosen[1];
+    return {prompt:`How many lines of symmetry does this capital letter have in the displayed font?`,answer,distractors:[0,1,2,3,4].filter(value=>value!==answer),explanation:`The displayed ${chosen[0]} has ${answer} line${answer===1?'':'s'} of symmetry.`,visual:{type:'text_symmetry',text:chosen[0]}};
+  }),
+  line_symmetry_shapes: gen('line_symmetry_shapes','geom_line_symmetry_shapes',(r)=>{
+    const regular=sides=>({name:`regular ${sides}-sided polygon`,kind:'regular_polygon',sides,answer:sides,axes:Array.from({length:sides},(_,i)=>-90+i*180/sides),axisCentre:[265,170]});
+    const cases=[
+      ...Array.from({length:8},(_,i)=>regular(i+3)),
+      {name:'rectangle',kind:'rectangle',answer:2,axes:[0,90]},
+      {name:'rhombus',kind:'custom',points:[[265,45],[440,170],[265,295],[90,170]],answer:2,axes:[0,90]},
+      {name:'isosceles triangle',kind:'triangle',answer:1,axes:[90]},
+      {name:'kite',kind:'custom',points:[[265,35],[410,150],[265,305],[120,150]],answer:1,axes:[90]},
+      {name:'isosceles trapezium',kind:'custom',points:[[175,75],[355,75],[440,280],[90,280]],answer:1,axes:[90]},
+      {name:'scalene triangle',kind:'custom',points:[[130,275],[225,55],[455,275]],answer:0,axes:[]},
+      {name:'parallelogram',kind:'parallelogram',answer:0,axes:[]},
+      {name:'irregular trapezium',kind:'custom',points:[[105,75],[355,75],[455,280],[75,280]],answer:0,axes:[]},
+      {name:'irregular pentagon',kind:'custom',points:[[235,45],[430,115],[390,285],[155,300],[75,135]],answer:0,axes:[]},
+      {name:'arrow',kind:'custom',points:[[95,125],[300,125],[300,65],[465,170],[300,275],[300,215],[95,215]],answer:1,axes:[0]},
+      {name:'chevron',kind:'custom',points:[[85,85],[190,85],[330,170],[190,255],[85,255],[225,170]],answer:1,axes:[0]},
+      {name:'equal-armed cross',kind:'custom',points:[[210,45],[320,45],[320,115],[390,115],[390,225],[320,225],[320,295],[210,295],[210,225],[140,225],[140,115],[210,115]],answer:4,axes:[0,45,90,135]},
+    ],chosen=pick(r,cases),answer=chosen.answer;
+    return {prompt:'How many lines of symmetry does the shape have?',answer,distractors:[0,1,2,3,4,5,6,7,8,9,10].filter(value=>value!==answer).slice(0,4),explanation:`The ${chosen.name} has ${answer} line${answer===1?'':'s'} of symmetry. The dashed red line${answer===1?'':'s'} on the diagram show${answer===1?'s':''} where it can be folded onto itself.`,visual:{type:'shape',kind:chosen.kind,sides:chosen.sides,points:chosen.points,axisCentre:chosen.axisCentre,answerSymmetryAxes:chosen.axes}};
+  }),
+  rotational_symmetry_shapes: gen('rotational_symmetry_shapes','geom_rotational_symmetry',(r)=>{
+    const cases=[['rectangle',2,4],['regular_polygon',3,3],['regular_polygon',4,4],['regular_polygon',5,5],['regular_polygon',6,6]],chosen=pick(r,cases),answer=chosen[1];
+    return {prompt:'What is the order of rotational symmetry of this shape?',answer,distractors:[1,2,3,4,5,6].filter(value=>value!==answer).slice(0,4),explanation:`The shape matches itself ${answer} times during a full turn.`,visual:{type:'shape',kind:chosen[0],sides:chosen[2]}};
+  }),
+  tiling_count_area: gen('tiling_count_area','geom_tiling_count',(r,d)=>{
+    const rows=integer(r,2,size(d,5,8,12)),cols=integer(r,2,size(d,6,10,15)),answer=rows*cols;
+    return {prompt:'How many square tiles cover the rectangle?',answer,distractors:[rows+cols,2*(rows+cols),answer-rows,answer+cols],explanation:`There are ${rows} rows of ${cols}: ${rows} × ${cols} = ${answer}.`,visual:{type:'grid',rows,cols,shaded:[]}};
+  }),
+  surface_area_cuboid_prism: gen('surface_area_cuboid_prism','geom_surface_area',(r,d)=>{
+    const length=integer(r,3,size(d,8,14,20)),width=integer(r,2,size(d,7,12,18)),height=integer(r,2,size(d,6,10,15)),answer=2*(length*width+length*height+width*height);
+    return {prompt:'Find the total surface area of the cuboid.',answer,distractors:[length*width*height,length*width+length*height+width*height,2*(length+width+height),answer+length*width],formatter:value=>`${display(value)} cm²`,explanation:`2(lw + lh + wh) = ${answer} cm².`,visual:{type:'cuboid',dimensions:{length,depth:width,height}}};
+  }),
+  volume_cube_cuboid: gen('volume_cube_cuboid','geom_volume',(r,d)=>{
+    const length=integer(r,3,size(d,8,14,20)),width=integer(r,2,size(d,7,12,18)),height=integer(r,2,size(d,6,10,15)),answer=length*width*height;
+    return {prompt:'Find the volume of the cuboid.',answer,distractors:[2*(length*width+length*height+width*height),length+width+height,length*width,answer+height],formatter:value=>`${display(value)} cm³`,explanation:`Volume = length × width × height = ${length} × ${width} × ${height} = ${answer} cm³.`,visual:{type:'cuboid',dimensions:{length,depth:width,height}}};
+  }),
+  clock_angle: gen('clock_angle','meas_clock_angles',(r,d)=>{
+    const hour=integer(r,1,12),minute=pick(r,d==='easy'?[0,30]:[0,15,30,45]),minuteAngle=minute*6,hourAngle=(hour%12)*30+minute*.5,difference=Math.abs(hourAngle-minuteAngle),answer=clean(Math.min(difference,360-difference));
+    return {prompt:'What is the smaller angle between the clock hands?',answer,distractors:[difference,360-answer,Math.abs(hour*30-minute*6),answer+30],formatter:value=>`${display(value)}°`,explanation:`The hour hand is at ${display(hourAngle)}° and the minute hand at ${display(minuteAngle)}°; the smaller difference is ${display(answer)}°.`,visual:{type:'clock',hour,minute}};
+  }),
+  map_scale_real_distance: gen('map_scale_real_distance','prop_scale_maps',(r,d)=>{
+    const scale=pick(r,[2,5,10,20]),mapLength=integer(r,2,size(d,8,15,25)),answer=scale*mapLength;
+    return {prompt:`The scale is 1 cm : ${scale} km. What real distance does the drawn ${mapLength} cm route represent?`,answer,distractors:[mapLength/scale,mapLength+scale,scale,answer+mapLength],formatter:value=>`${display(value)} km`,explanation:`${mapLength} × ${scale} = ${answer} km.`,visual:{type:'shape',kind:'rectangle',labels:[{x:265,y:315,text:`Map route: ${mapLength} cm`},{x:265,y:55,text:`1 cm represents ${scale} km`}]}};
+  }),
+  scale_area: gen('scale_area','prop_scale_maps',(r,d)=>{
+    const length=integer(r,2,8),width=integer(r,2,7),factor=pick(r,[2,3,4,5]),answer=length*width*factor*factor;
+    return {prompt:`A scale drawing uses scale factor ${factor} from drawing to reality. What is the real area?`,answer,distractors:[length*width*factor,length*width+factor,answer/factor,2*(length+width)*factor],formatter:value=>`${display(value)} m²`,explanation:`Area scale factor is ${factor}², so ${length} × ${width} × ${factor}² = ${answer} m².`,visual:{type:'shape',kind:'rectangle',labels:[{x:265,y:315,text:`${length} cm`},{x:78,y:180,text:`${width} cm`},{x:265,y:55,text:`scale factor ${factor}`}]}};
+  }),
+  visual_pattern_nth: gen('visual_pattern_nth','seq_visual_patterns',(r,d)=>{
+    const start=integer(r,2,6),difference=integer(r,2,size(d,5,8,12)),counts=[start,start+difference,start+2*difference],term=integer(r,5,size(d,10,20,40)),answer=start+(term-1)*difference;
+    return {prompt:`The pattern grows by the same amount each time. How many dots are in term ${term}?`,answer,distractors:[start+term*difference,term*difference,counts[2]+difference,answer-difference],explanation:`The rule is ${start} + (term − 1) × ${difference}; term ${term} has ${answer} dots.`,visual:{type:'visual_pattern',counts}};
   }),
 };
 
