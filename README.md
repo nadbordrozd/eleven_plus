@@ -12,7 +12,7 @@ Question difficulty adapts to skill progress: easy below 25 points, medium from 
 
 Every skill card also has a **Question types** developer view. It lists the underlying archetypes and allows an implemented archetype to be practised directly.
 
-Skills carry a separate, mutually exclusive self-assessment tag: **TODO**, **I know this**, or unmarked. These can be filtered independently of practice progress, and reaching 100 points automatically marks a skill **I know this**. The prominent topic skills check asks one adjustable-difficulty question from every available skill in the selected topic and lets students curate these tags as they go.
+Skills carry a separate, mutually exclusive self-assessment tag: **TODO**, **I know this**, or unmarked. These can be filtered independently of practice progress, and reaching 100 points automatically marks a skill **I know this**. Each collapsible topic contains its own summary and adjustable-difficulty skills check, which asks one question from every available skill in that topic.
 
 Generator implementation standards are documented in `docs/GENERATOR_IMPLEMENTATION_GUIDELINES.md`.
 

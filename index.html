@@ -19,24 +19,6 @@
     </header>
 
     <main id="catalogue-view">
-      <section class="diagnostic-banner" aria-labelledby="diagnostic-heading">
-        <div>
-          <p class="eyebrow">Not sure where to start?</p>
-          <h1 id="diagnostic-heading">Take the maths skills check</h1>
-          <p>Choose a topic and try one question from each available skill. Mark what needs practice and what you already know.</p>
-        </div>
-        <div class="diagnostic-start">
-          <label for="diagnostic-topic-select">Topic</label>
-          <select id="diagnostic-topic-select"></select>
-          <label for="diagnostic-difficulty">Question difficulty</label>
-          <select id="diagnostic-difficulty">
-            <option value="hard" selected>Hard</option>
-            <option value="medium">Medium</option>
-            <option value="easy">Easy</option>
-          </select>
-          <button id="start-diagnostic-button" class="primary-button" type="button">Check this topic →</button>
-        </div>
-      </section>
       <section class="hero">
         <div>
           <p class="eyebrow">Build confidence, one skill at a time</p>
@@ -179,7 +161,22 @@
           <span class="topic-count"></span>
           <span class="chevron" aria-hidden="true">⌃</span>
         </button>
-        <div class="exercise-grid"></div>
+        <div class="topic-content">
+          <div class="topic-dashboard">
+            <div class="topic-summary" aria-label="Topic skill summary"></div>
+            <div class="topic-test-controls">
+              <label>Difficulty
+                <select class="topic-test-difficulty">
+                  <option value="hard" selected>Hard</option>
+                  <option value="medium">Medium</option>
+                  <option value="easy">Easy</option>
+                </select>
+              </label>
+              <button class="topic-test-button" type="button">Check this topic →</button>
+            </div>
+          </div>
+          <div class="exercise-grid"></div>
+        </div>
       </section>
     </template>
 

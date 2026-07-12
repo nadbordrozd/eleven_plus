@@ -43,16 +43,6 @@ button { font: inherit; }
 
 #catalogue-view, .practice-view { width: min(1160px, calc(100% - 40px)); margin: 0 auto; }
 
-.diagnostic-banner { margin-top: 34px; padding: 30px 34px; display: grid; grid-template-columns: 1fr 260px; gap: 38px; align-items: center; color: white; background: linear-gradient(125deg, #263f9f, #5a3f9f); border-radius: 22px; box-shadow: 0 14px 34px rgba(52, 67, 145, .2); }
-.diagnostic-banner .eyebrow { color: #dce4ff; }
-.diagnostic-banner h1 { margin-bottom: 10px; font-size: clamp(27px, 4vw, 38px); letter-spacing: -.03em; }
-.diagnostic-banner p:last-child { margin: 0; color: #edf0ff; line-height: 1.55; }
-.diagnostic-start { display: grid; gap: 8px; }
-.diagnostic-start label { color: #e7eaff; font-size: 12px; font-weight: 750; }
-.diagnostic-start select { width: 100%; padding: 12px; color: var(--ink); border: 0; border-radius: 10px; background: white; font: inherit; }
-.diagnostic-start .primary-button { margin-top: 4px; color: #2947b8; background: white; }
-.diagnostic-start .primary-button:hover { background: #eef2ff; }
-
 .hero { display: grid; grid-template-columns: 1fr 390px; gap: 54px; padding: 66px 0 54px; align-items: center; }
 .eyebrow { margin: 0 0 10px; color: var(--blue); font-weight: 750; font-size: 13px; letter-spacing: .08em; text-transform: uppercase; }
 h1, h2, p { margin-top: 0; }
@@ -103,7 +93,19 @@ h1, h2, p { margin-top: 0; }
 .topic-count { padding: 6px 10px; border-radius: 99px; color: var(--muted); background: #f1f4f8; font-size: 12px; font-weight: 700; }
 .chevron { color: var(--muted); transition: transform .2s; }
 .topic-header[aria-expanded="false"] .chevron { transform: rotate(180deg); }
-.topic-header[aria-expanded="false"] + .exercise-grid { display: none; }
+.topic-header[aria-expanded="false"] + .topic-content { display: none; }
+
+.topic-dashboard { margin: 0 22px 16px 82px; padding: 14px; display: flex; justify-content: space-between; gap: 18px; align-items: center; border: 1px solid var(--line); border-radius: 12px; background: #fafbfe; }
+.topic-summary { flex: 1; display: grid; grid-template-columns: repeat(6, minmax(62px, 1fr)); gap: 6px; }
+.topic-summary span { padding: 7px 4px; display: grid; gap: 2px; text-align: center; border-radius: 8px; background: white; }
+.topic-summary strong { font-size: 17px; }
+.topic-summary small { color: var(--muted); font-size: 9px; line-height: 1.15; }
+.topic-test-controls { flex: 0 0 auto; display: flex; align-items: end; gap: 8px; }
+.topic-test-controls label { display: grid; gap: 3px; color: var(--muted); font-size: 10px; font-weight: 750; }
+.topic-test-difficulty { padding: 8px 28px 8px 9px; border: 1px solid var(--line); border-radius: 8px; color: var(--ink); background: white; font: inherit; font-size: 12px; }
+.topic-test-button { padding: 9px 12px; border: 0; border-radius: 8px; color: white; background: var(--blue); font-size: 12px; font-weight: 800; cursor: pointer; }
+.topic-test-button:hover:not(:disabled) { background: var(--blue-dark); }
+.topic-test-button:disabled { opacity: .45; cursor: not-allowed; }
 
 .exercise-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; padding: 4px 22px 22px 82px; }
 .exercise-card { width: 100%; min-height: 126px; padding: 18px; position: relative; border: 1px solid var(--line); border-radius: 14px; background: var(--paper); text-align: left; }
@@ -224,13 +226,15 @@ h1, h2, p { margin-top: 0; }
   .site-header { height: 64px; padding: 0 20px; }
   #catalogue-view, .practice-view { width: min(100% - 28px, 1160px); }
   .hero { grid-template-columns: 1fr; gap: 28px; padding: 44px 0; }
-  .diagnostic-banner { grid-template-columns: 1fr; padding: 25px; }
   .catalogue-heading { display: block; }
   .catalogue-tools { margin-top: 16px; justify-items: start; }
   .legend { margin-top: 16px; }
   .topic-header { grid-template-columns: 44px 1fr 20px; padding: 16px; }
   .topic-heading small, .topic-count { display: none; }
   .exercise-grid { grid-template-columns: 1fr; padding: 2px 14px 16px; }
+  .topic-dashboard { margin: 0 14px 14px; display: grid; }
+  .topic-summary { grid-template-columns: repeat(3, 1fr); }
+  .topic-test-controls { justify-content: space-between; }
 }
 
 @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; transition: none !important; } }

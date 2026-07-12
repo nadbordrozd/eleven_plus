@@ -202,6 +202,25 @@ function renderCatalogue() {
       header.setAttribute('aria-expanded', String(header.getAttribute('aria-expanded') !== 'true'));
     });
 
+    const topicProgress = allTopicSkills.map((skill) => progressFor(skill.id));
+    const topicStarted = topicProgress.filter((item) => item.attempts > 0).length;
+    const topicInProgress = topicProgress.filter((item) => item.attempts > 0 && item.points < COMPLETION_POINTS).length;
+    const topicCompleted = topicProgress.filter((item) => item.points >= COMPLETION_POINTS).length;
+    const topicTodo = allTopicSkills.filter((skill) => skillEvaluation(skill.id) === 'todo').length;
+    const topicKnown = allTopicSkills.filter((skill) => skillEvaluation(skill.id) === 'known').length;
+    const topicSummary = section.querySelector('.topic-summary');
+    topicSummary.innerHTML = `
+      <span><strong>${topicStarted}</strong><small>Started</small></span>
+      <span><strong>${topicInProgress}</strong><small>In progress</small></span>
+      <span><strong>${topicCompleted}</strong><small>Completed</small></span>
+      <span><strong>${allTopicSkills.length-topicTodo-topicKnown}</strong><small>Not evaluated</small></span>
+      <span><strong>${topicTodo}</strong><small>TODO</small></span>
+      <span><strong>${topicKnown}</strong><small>I know this</small></span>
+    `;
+    const topicTestButton = section.querySelector('.topic-test-button'), topicDifficulty = section.querySelector('.topic-test-difficulty');
+    topicTestButton.disabled = availableCount === 0;
+    topicTestButton.addEventListener('click', () => startDiagnostic(topic.id, topicDifficulty.value));
+
     topicSkills.forEach((skill) => grid.append(createExerciseCard(skill)));
     list.append(section);
   });
@@ -481,8 +500,7 @@ function diagnosticSkills(topicId) {
     .map((skill) => ({ skill, topic }));
 }
 
-function startDiagnostic() {
-  const difficulty = document.querySelector('#diagnostic-difficulty').value, topicId = document.querySelector('#diagnostic-topic-select').value;
+function startDiagnostic(topicId, difficulty = 'hard') {
   diagnosticSession = { difficulty, topicId, items: diagnosticSkills(topicId), index: 0, results: [], answered: false, question: null };
   if (!diagnosticSession.items.length) return;
   document.querySelector('#catalogue-view').hidden = true;
@@ -1032,13 +1050,6 @@ async function initialise() {
       topicResponse.text(), skillResponse.text(), archetypeResponse.text(),
     ]).then((files) => files.map(parseYamlList));
     if (!topics.length || !skills.length || !archetypes.length) throw new Error('No exercise content was found.');
-    const topicSelect = document.querySelector('#diagnostic-topic-select');
-    topicSelect.replaceChildren(...topics.map((topic) => {
-      const option = document.createElement('option');
-      const available = diagnosticSkills(topic.id).length;
-      option.value = topic.id; option.textContent = `${topic.title} (${available} skills)`; option.disabled = available === 0;
-      return option;
-    }));
     renderCatalogue();
   } catch (error) {
     const servingHint = /content files|content was found/i.test(error.message)
@@ -1053,7 +1064,6 @@ if (typeof document !== 'undefined' && document.querySelector('#topic-list')) {
   document.querySelector('#back-button').addEventListener('click', closePractice);
   document.querySelector('#reset-all-button').addEventListener('click', resetAllProgress);
   document.querySelector('#next-button').addEventListener('click', showNextQuestion);
-  document.querySelector('#start-diagnostic-button').addEventListener('click', startDiagnostic);
   document.querySelector('#diagnostic-exit-button').addEventListener('click', () => exitDiagnostic());
   document.querySelector('#diagnostic-skip-question').addEventListener('click', skipDiagnosticQuestion);
   document.querySelector('#diagnostic-next-question').addEventListener('click', nextDiagnosticQuestion);
