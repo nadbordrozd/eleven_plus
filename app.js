@@ -92,6 +92,7 @@ function defaultState() {
     question_tally: { attempted: 0, correct: 0, wrong: 0 },
     skill_progress: {},
     todo_skills: [],
+    known_skills: [],
     completed_tests: [],
   };
 }
@@ -114,13 +115,24 @@ function todoSkillIds() {
   return state.todo_skills;
 }
 
-function isSkillTodo(skillId) { return todoSkillIds().includes(skillId); }
+function knownSkillIds() {
+  if (!Array.isArray(state.known_skills)) state.known_skills = [];
+  return state.known_skills;
+}
 
-function setSkillTodo(skillId, todo, { rerender = false } = {}) {
-  const ids = new Set(todoSkillIds());
-  if (todo) ids.add(skillId); else ids.delete(skillId);
-  state.todo_skills = [...ids];
-  saveState();
+function skillEvaluation(skillId) {
+  if (todoSkillIds().includes(skillId)) return 'todo';
+  if (knownSkillIds().includes(skillId)) return 'known';
+  return 'unmarked';
+}
+
+function setSkillEvaluation(skillId, evaluation, { rerender = false, persist = true } = {}) {
+  const todos = new Set(todoSkillIds()), known = new Set(knownSkillIds());
+  todos.delete(skillId); known.delete(skillId);
+  if (evaluation === 'todo') todos.add(skillId);
+  if (evaluation === 'known') known.add(skillId);
+  state.todo_skills = [...todos]; state.known_skills = [...known];
+  if (persist) saveState();
   if (rerender) renderCatalogue();
 }
 
@@ -140,8 +152,10 @@ function resetAllProgress() {
   if(state.question_tally.attempted===0&&Object.keys(state.skill_progress).length===0) return;
   if(!window.confirm('Reset progress for every skill? This cannot be undone.')) return;
   const todos = [...todoSkillIds()];
+  const known = [...knownSkillIds()];
   state=defaultState();
   state.todo_skills = todos;
+  state.known_skills = known;
   saveState();
   renderCatalogue();
 }
@@ -161,14 +175,19 @@ function progressFor(skillId) {
 
 function renderCatalogue() {
   const list = document.querySelector('#topic-list');
+  const expandedTopics = new Set([...list.querySelectorAll('.topic-section')]
+    .filter((section) => section.querySelector('.topic-header')?.getAttribute('aria-expanded') === 'true')
+    .map((section) => section.dataset.topicId));
   list.replaceChildren();
   topics.forEach((topic, index) => {
     const allTopicSkills = skills.filter((skill) => skill.topic_id === topic.id);
-    const topicSkills = catalogueFilter === 'todo' ? allTopicSkills.filter((skill) => isSkillTodo(skill.id)) : allTopicSkills;
+    const topicSkills = allTopicSkills.filter((skill) => catalogueFilter === 'all' || skillEvaluation(skill.id) === catalogueFilter);
     if (!topicSkills.length) return;
     const section = document.querySelector('#topic-template').content.cloneNode(true);
     const root = section.querySelector('.topic-section');
+    root.dataset.topicId = topic.id;
     const header = section.querySelector('.topic-header');
+    if (expandedTopics.has(topic.id)) header.setAttribute('aria-expanded', 'true');
     const grid = section.querySelector('.exercise-grid');
     const [color, pale] = TOPIC_STYLES[index % TOPIC_STYLES.length];
     root.style.setProperty('--topic-color', color);
@@ -200,7 +219,8 @@ function createExerciseCard(skill) {
   const progress = progressFor(skill.id);
   const card = document.createElement('article');
   card.className = `exercise-card ${available ? 'available' : 'inactive'}`;
-  if (isSkillTodo(skill.id)) card.classList.add('todo');
+  const evaluation = skillEvaluation(skill.id);
+  if (evaluation !== 'unmarked') card.classList.add(evaluation);
 
   const status = document.createElement('span');
   status.className = `status ${available ? progress.status : 'inactive'}`;
@@ -226,13 +246,17 @@ function createExerciseCard(skill) {
   }
   const actions = document.createElement('div');
   actions.className = 'card-actions';
-  const todo = document.createElement('button');
-  todo.type = 'button';
-  todo.className = `card-action todo-action${isSkillTodo(skill.id) ? ' selected' : ''}`;
-  todo.textContent = isSkillTodo(skill.id) ? '✓ TODO' : '+ TODO';
-  todo.setAttribute('aria-pressed', String(isSkillTodo(skill.id)));
-  todo.addEventListener('click', () => setSkillTodo(skill.id, !isSkillTodo(skill.id), { rerender: true }));
-  actions.append(todo);
+  const todo = document.createElement('button'), known = document.createElement('button');
+  todo.type = known.type = 'button';
+  todo.className = `card-action todo-action${evaluation === 'todo' ? ' selected' : ''}`;
+  known.className = `card-action known-action${evaluation === 'known' ? ' selected' : ''}`;
+  todo.textContent = evaluation === 'todo' ? '✓ TODO' : 'TODO';
+  known.textContent = evaluation === 'known' ? '✓ I know this' : 'I know this';
+  todo.setAttribute('aria-pressed', String(evaluation === 'todo'));
+  known.setAttribute('aria-pressed', String(evaluation === 'known'));
+  todo.addEventListener('click', () => setSkillEvaluation(skill.id, evaluation === 'todo' ? 'unmarked' : 'todo', { rerender: true }));
+  known.addEventListener('click', () => setSkillEvaluation(skill.id, evaluation === 'known' ? 'unmarked' : 'known', { rerender: true }));
+  actions.append(todo, known);
   if (available) {
     const practice = document.createElement('button');
     practice.type = 'button';
@@ -260,18 +284,27 @@ function createExerciseCard(skill) {
 }
 
 function renderSummary() {
-  const activeProgress = [...ACTIVE_SKILLS].map(progressFor);
-  const started = activeProgress.filter((item) => item.attempts > 0).length;
+  const allProgress = skills.map((skill) => progressFor(skill.id));
+  const started = allProgress.filter((item) => item.attempts > 0).length;
+  const inProgress = allProgress.filter((item) => item.attempts > 0 && item.points < COMPLETION_POINTS).length;
+  const completed = allProgress.filter((item) => item.points >= COMPLETION_POINTS).length;
+  const allIds = skills.map((skill) => skill.id), todoCount = allIds.filter((id) => skillEvaluation(id) === 'todo').length, knownCount = allIds.filter((id) => skillEvaluation(id) === 'known').length;
   const tally = state.question_tally;
   document.querySelector('#skills-started').textContent = started;
-  document.querySelector('#active-skill-count').textContent = ACTIVE_SKILLS.size;
-  document.querySelector('#overall-progress').style.width = `${started / ACTIVE_SKILLS.size * 100}%`;
+  document.querySelector('#skills-in-progress').textContent = inProgress;
+  document.querySelector('#skills-completed').textContent = completed;
+  document.querySelector('#skills-not-evaluated').textContent = skills.length - todoCount - knownCount;
+  document.querySelector('#skills-todo').textContent = todoCount;
+  document.querySelector('#skills-known').textContent = knownCount;
+  document.querySelector('#overall-progress').style.width = `${started / skills.length * 100}%`;
   document.querySelector('#header-correct').textContent = tally.correct;
   document.querySelector('#question-summary').textContent = tally.attempted
     ? `${tally.correct} of ${tally.attempted} questions correct`
     : 'No questions answered yet';
   document.querySelector('#reset-all-button').disabled=tally.attempted===0&&Object.keys(state.skill_progress).length===0;
-  document.querySelector('#todo-count').textContent = todoSkillIds().length;
+  document.querySelector('#todo-count').textContent = todoCount;
+  document.querySelector('#known-count').textContent = knownCount;
+  document.querySelector('#unmarked-count').textContent = skills.length - todoCount - knownCount;
 }
 
 function setCatalogueFilter(filter) {
@@ -393,6 +426,7 @@ function markAnswer(optionId, { skipped = false } = {}) {
   progress.last_practiced_at = new Date().toISOString();
   progress.status = progress.points >= COMPLETION_POINTS ? 'done' : 'in_progress';
   state.skill_progress[currentSkill.id] = progress;
+  if (progress.status === 'done') setSkillEvaluation(currentSkill.id, 'known', { persist: false });
   state.question_tally.attempted += 1;
   state.question_tally.correct += correct ? 1 : 0;
   state.question_tally.wrong += correct ? 0 : 1;
@@ -438,16 +472,18 @@ function updateDifficultyIndicator(difficulty) {
   indicator.setAttribute('aria-label', `Current difficulty: ${difficulty}`);
 }
 
-function diagnosticSkills() {
-  return topics.flatMap((topic) => skills
-    .filter((skill) => skill.topic_id === topic.id)
+function diagnosticSkills(topicId) {
+  const topic = topics.find((item) => item.id === topicId);
+  if (!topic) return [];
+  return skills
+    .filter((skill) => skill.topic_id === topicId)
     .filter((skill) => archetypes.some((archetype) => archetype.skill_id === skill.id && generators[archetype.id]))
-    .map((skill) => ({ skill, topic })));
+    .map((skill) => ({ skill, topic }));
 }
 
 function startDiagnostic() {
-  const difficulty = document.querySelector('#diagnostic-difficulty').value;
-  diagnosticSession = { difficulty, items: diagnosticSkills(), index: 0, results: [], answered: false, question: null };
+  const difficulty = document.querySelector('#diagnostic-difficulty').value, topicId = document.querySelector('#diagnostic-topic-select').value;
+  diagnosticSession = { difficulty, topicId, items: diagnosticSkills(topicId), index: 0, results: [], answered: false, question: null };
   if (!diagnosticSession.items.length) return;
   document.querySelector('#catalogue-view').hidden = true;
   document.querySelector('#practice-view').hidden = true;
@@ -466,8 +502,7 @@ function showDiagnosticQuestion() {
   const archetypeId = chooseArchetypeId(seed, ids);
   session.question = generators[archetypeId](seed, { difficulty: session.difficulty });
   session.answered = false;
-  const topicItems = session.items.filter((item) => item.topic.id === topic.id);
-  const topicPosition = session.items.slice(0, session.index + 1).filter((item) => item.topic.id === topic.id).length;
+  const topicItems = session.items, topicPosition = session.index + 1;
   document.querySelector('#diagnostic-topic-title').textContent = topic.title;
   document.querySelector('#diagnostic-overall-progress').textContent = `${session.index + 1} of ${session.items.length}`;
   document.querySelector('#diagnostic-progress-bar').style.width = `${session.index / session.items.length * 100}%`;
@@ -485,9 +520,7 @@ function showDiagnosticQuestion() {
     button.addEventListener('click', () => answerDiagnosticQuestion(option.id));
     options.append(button);
   });
-  const checkbox = document.querySelector('#diagnostic-todo-checkbox');
-  checkbox.checked = isSkillTodo(skill.id);
-  document.querySelector('.todo-choice').classList.toggle('selected', checkbox.checked);
+  document.querySelectorAll('input[name="diagnostic-evaluation"]').forEach((input) => { input.checked = input.value === skillEvaluation(skill.id); });
   const feedback = document.querySelector('#diagnostic-feedback');
   feedback.hidden = true; feedback.className = 'feedback';
   document.querySelector('#diagnostic-skip-question').hidden = false;
@@ -508,8 +541,10 @@ function answerDiagnosticQuestion(optionId) {
     else if (id === optionId) button.classList.add('wrong');
   });
   if (session.question.visual?.answerSymmetryAxes) renderVisual(document.querySelector('#diagnostic-question-visual'), { ...session.question.visual, symmetryAxes: session.question.visual.answerSymmetryAxes }, formatNumber);
-  const checkbox = document.querySelector('#diagnostic-todo-checkbox');
-  if (!correct) { checkbox.checked = true; setSkillTodo(skill.id, true); document.querySelector('.todo-choice').classList.add('selected'); }
+  if (!correct) {
+    setSkillEvaluation(skill.id, 'todo');
+    document.querySelector('input[name="diagnostic-evaluation"][value="todo"]').checked = true;
+  }
   const feedback = document.querySelector('#diagnostic-feedback');
   feedback.hidden = false; feedback.classList.add(correct ? 'correct' : 'wrong');
   feedback.textContent = correct ? `Correct. ${session.question.explanation}` : `Not quite. ${session.question.explanation} We have suggested adding this skill to TODO.`;
@@ -534,14 +569,11 @@ function nextDiagnosticQuestion() {
 function skipDiagnosticSection() {
   const session = diagnosticSession;
   if (!session) return;
-  const topicId = session.items[session.index]?.topic.id;
-  let next = session.index + 1;
-  while (next < session.items.length && session.items[next].topic.id === topicId) next += 1;
   const firstSkipped = session.answered ? session.index + 1 : session.index;
-  for (let index = firstSkipped; index < next; index += 1) {
+  for (let index = firstSkipped; index < session.items.length; index += 1) {
     session.results.push({ skillId: session.items[index].skill.id, correct: null, skipped: true });
   }
-  session.index = next;
+  session.index = session.items.length;
   showDiagnosticQuestion();
 }
 
@@ -555,17 +587,20 @@ function finishDiagnostic() {
   document.querySelector('#diagnostic-overall-progress').textContent = `${session.items.length} skills`;
   document.querySelector('#diagnostic-progress-bar').style.width = '100%';
   const answered = session.results.filter((result) => !result.skipped), correct = answered.filter((result) => result.correct).length, skipped = session.results.filter((result) => result.skipped).length;
-  document.querySelector('#diagnostic-result-summary').textContent = `You answered ${correct} of ${answered.length} attempted questions correctly${skipped ? ` and skipped ${skipped}` : ''}. ${todoSkillIds().length} skill${todoSkillIds().length === 1 ? ' is' : 's are'} on your TODO list.`;
+  const topicIds = new Set(session.items.map((item) => item.skill.id)), topicTodos = [...topicIds].filter((id) => skillEvaluation(id) === 'todo').length, topicKnown = [...topicIds].filter((id) => skillEvaluation(id) === 'known').length;
+  document.querySelector('#diagnostic-result-summary').textContent = `You answered ${correct} of ${answered.length} attempted questions correctly${skipped ? ` and skipped ${skipped}` : ''}. In this topic, ${topicTodos} skill${topicTodos === 1 ? ' is' : 's are'} TODO and ${topicKnown} ${topicKnown === 1 ? 'is' : 'are'} marked “I know this”.`;
 }
 
-function exitDiagnostic({ showTodos = false } = {}) {
+function exitDiagnostic({ showTopic = false } = {}) {
+  const topicId = diagnosticSession?.topicId;
   diagnosticSession = null;
   document.querySelector('#diagnostic-view').hidden = true;
   document.querySelector('#diagnostic-question-card').hidden = false;
   document.querySelector('.diagnostic-section-meta').hidden = false;
   document.querySelector('#diagnostic-complete').hidden = true;
   document.querySelector('#catalogue-view').hidden = false;
-  setCatalogueFilter(showTodos ? 'todo' : 'all');
+  setCatalogueFilter('all');
+  if (showTopic && topicId) document.querySelector(`.topic-section[data-topic-id="${topicId}"] .topic-header`)?.setAttribute('aria-expanded', 'true');
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -997,6 +1032,13 @@ async function initialise() {
       topicResponse.text(), skillResponse.text(), archetypeResponse.text(),
     ]).then((files) => files.map(parseYamlList));
     if (!topics.length || !skills.length || !archetypes.length) throw new Error('No exercise content was found.');
+    const topicSelect = document.querySelector('#diagnostic-topic-select');
+    topicSelect.replaceChildren(...topics.map((topic) => {
+      const option = document.createElement('option');
+      const available = diagnosticSkills(topic.id).length;
+      option.value = topic.id; option.textContent = `${topic.title} (${available} skills)`; option.disabled = available === 0;
+      return option;
+    }));
     renderCatalogue();
   } catch (error) {
     const servingHint = /content files|content was found/i.test(error.message)
@@ -1016,13 +1058,12 @@ if (typeof document !== 'undefined' && document.querySelector('#topic-list')) {
   document.querySelector('#diagnostic-skip-question').addEventListener('click', skipDiagnosticQuestion);
   document.querySelector('#diagnostic-next-question').addEventListener('click', nextDiagnosticQuestion);
   document.querySelector('#diagnostic-skip-section').addEventListener('click', skipDiagnosticSection);
-  document.querySelector('#diagnostic-finish-button').addEventListener('click', () => exitDiagnostic({ showTodos: true }));
-  document.querySelector('#diagnostic-todo-checkbox').addEventListener('change', (event) => {
+  document.querySelector('#diagnostic-finish-button').addEventListener('click', () => exitDiagnostic({ showTopic: true }));
+  document.querySelectorAll('input[name="diagnostic-evaluation"]').forEach((input) => input.addEventListener('change', (event) => {
     const skill = diagnosticSession?.items[diagnosticSession.index]?.skill;
     if (!skill) return;
-    setSkillTodo(skill.id, event.target.checked);
-    document.querySelector('.todo-choice').classList.toggle('selected', event.target.checked);
-  });
+    setSkillEvaluation(skill.id, event.target.value);
+  }));
   document.querySelectorAll('.skill-filter button').forEach((button) => button.addEventListener('click', () => setCatalogueFilter(button.dataset.filter)));
   document.querySelector('#close-dialog').addEventListener('click', () => document.querySelector('#archetype-dialog').close());
   document.querySelector('#archetype-dialog').addEventListener('click', (event) => {

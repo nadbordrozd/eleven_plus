@@ -23,16 +23,18 @@
         <div>
           <p class="eyebrow">Not sure where to start?</p>
           <h1 id="diagnostic-heading">Take the maths skills check</h1>
-          <p>Try one question from every available skill, organised by topic. Mark anything you want to practise later.</p>
+          <p>Choose a topic and try one question from each available skill. Mark what needs practice and what you already know.</p>
         </div>
         <div class="diagnostic-start">
+          <label for="diagnostic-topic-select">Topic</label>
+          <select id="diagnostic-topic-select"></select>
           <label for="diagnostic-difficulty">Question difficulty</label>
           <select id="diagnostic-difficulty">
             <option value="hard" selected>Hard</option>
             <option value="medium">Medium</option>
             <option value="easy">Easy</option>
           </select>
-          <button id="start-diagnostic-button" class="primary-button" type="button">Start skills check →</button>
+          <button id="start-diagnostic-button" class="primary-button" type="button">Check this topic →</button>
         </div>
       </section>
       <section class="hero">
@@ -41,9 +43,19 @@
           <h1>What would you like to practise?</h1>
           <p class="hero-copy">Choose an available exercise below. More exercises will unlock as we build them.</p>
         </div>
-        <div class="progress-panel" aria-label="Overall progress">
-          <div class="progress-number"><strong id="skills-started">0</strong><span>of <span id="active-skill-count">0</span> started</span></div>
+        <div class="progress-panel" aria-label="Overall skill summary">
+          <h2>Skill overview</h2>
+          <div class="summary-grid practice-summary">
+            <span><strong id="skills-started">0</strong><small>Started</small></span>
+            <span><strong id="skills-in-progress">0</strong><small>In progress</small></span>
+            <span><strong id="skills-completed">0</strong><small>Completed</small></span>
+          </div>
           <div class="progress-track"><span id="overall-progress"></span></div>
+          <div class="summary-grid evaluation-summary">
+            <span><strong id="skills-not-evaluated">0</strong><small>Not evaluated</small></span>
+            <span><strong id="skills-todo">0</strong><small>TODO</small></span>
+            <span><strong id="skills-known">0</strong><small>I know this</small></span>
+          </div>
           <p id="question-summary">No questions answered yet</p>
           <button id="reset-all-button" class="reset-button reset-all" type="button">Reset all progress</button>
         </div>
@@ -58,6 +70,8 @@
           <div class="skill-filter" role="group" aria-label="Filter skills">
             <button class="active" data-filter="all" type="button">All skills</button>
             <button data-filter="todo" type="button">TODO <span id="todo-count">0</span></button>
+            <button data-filter="known" type="button">I know this <span id="known-count">0</span></button>
+            <button data-filter="unmarked" type="button">Not evaluated <span id="unmarked-count">0</span></button>
           </div>
           <div class="legend" aria-label="Exercise status key">
             <span><i class="dot active"></i> Available</span>
@@ -84,14 +98,19 @@
         <div class="progress-track diagnostic-progress"><span id="diagnostic-progress-bar"></span></div>
         <div class="diagnostic-section-meta">
           <span id="diagnostic-section-progress"></span>
-          <button id="diagnostic-skip-section" class="text-button" type="button">Skip to next section →</button>
+          <button id="diagnostic-skip-section" class="text-button" type="button">Finish topic early →</button>
         </div>
         <div id="diagnostic-question-card" class="question-card">
           <p id="diagnostic-skill-name" class="question-label"></p>
           <h2 id="diagnostic-question-prompt"></h2>
           <div id="diagnostic-question-visual" class="question-visual" hidden></div>
           <div id="diagnostic-answer-options" class="answer-options"></div>
-          <label class="todo-choice"><input id="diagnostic-todo-checkbox" type="checkbox"> <span>I need to practise this skill</span></label>
+          <fieldset class="diagnostic-evaluation">
+            <legend>My assessment</legend>
+            <label><input type="radio" name="diagnostic-evaluation" value="unmarked"> Not evaluated</label>
+            <label><input type="radio" name="diagnostic-evaluation" value="todo"> I need to practise this</label>
+            <label><input type="radio" name="diagnostic-evaluation" value="known"> I know this already</label>
+          </fieldset>
           <div id="diagnostic-feedback" class="feedback" role="status" aria-live="polite" hidden></div>
           <div class="diagnostic-question-actions">
             <button id="diagnostic-skip-question" class="secondary-button" type="button">Skip question</button>
@@ -102,7 +121,7 @@
           <p class="eyebrow">Skills check complete</p>
           <h2>Now you know what to work on.</h2>
           <p id="diagnostic-result-summary"></p>
-          <button id="diagnostic-finish-button" class="primary-button" type="button">View my TODO skills →</button>
+          <button id="diagnostic-finish-button" class="primary-button" type="button">View this topic →</button>
         </div>
       </section>
     </main>
@@ -154,7 +173,7 @@
 
     <template id="topic-template">
       <section class="topic-section">
-        <button class="topic-header" type="button" aria-expanded="true">
+        <button class="topic-header" type="button" aria-expanded="false">
           <span class="topic-icon" aria-hidden="true"></span>
           <span class="topic-heading"><strong></strong><small></small></span>
           <span class="topic-count"></span>
