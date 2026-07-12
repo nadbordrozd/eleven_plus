@@ -985,23 +985,6 @@ export const coreWordProblemGeneratorIds = [
   'decimal_add_subtract_context',
 ];
 
-function validateGenerators() {
-  for (const [archetypeId, generator] of Object.entries(generators)) {
-    for (const difficulty of ['easy', 'medium', 'hard']) {
-      for (let seed = 1; seed <= 250; seed += 1) {
-        const question = generator(seed, { difficulty });
-        const texts = question.options.map((option) => option.text);
-        if (question.archetype_id !== archetypeId || question.options.length !== 5 || new Set(texts).size !== 5) {
-          throw new Error(`Generator validation failed for ${archetypeId} (${difficulty}) at seed ${seed}`);
-        }
-        if (question.options.filter((option) => option.id === question.answer).length !== 1) {
-          throw new Error(`Invalid answer key for ${archetypeId} (${difficulty}) at seed ${seed}`);
-        }
-      }
-    }
-  }
-}
-
 async function initialise() {
   try {
     const [topicResponse, skillResponse, archetypeResponse] = await Promise.all([
@@ -1014,7 +997,6 @@ async function initialise() {
       topicResponse.text(), skillResponse.text(), archetypeResponse.text(),
     ]).then((files) => files.map(parseYamlList));
     if (!topics.length || !skills.length || !archetypes.length) throw new Error('No exercise content was found.');
-    validateGenerators();
     renderCatalogue();
   } catch (error) {
     const servingHint = /content files|content was found/i.test(error.message)
@@ -1025,7 +1007,7 @@ async function initialise() {
   }
 }
 
-if (typeof document !== 'undefined') {
+if (typeof document !== 'undefined' && document.querySelector('#topic-list')) {
   document.querySelector('#back-button').addEventListener('click', closePractice);
   document.querySelector('#reset-all-button').addEventListener('click', resetAllProgress);
   document.querySelector('#next-button').addEventListener('click', showNextQuestion);

@@ -110,6 +110,13 @@ function renderShape(container,visual){
   const svg=makeSvg(visual.label||`${visual.kind} diagram`,'0 0 640 360'),cx=265,cy=170;
   let points;
   if(visual.points) points=visual.points;
+  else if(visual.dimensions){
+    const {width,height}=visual.dimensions,scale=Math.min(330/width,220/height),drawWidth=width*scale,drawHeight=height*scale,left=cx-drawWidth/2,top=cy-drawHeight/2;
+    if(visual.kind==='right_triangle')points=[[left,top],[left,top+drawHeight],[left+drawWidth,top+drawHeight]];
+    else if(visual.kind==='parallelogram'){const skew=Math.min(55,drawWidth*.2);points=[[left+skew,top],[left+drawWidth,top],[left+drawWidth-skew,top+drawHeight],[left,top+drawHeight]];}
+    else points=[[left,top],[left+drawWidth,top],[left+drawWidth,top+drawHeight],[left,top+drawHeight]];
+    svg.append(text(cx,top+drawHeight+27,`${formatDimension(width)} ${visual.dimensions.unit||'cm'}`,{'font-size':17,'font-weight':750}),text(left-25,cy,`${formatDimension(height)} ${visual.dimensions.unit||'cm'}`,{'font-size':17,'font-weight':750,'text-anchor':'end'}));
+  }
   else if(visual.kind==='rectangle') points=[[120,80],[410,80],[410,270],[120,270]];
   else if(visual.kind==='parallelogram') points=[[155,80],[430,80],[380,270],[105,270]];
   else if(visual.kind==='triangle') points=[[265,55],[90,280],[440,280]];
@@ -117,6 +124,7 @@ function renderShape(container,visual){
   else points=regularPoints(visual.sides||5,cx,cy,125);
   svg.append(svgNode('polygon',{points:points.map(point=>point.join(',')).join(' '),fill:'rgba(52,87,213,.10)',stroke:'#263758','stroke-width':4,'stroke-linejoin':'round'}));
   for(const item of visual.labels||[]) svg.append(text(item.x,item.y,item.text,{'font-size':17,'font-weight':750}));
+  if(visual.caption) svg.append(text(500,45,visual.caption,{'font-size':15,'font-weight':750}));
   if(visual.symmetryAxes){
     const xs=points.map(([x])=>x),ys=points.map(([,y])=>y),centreX=visual.axisCentre?.[0]??(Math.min(...xs)+Math.max(...xs))/2,centreY=visual.axisCentre?.[1]??(Math.min(...ys)+Math.max(...ys))/2,axisLength=165;
     for(const axis of visual.symmetryAxes){
@@ -127,10 +135,17 @@ function renderShape(container,visual){
   container.append(svg);
 }
 
+function formatDimension(value){return Number.isInteger(value)?String(value):String(Math.round(value*100)/100);}
+
 function renderParallelLines(container,visual){
-  const svg=makeSvg('Line relationship diagram','0 0 620 320');
-  if(visual.relationship==='parallel'){svg.append(line(85,100,535,75,{'stroke-width':5}),line(85,230,535,205,{'stroke-width':5}),text(310,285,'The lines continue in both directions',{'font-size':14}));}
-  else{svg.append(line(80,160,540,160,{'stroke-width':5}),line(310,35,310,285,{'stroke-width':5}),svgNode('rect',{x:310,y:132,width:28,height:28,fill:'none',stroke:'#3457d5','stroke-width':3}));}
+  const svg=makeSvg('Line relationship diagram','0 0 620 320'),cx=310,cy=160,angle=(visual.rotation||0)*Math.PI/180,ux=Math.cos(angle),uy=Math.sin(angle),vx=-uy,vy=ux,length=225;
+  if(visual.relationship==='parallel'){
+    const offset=55;for(const direction of [-1,1])svg.append(line(cx-length*ux+direction*offset*vx,cy-length*uy+direction*offset*vy,cx+length*ux+direction*offset*vx,cy+length*uy+direction*offset*vy,{'stroke-width':5}));
+    for(const direction of [-1,1]){const x=cx+direction*offset*vx,y=cy+direction*offset*vy;svg.append(svgNode('path',{d:`M ${x-10*ux-7*vx} ${y-10*uy-7*vy} L ${x} ${y} L ${x-10*ux+7*vx} ${y-10*uy+7*vy}`,fill:'none',stroke:'#3457d5','stroke-width':3}));}
+  }else{
+    svg.append(line(cx-length*ux,cy-length*uy,cx+length*ux,cy+length*uy,{'stroke-width':5}),line(cx-125*vx,cy-125*vy,cx+125*vx,cy+125*vy,{'stroke-width':5}));
+    const s=25;svg.append(svgNode('polyline',{points:`${cx+s*ux},${cy+s*uy} ${cx+s*ux+s*vx},${cy+s*uy+s*vy} ${cx+s*vx},${cy+s*vy}`,fill:'none',stroke:'#3457d5','stroke-width':3}));
+  }
   container.append(svg);
 }
 
@@ -139,9 +154,34 @@ function renderCircle(container,visual,format){
 }
 
 function renderCuboid(container,visual,format){
-  const svg=makeSvg(visual.label||'Cuboid diagram','0 0 620 380'),front=[[135,115],[420,115],[420,295],[135,295]],dx=70,dy=-55,back=front.map(([x,y])=>[x+dx,y+dy]);
+  const dimensions=visual.dimensions||{length:5,height:3,depth:2},scale=Math.min(300/dimensions.length,205/dimensions.height),frontWidth=dimensions.length*scale,frontHeight=dimensions.height*scale,left=270-frontWidth/2,top=190-frontHeight/2,front=[[left,top],[left+frontWidth,top],[left+frontWidth,top+frontHeight],[left,top+frontHeight]],dx=Math.max(38,Math.min(105,dimensions.depth*scale*.55)),dy=-dx*.7,back=front.map(([x,y])=>[x+dx,y+dy]),svg=makeSvg(visual.label||'Cuboid diagram','0 0 620 380');
   svg.append(svgNode('polygon',{points:front.map(p=>p.join(',')).join(' '),fill:'rgba(52,87,213,.08)',stroke:'#263758','stroke-width':3}),svgNode('polyline',{points:[back[0],back[1],back[2]].map(p=>p.join(',')).join(' '),fill:'none',stroke:'#263758','stroke-width':3}),line(front[0][0],front[0][1],back[0][0],back[0][1]),line(front[1][0],front[1][1],back[1][0],back[1][1]),line(front[2][0],front[2][1],back[2][0],back[2][1]));
-  if(visual.dimensions){const depth=visual.dimensions.depth??visual.dimensions.width;svg.append(text(278,325,`${format(visual.dimensions.length)} cm`,{'font-size':15}),text(105,210,`${format(visual.dimensions.height)} cm`,{'font-size':15}),text(462,83,`${format(depth)} cm`,{'font-size':15}));}container.append(svg);
+  if(visual.dimensions){const depth=visual.dimensions.depth??visual.dimensions.width;svg.append(text(left+frontWidth/2,top+frontHeight+28,`${format(visual.dimensions.length)} cm`,{'font-size':15}),text(left-22,top+frontHeight/2,`${format(visual.dimensions.height)} cm`,{'font-size':15,'text-anchor':'end'}),text(left+frontWidth+dx*.65,top+dy*.55,`${format(depth)} cm`,{'font-size':15}));}container.append(svg);
+}
+
+function renderSolid(container,visual){
+  const svg=makeSvg(visual.label||'Three-dimensional solid','0 0 620 360');
+  if(visual.kind==='triangular_prism'){
+    const front=[[75,270],[155,105],[235,270]],back=front.map(([x,y])=>[x+210,y-35]);
+    svg.append(svgNode('polygon',{points:front.map(point=>point.join(',')).join(' '),fill:'rgba(52,87,213,.10)',stroke:'#263758','stroke-width':3}),svgNode('polyline',{points:back.map(point=>point.join(',')).join(' ')+' '+back[0].join(','),fill:'rgba(52,87,213,.04)',stroke:'#263758','stroke-width':3}));
+    front.forEach(([x,y],index)=>svg.append(line(x,y,back[index][0],back[index][1])));
+  }else if(visual.kind==='square_pyramid'){
+    const apex=[300,45],base=[[125,245],[335,295],[485,215],[275,170]];
+    svg.append(svgNode('polygon',{points:base.map(point=>point.join(',')).join(' '),fill:'rgba(52,87,213,.08)',stroke:'#263758','stroke-width':3}));
+    base.forEach(([x,y])=>svg.append(line(apex[0],apex[1],x,y)));
+  }else if(visual.kind==='triangular_pyramid'){
+    const apex=[300,45],base=[[125,265],[455,265],[325,175]];
+    svg.append(svgNode('polygon',{points:base.map(point=>point.join(',')).join(' '),fill:'rgba(52,87,213,.08)',stroke:'#263758','stroke-width':3}));
+    base.forEach(([x,y])=>svg.append(line(apex[0],apex[1],x,y)));
+  }
+  container.append(svg);
+}
+
+function renderScaleRoute(container,visual,format){
+  const svg=makeSvg('A route drawn to scale','0 0 620 310'),points=visual.points||[[80,220],[210,90],[360,190],[530,70]];
+  svg.append(svgNode('polyline',{points:points.map(point=>point.join(',')).join(' '),fill:'none',stroke:'#3457d5','stroke-width':8,'stroke-linecap':'round','stroke-linejoin':'round'}));
+  points.forEach(([x,y],index)=>svg.append(svgNode('circle',{cx:x,cy:y,r:index===0||index===points.length-1?9:5,fill:index===0?'#168461':index===points.length-1?'#bd3b47':'#3457d5'})));
+  svg.append(text(80,265,'Start',{'font-size':14,'font-weight':750}),text(530,265,'Finish',{'font-size':14,'font-weight':750}),text(310,292,`Route length on map: ${format(visual.mapLength)} cm`,{'font-size':16,'font-weight':750}),text(310,28,`Scale: 1 cm represents ${format(visual.scale)} km`,{'font-size':15}));container.append(svg);
 }
 
 function renderClock(container,visual){
@@ -156,7 +196,7 @@ function renderTextSymmetry(container,visual){
 
 function renderVisualPattern(container,visual){
   const svg=makeSvg('First terms of a growing visual pattern','0 0 720 300'),starts=[65,270,500];
-  visual.counts.slice(0,3).forEach((count,index)=>{const cols=Math.ceil(Math.sqrt(count));for(let item=0;item<count;item++){const row=Math.floor(item/cols),col=item%cols;svg.append(svgNode('circle',{cx:starts[index]+col*24,cy:75+row*24,r:7,fill:'#3457d5'}));}svg.append(text(starts[index]+45,250,`Term ${index+1}: ${count}`,{'font-size':15,'font-weight':700}));});container.append(svg);
+  visual.counts.slice(0,3).forEach((count,index)=>{const cols=visual.layout==='row'?Math.min(count,8):visual.layout==='columns'?Math.ceil(count/3):Math.ceil(Math.sqrt(count));for(let item=0;item<count;item++){const row=Math.floor(item/cols),col=item%cols,x=starts[index]+col*22,y=65+row*22;if(visual.motif==='square')svg.append(svgNode('rect',{x:x-7,y:y-7,width:14,height:14,rx:2,fill:'#3457d5'}));else if(visual.motif==='diamond')svg.append(svgNode('rect',{x:x-7,y:y-7,width:14,height:14,transform:`rotate(45 ${x} ${y})`,fill:'#8b4abb'}));else svg.append(svgNode('circle',{cx:x,cy:y,r:7,fill:'#3457d5'}));}svg.append(text(starts[index]+45,250,`Term ${index+1}: ${count}`,{'font-size':15,'font-weight':700}));});container.append(svg);
 }
 
 export function renderVisual(container,visual,formatNumber){
@@ -164,7 +204,7 @@ export function renderVisual(container,visual,formatNumber){
   if(!visual){container.hidden=true;return;}
   container.hidden=false;
   const format=value=>formatNumber(Math.round((value+Number.EPSILON)*1000)/1000);
-  const renderers={number_line:renderNumberLine,table:renderTable,timetable:renderTable,bar_chart:renderBarChart,line_graph:renderLineGraph,pictogram:renderPictogram,pie_chart:renderPieChart,coordinate_grid:renderCoordinateGrid,grid:renderGrid,function_machine:renderFunctionMachine,equation:renderEquation,thermometer:renderThermometer,venn:renderVenn,angle:renderAngle,shape:renderShape,parallel_lines:renderParallelLines,circle:renderCircle,cuboid:renderCuboid,clock:renderClock,text_symmetry:renderTextSymmetry,visual_pattern:renderVisualPattern};
+  const renderers={number_line:renderNumberLine,table:renderTable,timetable:renderTable,bar_chart:renderBarChart,line_graph:renderLineGraph,pictogram:renderPictogram,pie_chart:renderPieChart,coordinate_grid:renderCoordinateGrid,grid:renderGrid,function_machine:renderFunctionMachine,equation:renderEquation,thermometer:renderThermometer,venn:renderVenn,angle:renderAngle,shape:renderShape,parallel_lines:renderParallelLines,circle:renderCircle,cuboid:renderCuboid,solid:renderSolid,clock:renderClock,text_symmetry:renderTextSymmetry,visual_pattern:renderVisualPattern,scale_route:renderScaleRoute};
   const renderer=renderers[visual.type];
   if(!renderer){container.hidden=true;return;}
   renderer(container,visual,format);

@@ -47,21 +47,25 @@ const validateVisual=(id,difficulty,seed,visual)=>{
     if(!Number.isFinite(visual.radius)||visual.radius<=0) throw new Error(`${id} ${difficulty} seed ${seed}: malformed circle`);
   }else if(visual.type==='cuboid'){
     if(visual.dimensions&&Object.values(visual.dimensions).some(value=>!Number.isFinite(value)||value<=0)) throw new Error(`${id} ${difficulty} seed ${seed}: malformed cuboid`);
+  }else if(visual.type==='solid'){
+    if(!['triangular_prism','square_pyramid','triangular_pyramid'].includes(visual.kind)) throw new Error(`${id} ${difficulty} seed ${seed}: malformed solid`);
   }else if(visual.type==='clock'){
     if(!Number.isInteger(visual.hour)||visual.hour<1||visual.hour>12||!Number.isInteger(visual.minute)||visual.minute<0||visual.minute>=60) throw new Error(`${id} ${difficulty} seed ${seed}: malformed clock`);
   }else if(visual.type==='text_symmetry'){
     if(typeof visual.text!=='string'||!visual.text.length) throw new Error(`${id} ${difficulty} seed ${seed}: malformed symmetry text`);
   }else if(visual.type==='visual_pattern'){
     if(!Array.isArray(visual.counts)||visual.counts.length<3||visual.counts.some(value=>!Number.isInteger(value)||value<1)) throw new Error(`${id} ${difficulty} seed ${seed}: malformed visual pattern`);
+  }else if(visual.type==='scale_route'){
+    if(!Number.isFinite(visual.scale)||visual.scale<=0||!Number.isFinite(visual.mapLength)||visual.mapLength<=0||!Array.isArray(visual.points)||visual.points.length<3||visual.points.some(point=>!Array.isArray(point)||point.length!==2||point.some(value=>!Number.isFinite(value)))) throw new Error(`${id} ${difficulty} seed ${seed}: malformed scale route`);
   }else throw new Error(`${id} ${difficulty} seed ${seed}: unvalidated visual type ${visual.type}`);
 };
 const boundedVisualFamilies={
-  parallel_perpendicular_lines:2,
-  shape_edges_faces_vertices:1,
-  shape_name_2d_3d:4,
-  line_symmetry_letters_words:10,
+  parallel_perpendicular_lines:50,
+  shape_edges_faces_vertices:5,
+  shape_name_2d_3d:6,
+  line_symmetry_letters_words:20,
   line_symmetry_shapes:20,
-  rotational_symmetry_shapes:5,
+  rotational_symmetry_shapes:9,
   circle_circumference_area_context:6,
   regular_polygon_angles:3
 };

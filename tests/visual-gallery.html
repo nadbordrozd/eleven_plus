@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Visual generator gallery</title>
+  <link rel="stylesheet" href="../styles.css">
+  <style>
+    body { padding: 20px; }
+    header { margin-bottom: 18px; }
+    header h1 { margin-bottom: 6px; }
+    #gallery { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+    .sample { min-width: 0; padding: 14px; border: 1px solid #cfd7e5; border-radius: 12px; background: white; break-inside: avoid; }
+    .sample h2 { margin: 0 0 5px; overflow-wrap: anywhere; font-size: 14px; }
+    .sample .meta { margin-bottom: 8px; color: #64748b; font-size: 11px; }
+    .sample .prompt { min-height: 42px; margin-bottom: 8px; font-size: 13px; line-height: 1.35; }
+    .sample .question-visual { margin: 0; padding: 5px; }
+    .sample .question-visual svg { min-width: 0; }
+    .sample .answer { margin: 7px 0 0; color: #168461; font-size: 11px; font-weight: 700; }
+  </style>
+</head>
+<body>
+  <header><h1>Visual generator gallery</h1><p id="summary"></p></header>
+  <main id="gallery"></main>
+  <script type="module" src="visual-gallery.js"></script>
+</body>
+</html>
