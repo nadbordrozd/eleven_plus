@@ -173,6 +173,68 @@ function renderPaintedCuboid(container,visual){
   container.append(svg);
 }
 
+function renderCompositeArea(container,visual){
+  const svg=makeSvg(visual.label||'Composite area diagram','0 0 640 420'),stroke='#263758';
+  if(visual.family==='tiles'){
+    const cell=Math.min(50,300/Math.max(visual.rows,visual.cols)),left=85,top=45,shaded=new Set(visual.shaded.map(([r,c])=>`${r}:${c}`));
+    for(let r=0;r<visual.rows;r+=1)for(let c=0;c<visual.cols;c+=1)svg.append(svgNode('rect',{x:left+c*cell,y:top+r*cell,width:cell,height:cell,fill:shaded.has(`${r}:${c}`)?'#6682df':'white',stroke,'stroke-width':2}));
+    svg.append(text(left+visual.cols*cell/2,top+visual.rows*cell+34,`Each square is ${visual.cellSize} cm × ${visual.cellSize} cm`,{'font-size':17,'font-weight':700}));
+  }else{
+    const maxW=Math.max(...visual.polygons.flatMap(p=>p.points.map(([x])=>x))),maxH=Math.max(...visual.polygons.flatMap(p=>p.points.map(([,y])=>y))),scale=Math.min(390/maxW,260/maxH),left=80,top=45;
+    for(const polygon of visual.polygons)svg.append(svgNode('polygon',{points:polygon.points.map(([x,y])=>`${left+x*scale},${top+y*scale}`).join(' '),fill:polygon.cutout?'white':'rgba(102,130,223,.34)',stroke,'stroke-width':3,'stroke-linejoin':'round'}));
+    for(const label of visual.dimensionLabels||[])svg.append(text(left+label.x*scale,top+label.y*scale,label.text,{'font-size':16,'font-weight':750}));
+  }
+  container.append(svg);
+}
+
+function renderOpenBoxNet(container,visual){
+  const {baseWidth:w,baseDepth:d,wallHeight:h}=visual,svg=makeSvg('A net for an open box','0 0 650 440'),unit=Math.min(42,430/(w+2*h),300/(d+2*h)),left=(650-(w+2*h)*unit)/2,top=45;
+  for(let row=0;row<d+2*h;row+=1)for(let col=0;col<w+2*h;col+=1){const base=col>=h&&col<h+w&&row>=h&&row<h+d,topBottom=col>=h&&col<h+w&&(row<h||row>=h+d),leftRight=row>=h&&row<h+d&&(col<h||col>=h+w);if(base||topBottom||leftRight)svg.append(svgNode('rect',{x:left+col*unit,y:top+row*unit,width:unit,height:unit,fill:base?'#dbe4ff':'#eef2ff',stroke:'#526078','stroke-width':1.6}));}
+  svg.append(svgNode('rect',{x:left+h*unit,y:top+h*unit,width:w*unit,height:d*unit,fill:'none',stroke:'#263758','stroke-width':3}));
+  svg.append(text(325,top+(d+2*h)*unit+32,`Each small square has side ${visual.unitLength} cm`,{'font-size':17,'font-weight':750}),text(325,25,'The shaded rectangle is the base',{'font-size':15}));container.append(svg);
+}
+
+function renderSymmetryCompletion(container,visual){
+  const svg=makeSvg('Part of a shape and its lines of symmetry','0 0 620 390'),cx=310,cy=195,scale=120;
+  svg.append(line(75,cy,545,cy,{stroke:'#7b879c','stroke-width':2,'stroke-dasharray':'9 7'}),line(cx,25,cx,365,{stroke:'#7b879c','stroke-width':2,'stroke-dasharray':'9 7'}));
+  svg.append(svgNode('polyline',{points:visual.quadrantPath.map(([x,y])=>`${cx+x*scale},${cy-y*scale}`).join(' '),fill:'none',stroke:'#3457d5','stroke-width':6,'stroke-linecap':'round','stroke-linejoin':'round'}));
+  svg.append(text(500,44,'Reflect this part',{'font-size':15,'font-weight':700}));container.append(svg);
+}
+
+function renderPackingPuzzle(container,visual){
+  const svg=makeSvg('A rectangle and five pieces; four pieces exactly cover the rectangle','0 0 720 470'),cell=Math.min(35,230/Math.max(visual.rows,visual.cols)),left=55,top=45;
+  for(let r=0;r<visual.rows;r+=1)for(let c=0;c<visual.cols;c+=1)svg.append(svgNode('rect',{x:left+c*cell,y:top+r*cell,width:cell,height:cell,fill:'white',stroke:'#526078','stroke-width':2}));
+  svg.append(text(left+visual.cols*cell/2,top+visual.rows*cell+28,'Target rectangle',{'font-size':15,'font-weight':750}));
+  const starts=[[365,45],[520,45],[365,220],[520,220],[445,340]],pieceCell=22,colors=['#dbe4ff','#d9f1e8','#ffe6ce','#eeddf5','#ffdce0'];
+  visual.pieces.forEach((piece,index)=>{const [sx,sy]=starts[index],minR=Math.min(...piece.cells.map(([r])=>r)),minC=Math.min(...piece.cells.map(([,c])=>c));piece.cells.forEach(([r,c])=>svg.append(svgNode('rect',{x:sx+(c-minC)*pieceCell,y:sy+(r-minR)*pieceCell,width:pieceCell,height:pieceCell,fill:colors[index],stroke:'#263758','stroke-width':2})));svg.append(text(sx-18,sy+18,piece.label,{'font-size':18,'font-weight':800}));});container.append(svg);
+}
+
+function renderTessellationChoices(container,visual){
+  const svg=makeSvg('Five polygon choices','0 0 720 300'),centres=[75,215,355,495,635];
+  visual.shapes.forEach((shape,index)=>{const cx=centres[index],cy=125,points=shape.name==='rectangle'?[[cx-60,cy-38],[cx+60,cy-38],[cx+60,cy+38],[cx-60,cy+38]]:shape.name==='parallelogram'?[[cx-42,cy-43],[cx+62,cy-43],[cx+42,cy+43],[cx-62,cy+43]]:shape.name==='rhombus'?[[cx,cy-62],[cx+50,cy],[cx,cy+62],[cx-50,cy]]:regularPoints(shape.sides,cx,cy,shape.sides>7?49:58,-Math.PI/2+(index%2)*.18);svg.append(svgNode('polygon',{points:points.map(p=>p.join(',')).join(' '),fill:'rgba(102,130,223,.18)',stroke:'#263758','stroke-width':3}));svg.append(text(cx,220,shape.name,{'font-size':13,'font-weight':700}));});container.append(svg);
+}
+
+function renderCubeSurfaceNet(container,visual){
+  const svg=makeSvg('A shaded net showing the surface of a cube','0 0 650 430'),n=visual.subdivisions,cell=Math.min(26,240/(4*n)),ox=130,oy=40,faces=[[1,0],[0,1],[1,1],[2,1],[3,1],[1,2]],painted=new Set(visual.paintedCells.map(([f,r,c])=>`${f}:${r}:${c}`));
+  faces.forEach(([fx,fy],f)=>{for(let r=0;r<n;r+=1)for(let c=0;c<n;c+=1)svg.append(svgNode('rect',{x:ox+(fx*n+c)*cell,y:oy+(fy*n+r)*cell,width:cell,height:cell,fill:painted.has(`${f}:${r}:${c}`)?'#e76f7b':'white',stroke:'#526078','stroke-width':1.5}));});
+  svg.append(text(325,oy+3*n*cell+38,`Cube side length: ${visual.side} cm`,{'font-size':17,'font-weight':750}),text(325,oy+3*n*cell+65,'Red sections are painted',{'font-size':15,fill:'#9d2d3a'}));container.append(svg);
+}
+
+function renderCubeStack(container,visual){
+  const svg=makeSvg('A shape made from identical cubes','0 0 700 470'),heights=visual.heights,rows=heights.length,cols=heights[0].length,maxH=Math.max(...heights.flat()),s=Math.min(46,500/(rows+cols+1),290/(maxH+(rows+cols)*.22)),cx=350,base=370,project=(x,y,z)=>[cx+(x-y-(cols-rows)/2)*s,base-(x+y)*s*.48-z*s],cube=(x,y,z)=>{const [px,py]=project(x,y,z),top=[[px,py-s],[px+s,py-s*.52],[px,py],[px-s,py-s*.52]],left=[[px-s,py-s*.52],[px,py],[px,py+s],[px-s,py+s*.48]],right=[[px,py],[px+s,py-s*.52],[px+s,py+s*.48],[px,py+s]];svg.append(svgNode('polygon',{points:left.map(p=>p.join(',')).join(' '),fill:'#b9c9f4',stroke:'#263758','stroke-width':1.7}),svgNode('polygon',{points:right.map(p=>p.join(',')).join(' '),fill:'#91a8e8',stroke:'#263758','stroke-width':1.7}),svgNode('polygon',{points:top.map(p=>p.join(',')).join(' '),fill:'#e5ebff',stroke:'#263758','stroke-width':1.7}));};
+  const cubes=[];for(let y=rows-1;y>=0;y-=1)for(let x=0;x<cols;x+=1)for(let z=0;z<heights[y][x];z+=1)cubes.push([x,y,z]);cubes.sort((a,b)=>(b[1]-a[1])||(a[0]-b[0])||(a[2]-b[2])).forEach(c=>cube(...c));
+  svg.append(text(350,440,visual.caption,{'font-size':17,'font-weight':750}));container.append(svg);
+}
+
+function renderSpatialCuboid(container,visual){
+  const [length,depth,height]=visual.dimensions,svg=makeSvg('A labelled cube or square-based prism','0 0 680 440'),scale=Math.min(255/length,155/height,125/depth),origin=[145,340],project=([x,y,z])=>[origin[0]+x*scale+y*scale*.72,origin[1]-z*scale-y*scale*.5],vertices=[];
+  for(const x of [0,length])for(const y of [0,depth])for(const z of [0,height])vertices.push([x,y,z]);
+  const key=point=>point.join(':'),hidden=key([0,depth,0]);
+  for(let i=0;i<vertices.length;i+=1)for(let j=i+1;j<vertices.length;j+=1){const changes=vertices[i].filter((value,axis)=>value!==vertices[j][axis]).length;if(changes===1){const from=project(vertices[i]),to=project(vertices[j]),isHidden=key(vertices[i])===hidden||key(vertices[j])===hidden;svg.append(line(...from,...to,{stroke:'#263758','stroke-width':3,...(isHidden?{'stroke-dasharray':'8 7'}:{})}));}}
+  for(const point of visual.points){const [x,y]=project([point.x,point.y,point.z]),reference=point.label==='A'||point.label==='B',dx=point.x===0?-14:14,dy=point.z===0?22:-12;svg.append(svgNode('circle',{cx:x,cy:y,r:reference?7:5,fill:reference?'#bd3b47':'#263758'}),text(x+dx,y+dy,point.label,{'font-size':17,'font-weight':800,fill:reference?'#9d2d3a':'#1e293b',stroke:'white','stroke-width':5,'paint-order':'stroke'}));}
+  svg.append(text(340,414,visual.caption,{'font-size':16,'font-weight':750}));container.append(svg);
+}
+
 function renderSolid(container,visual){
   const svg=makeSvg(visual.label||'Three-dimensional solid','0 0 620 360');
   if(visual.kind==='triangular_prism'){
@@ -218,7 +280,7 @@ export function renderVisual(container,visual,formatNumber){
   if(!visual){container.hidden=true;return;}
   container.hidden=false;
   const format=value=>formatNumber(Math.round((value+Number.EPSILON)*1000)/1000);
-  const renderers={number_line:renderNumberLine,table:renderTable,timetable:renderTable,bar_chart:renderBarChart,line_graph:renderLineGraph,pictogram:renderPictogram,pie_chart:renderPieChart,coordinate_grid:renderCoordinateGrid,grid:renderGrid,function_machine:renderFunctionMachine,equation:renderEquation,thermometer:renderThermometer,venn:renderVenn,angle:renderAngle,shape:renderShape,parallel_lines:renderParallelLines,circle:renderCircle,cuboid:renderCuboid,painted_cuboid:renderPaintedCuboid,solid:renderSolid,clock:renderClock,text_symmetry:renderTextSymmetry,visual_pattern:renderVisualPattern,scale_route:renderScaleRoute};
+  const renderers={number_line:renderNumberLine,table:renderTable,timetable:renderTable,bar_chart:renderBarChart,line_graph:renderLineGraph,pictogram:renderPictogram,pie_chart:renderPieChart,coordinate_grid:renderCoordinateGrid,grid:renderGrid,function_machine:renderFunctionMachine,equation:renderEquation,thermometer:renderThermometer,venn:renderVenn,angle:renderAngle,shape:renderShape,parallel_lines:renderParallelLines,circle:renderCircle,cuboid:renderCuboid,painted_cuboid:renderPaintedCuboid,composite_area:renderCompositeArea,open_box_net:renderOpenBoxNet,symmetry_completion:renderSymmetryCompletion,packing_puzzle:renderPackingPuzzle,tessellation_choices:renderTessellationChoices,cube_surface_net:renderCubeSurfaceNet,cube_stack:renderCubeStack,spatial_cuboid:renderSpatialCuboid,solid:renderSolid,clock:renderClock,text_symmetry:renderTextSymmetry,visual_pattern:renderVisualPattern,scale_route:renderScaleRoute};
   const renderer=renderers[visual.type];
   if(!renderer){container.hidden=true;return;}
   renderer(container,visual,format);

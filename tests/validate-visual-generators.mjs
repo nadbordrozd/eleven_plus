@@ -49,6 +49,22 @@ const validateVisual=(id,difficulty,seed,visual)=>{
     if(visual.dimensions&&Object.values(visual.dimensions).some(value=>!Number.isFinite(value)||value<=0)) throw new Error(`${id} ${difficulty} seed ${seed}: malformed cuboid`);
   }else if(visual.type==='painted_cuboid'){
     if(!visual.dimensions||Object.values(visual.dimensions).some(value=>!Number.isInteger(value)||value<3)||![0,1,2,3].includes(visual.paintedFaces)) throw new Error(`${id} ${difficulty} seed ${seed}: malformed painted cuboid`);
+  }else if(visual.type==='composite_area'){
+    if(!['frame','notch','tiles'].includes(visual.family)||(visual.family==='tiles'&&(!Number.isInteger(visual.rows)||!Number.isInteger(visual.cols)||!visual.shaded?.length))||(visual.family!=='tiles'&&(!visual.polygons?.length||visual.polygons.some(p=>!p.points?.length||p.points.some(point=>point.some(value=>!Number.isFinite(value))))))) throw new Error(`${id} ${difficulty} seed ${seed}: malformed composite area`);
+  }else if(visual.type==='open_box_net'){
+    if(![visual.baseWidth,visual.baseDepth,visual.wallHeight,visual.unitLength].every(Number.isInteger)||Math.min(visual.baseWidth,visual.baseDepth,visual.wallHeight,visual.unitLength)<1) throw new Error(`${id} ${difficulty} seed ${seed}: malformed open-box net`);
+  }else if(visual.type==='symmetry_completion'){
+    if(!Array.isArray(visual.quadrantPath)||visual.quadrantPath.length<2||visual.quadrantPath.some(point=>point.length!==2||point.some(value=>!Number.isFinite(value)))) throw new Error(`${id} ${difficulty} seed ${seed}: malformed symmetry completion`);
+  }else if(visual.type==='packing_puzzle'){
+    if(!Number.isInteger(visual.rows)||!Number.isInteger(visual.cols)||visual.pieces?.length!==5||visual.pieces.some(piece=>!piece.label||!piece.cells?.length||piece.cells.some(cell=>cell.length!==2||cell.some(value=>!Number.isInteger(value))))) throw new Error(`${id} ${difficulty} seed ${seed}: malformed packing puzzle`);
+  }else if(visual.type==='tessellation_choices'){
+    if(visual.shapes?.length!==5||visual.shapes.some(shape=>!shape.name||!Number.isInteger(shape.sides)||shape.sides<3)) throw new Error(`${id} ${difficulty} seed ${seed}: malformed tessellation choices`);
+  }else if(visual.type==='cube_surface_net'){
+    if(!Number.isInteger(visual.side)||visual.side<1||!Number.isInteger(visual.subdivisions)||visual.subdivisions<2||!visual.paintedCells?.length||visual.paintedCells.some(cell=>cell.length!==3||cell.some(value=>!Number.isInteger(value)))) throw new Error(`${id} ${difficulty} seed ${seed}: malformed cube surface net`);
+  }else if(visual.type==='cube_stack'){
+    if(!Array.isArray(visual.heights)||!visual.heights.length||!visual.heights[0]?.length||visual.heights.some(row=>row.length!==visual.heights[0].length||row.some(value=>!Number.isInteger(value)||value<1))) throw new Error(`${id} ${difficulty} seed ${seed}: malformed cube stack`);
+  }else if(visual.type==='spatial_cuboid'){
+    if(!Array.isArray(visual.dimensions)||visual.dimensions.length!==3||visual.dimensions.some(value=>!Number.isFinite(value)||value<=0)||visual.points?.length!==8||visual.points.some(point=>![point.x,point.y,point.z].every(Number.isFinite)||!point.label)) throw new Error(`${id} ${difficulty} seed ${seed}: malformed spatial cuboid`);
   }else if(visual.type==='solid'){
     if(!['triangular_prism','square_pyramid','triangular_pyramid'].includes(visual.kind)) throw new Error(`${id} ${difficulty} seed ${seed}: malformed solid`);
   }else if(visual.type==='clock'){

@@ -4,7 +4,7 @@ A dependency-free prototype of the 11+ maths practice site. It loads all 116 ski
 
 The current taxonomy contains 77 skills and 118 archetypes eligible for text-only practice. All 118 are implemented. Normal sessions uniformly mix the available archetypes for a skill, while the **Question types** developer view can launch a specific implementation.
 
-Visual support covers 47 archetypes using original structured data rendered as responsive SVG or HTML: charts, tables, number lines, coordinate grids, shapes, angles, clocks, painted cuboids, measurement diagrams and similar questions. Twelve materially more complex visual archetypes are listed in [docs/DEFERRED_VISUAL_ARCHETYPES.md](docs/DEFERRED_VISUAL_ARCHETYPES.md). Private source-paper crops are reference material only and are excluded from Git.
+Visual support covers 55 archetypes using original structured data rendered as responsive SVG or HTML: charts, tables, number lines, coordinate grids, shapes, angles, clocks, painted cuboids, measurement diagrams and similar questions. The remaining non-geometry visual archetypes are listed in [docs/DEFERRED_VISUAL_ARCHETYPES.md](docs/DEFERRED_VISUAL_ARCHETYPES.md). Private source-paper crops are reference material only and are excluded from Git.
 
 Progress is stored in the browser under `eleven_plus_maths_state_v1`.
 Each correct answer adds 7 points, each wrong answer removes 10 points (with a floor of 0), and a skill is completed at 100 points.
