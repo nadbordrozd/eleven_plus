@@ -195,31 +195,43 @@ function renderCatalogue() {
     section.querySelector('.topic-icon').textContent = String(index + 1).padStart(2, '0');
     section.querySelector('.topic-heading strong').textContent = topic.title;
     section.querySelector('.topic-heading small').textContent = topic.description;
-    const availableCount = topicSkills.filter((skill) => ACTIVE_SKILLS.has(skill.id)).length;
-    section.querySelector('.topic-count').textContent = availableCount ? `${availableCount} available · ${topicSkills.length} skills` : `${topicSkills.length} skills`;
+    const availableTopicSkills = allTopicSkills.filter((skill) => ACTIVE_SKILLS.has(skill.id)), availableCount = availableTopicSkills.length;
 
     header.addEventListener('click', () => {
       header.setAttribute('aria-expanded', String(header.getAttribute('aria-expanded') !== 'true'));
     });
 
-    const topicProgress = allTopicSkills.map((skill) => progressFor(skill.id));
-    const topicStarted = topicProgress.filter((item) => item.attempts > 0).length;
-    const topicInProgress = topicProgress.filter((item) => item.attempts > 0 && item.points < COMPLETION_POINTS).length;
-    const topicCompleted = topicProgress.filter((item) => item.points >= COMPLETION_POINTS).length;
-    const topicTodo = allTopicSkills.filter((skill) => skillEvaluation(skill.id) === 'todo').length;
-    const topicKnown = allTopicSkills.filter((skill) => skillEvaluation(skill.id) === 'known').length;
-    const topicSummary = section.querySelector('.topic-summary');
-    topicSummary.innerHTML = `
-      <span><strong>${topicStarted}</strong><small>Started</small></span>
-      <span><strong>${topicInProgress}</strong><small>In progress</small></span>
-      <span><strong>${topicCompleted}</strong><small>Completed</small></span>
-      <span><strong>${allTopicSkills.length-topicTodo-topicKnown}</strong><small>Not evaluated</small></span>
-      <span><strong>${topicTodo}</strong><small>TODO</small></span>
-      <span><strong>${topicKnown}</strong><small>I know this</small></span>
-    `;
-    const topicTestButton = section.querySelector('.topic-test-button'), topicDifficulty = section.querySelector('.topic-test-difficulty');
+    const topicTodoSkills = availableTopicSkills.filter((skill) => skillEvaluation(skill.id) === 'todo'), topicTodo = topicTodoSkills.length;
+    const topicKnown = availableTopicSkills.filter((skill) => skillEvaluation(skill.id) === 'known').length, topicUnassessed = availableCount-topicTodo-topicKnown, assessed = topicTodo+topicKnown;
+    const topicCount = section.querySelector('.topic-count');
+    if (!availableCount) topicCount.textContent = 'Coming soon';
+    else if (!assessed) topicCount.textContent = `Not assessed yet · ${availableCount} skills`;
+    else if (topicTodo) topicCount.textContent = `${topicTodo} need practice · ${topicKnown} confident`;
+    else if (!topicUnassessed) topicCount.textContent = `All ${availableCount} skills confident`;
+    else topicCount.textContent = `${topicKnown} confident · ${topicUnassessed} not assessed`;
+
+    const assessmentCopy = section.querySelector('.topic-assessment-copy');
+    assessmentCopy.textContent = availableCount ? `Answer one question for each of the ${availableCount} skills. Questions automatically get harder as your skill score grows.` : 'Assessment questions are not available for this topic yet.';
+    const topicTestButton = section.querySelector('.topic-test-button');
+    topicTestButton.textContent = assessed ? 'Retake assessment →' : 'Start assessment →';
     topicTestButton.disabled = availableCount === 0;
-    topicTestButton.addEventListener('click', () => startDiagnostic(topic.id, topicDifficulty.value));
+    topicTestButton.addEventListener('click', () => startDiagnostic(topic.id));
+
+    const topicPlanTitle = section.querySelector('.topic-plan-title'), topicPlanCopy = section.querySelector('.topic-plan-copy'), topicPracticeButton = section.querySelector('.topic-practice-button');
+    if (topicTodo) {
+      topicPlanTitle.textContent = `${topicTodo} skill${topicTodo===1?'':'s'} need practice`;
+      topicPlanCopy.textContent = `${topicKnown} confident · ${topicUnassessed} not assessed. Work through the recommended skills at your own pace.`;
+      topicPracticeButton.disabled = false;
+      topicPracticeButton.addEventListener('click', () => openPractice(topicTodoSkills[0]));
+    } else if (!assessed) {
+      topicPlanTitle.textContent = 'No practice plan yet';
+      topicPlanCopy.textContent = 'Take the assessment first and we will identify the skills that need work.';
+      topicPracticeButton.disabled = true;
+    } else {
+      topicPlanTitle.textContent = topicUnassessed ? 'Nothing currently needs practice' : 'This topic looks confident';
+      topicPlanCopy.textContent = topicUnassessed ? `${topicKnown} confident · ${topicUnassessed} still not assessed.` : `All ${topicKnown} assessed skills are marked confident.`;
+      topicPracticeButton.disabled = true;
+    }
 
     topicSkills.forEach((skill) => grid.append(createExerciseCard(skill)));
     list.append(section);
@@ -227,7 +239,8 @@ function renderCatalogue() {
   if (!list.children.length) {
     const empty = document.createElement('p');
     empty.className = 'empty-filter';
-    empty.textContent = 'No skills are on your TODO list yet. Add them from any skill card or during the skills check.';
+    const labels={todo:'need practice',known:'are marked confident',unmarked:'are waiting to be assessed'};
+    empty.textContent = `No skills ${labels[catalogueFilter]||'match this filter'}.`;
     list.append(empty);
   }
   renderSummary();
@@ -269,8 +282,8 @@ function createExerciseCard(skill) {
   todo.type = known.type = 'button';
   todo.className = `card-action todo-action${evaluation === 'todo' ? ' selected' : ''}`;
   known.className = `card-action known-action${evaluation === 'known' ? ' selected' : ''}`;
-  todo.textContent = evaluation === 'todo' ? '✓ TODO' : 'TODO';
-  known.textContent = evaluation === 'known' ? '✓ I know this' : 'I know this';
+  todo.textContent = evaluation === 'todo' ? '✓ Needs practice' : 'Needs practice';
+  known.textContent = evaluation === 'known' ? '✓ Confident' : 'Confident';
   todo.setAttribute('aria-pressed', String(evaluation === 'todo'));
   known.setAttribute('aria-pressed', String(evaluation === 'known'));
   todo.addEventListener('click', () => setSkillEvaluation(skill.id, evaluation === 'todo' ? 'unmarked' : 'todo', { rerender: true }));
@@ -315,7 +328,6 @@ function renderSummary() {
   document.querySelector('#skills-not-evaluated').textContent = skills.length - todoCount - knownCount;
   document.querySelector('#skills-todo').textContent = todoCount;
   document.querySelector('#skills-known').textContent = knownCount;
-  document.querySelector('#overall-progress').style.width = `${started / skills.length * 100}%`;
   document.querySelector('#header-correct').textContent = tally.correct;
   document.querySelector('#question-summary').textContent = tally.attempted
     ? `${tally.correct} of ${tally.attempted} questions correct`
@@ -500,13 +512,12 @@ function diagnosticSkills(topicId) {
     .map((skill) => ({ skill, topic }));
 }
 
-function startDiagnostic(topicId, difficulty = 'hard') {
-  diagnosticSession = { difficulty, topicId, items: diagnosticSkills(topicId), index: 0, results: [], answered: false, question: null };
+function startDiagnostic(topicId) {
+  diagnosticSession = { topicId, items: diagnosticSkills(topicId), index: 0, results: [], answered: false, question: null };
   if (!diagnosticSession.items.length) return;
   document.querySelector('#catalogue-view').hidden = true;
   document.querySelector('#practice-view').hidden = true;
   document.querySelector('#diagnostic-view').hidden = false;
-  document.querySelector('.diagnostic-shell').dataset.difficulty = difficulty;
   showDiagnosticQuestion();
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -518,13 +529,15 @@ function showDiagnosticQuestion() {
   const ids = archetypes.filter((item) => item.skill_id === skill.id && generators[item.id]).map((item) => item.id);
   const seed = (Date.now() + session.index * 2654435761) >>> 0;
   const archetypeId = chooseArchetypeId(seed, ids);
-  session.question = generators[archetypeId](seed, { difficulty: session.difficulty });
+  const difficulty = difficultyForPoints(progressFor(skill.id).points);
+  session.question = generators[archetypeId](seed, { difficulty });
+  document.querySelector('.diagnostic-shell').dataset.difficulty = difficulty;
   session.answered = false;
   const topicItems = session.items, topicPosition = session.index + 1;
   document.querySelector('#diagnostic-topic-title').textContent = topic.title;
   document.querySelector('#diagnostic-overall-progress').textContent = `${session.index + 1} of ${session.items.length}`;
   document.querySelector('#diagnostic-progress-bar').style.width = `${session.index / session.items.length * 100}%`;
-  document.querySelector('#diagnostic-section-progress').textContent = `Question ${topicPosition} of ${topicItems.length} in this section`;
+  document.querySelector('#diagnostic-section-progress').textContent = `Question ${topicPosition} of ${topicItems.length} in this topic`;
   document.querySelector('#diagnostic-skill-name').textContent = skill.title;
   document.querySelector('#diagnostic-question-prompt').textContent = session.question.prompt;
   renderVisual(document.querySelector('#diagnostic-question-visual'), session.question.visual, formatNumber);
@@ -559,13 +572,12 @@ function answerDiagnosticQuestion(optionId) {
     else if (id === optionId) button.classList.add('wrong');
   });
   if (session.question.visual?.answerSymmetryAxes) renderVisual(document.querySelector('#diagnostic-question-visual'), { ...session.question.visual, symmetryAxes: session.question.visual.answerSymmetryAxes }, formatNumber);
-  if (!correct) {
-    setSkillEvaluation(skill.id, 'todo');
-    document.querySelector('input[name="diagnostic-evaluation"][value="todo"]').checked = true;
-  }
+  const suggestedEvaluation = correct ? 'known' : 'todo';
+  setSkillEvaluation(skill.id, suggestedEvaluation);
+  document.querySelector(`input[name="diagnostic-evaluation"][value="${suggestedEvaluation}"]`).checked = true;
   const feedback = document.querySelector('#diagnostic-feedback');
   feedback.hidden = false; feedback.classList.add(correct ? 'correct' : 'wrong');
-  feedback.textContent = correct ? `Correct. ${session.question.explanation}` : `Not quite. ${session.question.explanation} We have suggested adding this skill to TODO.`;
+  feedback.textContent = correct ? `Correct. ${session.question.explanation} We have marked this skill Confident; you can change that assessment above.` : `Not quite. ${session.question.explanation} We have marked this skill Needs practice; you can change that assessment above.`;
   document.querySelector('#diagnostic-skip-question').hidden = true;
   document.querySelector('#diagnostic-next-question').hidden = false;
 }
@@ -573,7 +585,9 @@ function answerDiagnosticQuestion(optionId) {
 function skipDiagnosticQuestion() {
   const session = diagnosticSession;
   if (!session || session.answered) return;
-  session.results.push({ skillId: session.items[session.index].skill.id, correct: null, skipped: true });
+  const skillId = session.items[session.index].skill.id;
+  session.results.push({ skillId, correct: null, skipped: true });
+  setSkillEvaluation(skillId, 'unmarked');
   session.index += 1;
   showDiagnosticQuestion();
 }
@@ -589,7 +603,9 @@ function skipDiagnosticSection() {
   if (!session) return;
   const firstSkipped = session.answered ? session.index + 1 : session.index;
   for (let index = firstSkipped; index < session.items.length; index += 1) {
-    session.results.push({ skillId: session.items[index].skill.id, correct: null, skipped: true });
+    const skillId=session.items[index].skill.id;
+    session.results.push({ skillId, correct: null, skipped: true });
+    setSkillEvaluation(skillId, 'unmarked');
   }
   session.index = session.items.length;
   showDiagnosticQuestion();
@@ -606,7 +622,7 @@ function finishDiagnostic() {
   document.querySelector('#diagnostic-progress-bar').style.width = '100%';
   const answered = session.results.filter((result) => !result.skipped), correct = answered.filter((result) => result.correct).length, skipped = session.results.filter((result) => result.skipped).length;
   const topicIds = new Set(session.items.map((item) => item.skill.id)), topicTodos = [...topicIds].filter((id) => skillEvaluation(id) === 'todo').length, topicKnown = [...topicIds].filter((id) => skillEvaluation(id) === 'known').length;
-  document.querySelector('#diagnostic-result-summary').textContent = `You answered ${correct} of ${answered.length} attempted questions correctly${skipped ? ` and skipped ${skipped}` : ''}. In this topic, ${topicTodos} skill${topicTodos === 1 ? ' is' : 's are'} TODO and ${topicKnown} ${topicKnown === 1 ? 'is' : 'are'} marked “I know this”.`;
+  document.querySelector('#diagnostic-result-summary').textContent = `You answered ${correct} of ${answered.length} attempted questions correctly${skipped ? ` and skipped ${skipped}` : ''}. In this topic, ${topicTodos} skill${topicTodos === 1 ? ' needs' : 's need'} practice and ${topicKnown} ${topicKnown === 1 ? 'is' : 'are'} marked confident.`;
 }
 
 function exitDiagnostic({ showTopic = false } = {}) {

@@ -47,6 +47,8 @@ const validateVisual=(id,difficulty,seed,visual)=>{
     if(!Number.isFinite(visual.radius)||visual.radius<=0) throw new Error(`${id} ${difficulty} seed ${seed}: malformed circle`);
   }else if(visual.type==='cuboid'){
     if(visual.dimensions&&Object.values(visual.dimensions).some(value=>!Number.isFinite(value)||value<=0)) throw new Error(`${id} ${difficulty} seed ${seed}: malformed cuboid`);
+  }else if(visual.type==='painted_cuboid'){
+    if(!visual.dimensions||Object.values(visual.dimensions).some(value=>!Number.isInteger(value)||value<3)||![0,1,2,3].includes(visual.paintedFaces)) throw new Error(`${id} ${difficulty} seed ${seed}: malformed painted cuboid`);
   }else if(visual.type==='solid'){
     if(!['triangular_prism','square_pyramid','triangular_pyramid'].includes(visual.kind)) throw new Error(`${id} ${difficulty} seed ${seed}: malformed solid`);
   }else if(visual.type==='clock'){
@@ -67,6 +69,7 @@ const boundedVisualFamilies={
   line_symmetry_shapes:20,
   rotational_symmetry_shapes:9,
   circle_circumference_area_context:6,
+  cube_painting_faces:8,
   regular_polygon_angles:3
 };
 for(const id of visualArchetypes){

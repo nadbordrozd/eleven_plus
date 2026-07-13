@@ -1371,6 +1371,28 @@ const generators = {
     let length,width,height;do{length=integer(r,3,size(d,8,14,20));width=integer(r,2,size(d,7,12,18));height=integer(r,2,size(d,6,10,15));}while(Math.max(length,width,height)/Math.min(length,width,height)>3);const answer=length*width*height;
     return {prompt:'Find the volume of the cuboid.',answer,distractors:[2*(length*width+length*height+width*height),length+width+height,length*width,answer+height],formatter:value=>`${display(value)} cm³`,explanation:`Volume = length × width × height = ${length} × ${width} × ${height} = ${answer} cm³.`,visual:{type:'cuboid',dimensions:{length,depth:width,height}}};
   }),
+  cube_painting_faces: gen('cube_painting_faces','geom_painted_cubes',(r,d)=>{
+    let length,depth,height;
+    do{length=integer(r,3,size(d,5,7,9));depth=integer(r,3,size(d,5,7,9));height=integer(r,3,size(d,5,7,9));}while(Math.max(length,depth,height)/Math.min(length,depth,height)>2||(length===depth&&depth===height&&r()<.65));
+    const paintedFaces=pick(r,[0,1,2,3]),counts={
+      3:8,
+      2:4*((length-2)+(depth-2)+(height-2)),
+      1:2*((length-2)*(depth-2)+(length-2)*(height-2)+(depth-2)*(height-2)),
+      0:(length-2)*(depth-2)*(height-2)
+    },answer=counts[paintedFaces],total=length*depth*height,templates=[
+      `A ${length} × ${depth} × ${height} block is built from identical small cubes. Every outside face of the block is painted red. How many small cubes have exactly ${paintedFaces} painted face${paintedFaces===1?'':'s'}?`,
+      `The cuboid shown is made from ${total} small cubes and is painted all over on the outside. How many small cubes end up with exactly ${paintedFaces} face${paintedFaces===1?'':'s'} painted?`,
+      `A solid cuboid of small cubes measures ${length} cubes by ${depth} cubes by ${height} cubes. Its exterior is painted. Count the small cubes with exactly ${paintedFaces} painted face${paintedFaces===1?'':'s'}.`
+    ];
+    const distractors=[counts[(paintedFaces+1)%4],counts[(paintedFaces+3)%4],total-answer,paintedFaces===2?12*(Math.max(length,depth,height)-2):answer+4,total];
+    const explanations={
+      3:'Only the 8 corner cubes have three outside faces.',
+      2:`Count the non-corner cubes on the edges: 4 × [(${length} − 2) + (${depth} − 2) + (${height} − 2)] = ${answer}.`,
+      1:`Count the inner cubes on each pair of opposite faces: 2 × [${length-2}×${depth-2} + ${length-2}×${height-2} + ${depth-2}×${height-2}] = ${answer}.`,
+      0:`The completely internal block is (${length} − 2) × (${depth} − 2) × (${height} − 2) = ${answer}.`
+    };
+    return {prompt:pick(r,templates),answer,distractors,explanation:explanations[paintedFaces],visual:{type:'painted_cuboid',dimensions:{length,depth,height},paintedFaces}};
+  }),
   clock_angle: gen('clock_angle','meas_clock_angles',(r,d)=>{
     const hour=integer(r,1,12),minute=pick(r,d==='easy'?[0,30]:[0,15,30,45]),minuteAngle=minute*6,hourAngle=(hour%12)*30+minute*.5,difference=Math.abs(hourAngle-minuteAngle),answer=clean(Math.min(difference,360-difference));
     return {prompt:'What is the smaller angle between the clock hands?',answer,distractors:[difference,360-answer,Math.abs(hour*30-minute*6),answer+30],formatter:value=>`${display(value)}°`,explanation:`The hour hand is at ${display(hourAngle)}° and the minute hand at ${display(minuteAngle)}°; the smaller difference is ${display(answer)}°.`,visual:{type:'clock',hour,minute}};

@@ -4,7 +4,7 @@ A dependency-free prototype of the 11+ maths practice site. It loads all 116 ski
 
 The current taxonomy contains 77 skills and 118 archetypes eligible for text-only practice. All 118 are implemented. Normal sessions uniformly mix the available archetypes for a skill, while the **Question types** developer view can launch a specific implementation.
 
-Visual support covers 46 straightforward archetypes using original structured data rendered as responsive SVG or HTML: charts, tables, number lines, coordinate grids, shapes, angles, clocks, measurement diagrams and similar questions. Thirteen materially more complex visual archetypes are listed in [docs/DEFERRED_VISUAL_ARCHETYPES.md](docs/DEFERRED_VISUAL_ARCHETYPES.md). Private source-paper crops are reference material only and are excluded from Git.
+Visual support covers 47 archetypes using original structured data rendered as responsive SVG or HTML: charts, tables, number lines, coordinate grids, shapes, angles, clocks, painted cuboids, measurement diagrams and similar questions. Twelve materially more complex visual archetypes are listed in [docs/DEFERRED_VISUAL_ARCHETYPES.md](docs/DEFERRED_VISUAL_ARCHETYPES.md). Private source-paper crops are reference material only and are excluded from Git.
 
 Progress is stored in the browser under `eleven_plus_maths_state_v1`.
 Each correct answer adds 7 points, each wrong answer removes 10 points (with a floor of 0), and a skill is completed at 100 points.
@@ -12,7 +12,7 @@ Question difficulty adapts to skill progress: easy below 25 points, medium from 
 
 Every skill card also has a **Question types** developer view. It lists the underlying archetypes and allows an implemented archetype to be practised directly.
 
-Skills carry a separate, mutually exclusive self-assessment tag: **TODO**, **I know this**, or unmarked. These can be filtered independently of practice progress, and reaching 100 points automatically marks a skill **I know this**. Each collapsible topic contains its own summary and adjustable-difficulty skills check, which asks one question from every available skill in that topic.
+Skills carry a separate, mutually exclusive assessment tag, displayed as **Needs practice**, **Confident**, or **Not assessed**. These can be filtered independently of practice progress, and reaching 100 points automatically marks a skill **Confident**. Each collapsible topic presents a two-step assessment-and-practice workflow. Its assessment asks one automatically levelled question from every available skill in that topic.
 
 Generator implementation standards are documented in `docs/GENERATOR_IMPLEMENTATION_GUIDELINES.md`.
 

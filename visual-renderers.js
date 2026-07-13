@@ -159,6 +159,20 @@ function renderCuboid(container,visual,format){
   if(visual.dimensions){const depth=visual.dimensions.depth??visual.dimensions.width;svg.append(text(left+frontWidth/2,top+frontHeight+28,`${format(visual.dimensions.length)} cm`,{'font-size':15}),text(left-22,top+frontHeight/2,`${format(visual.dimensions.height)} cm`,{'font-size':15,'text-anchor':'end'}),text(left+frontWidth+dx*.65,top+dy*.55,`${format(depth)} cm`,{'font-size':15}));}container.append(svg);
 }
 
+function renderPaintedCuboid(container,visual){
+  const {length:a,depth:b,height:c}=visual.dimensions,svg=makeSvg(`A ${a} by ${b} by ${c} cuboid made from small cubes, painted on the outside`,'0 0 640 430'),scale=Math.min(36,430/(a+b*.62),245/(c+b*.38)),depthVector=[b*scale*.62,-b*scale*.38],origin=[75,85-depthVector[1]],point=(i,j,k)=>[origin[0]+i*scale+j*scale*.62,origin[1]-j*scale*.38+k*scale],polygon=(points,fill)=>svgNode('polygon',{points:points.map(item=>item.join(',')).join(' '),fill,stroke:'#7e2631','stroke-width':2.5,'stroke-linejoin':'round'}),gridLine=(from,to)=>line(...from,...to,{stroke:'#8f3440','stroke-width':1.5});
+  svg.append(
+    polygon([point(0,0,0),point(a,0,0),point(a,0,c),point(0,0,c)],'#ed8792'),
+    polygon([point(0,0,0),point(a,0,0),point(a,b,0),point(0,b,0)],'#f7a8af'),
+    polygon([point(a,0,0),point(a,b,0),point(a,b,c),point(a,0,c)],'#dc6e7b')
+  );
+  for(let i=1;i<a;i+=1)svg.append(gridLine(point(i,0,0),point(i,0,c)),gridLine(point(i,0,0),point(i,b,0)));
+  for(let j=1;j<b;j+=1)svg.append(gridLine(point(0,j,0),point(a,j,0)),gridLine(point(a,j,0),point(a,j,c)));
+  for(let k=1;k<c;k+=1)svg.append(gridLine(point(0,0,k),point(a,0,k)),gridLine(point(a,0,k),point(a,b,k)));
+  svg.append(text(320,405,`${a} × ${b} × ${c} small cubes`,{'font-size':17,'font-weight':800}),text(320,425,'All six outside faces are painted',{'font-size':14,fill:'#8f3440'}));
+  container.append(svg);
+}
+
 function renderSolid(container,visual){
   const svg=makeSvg(visual.label||'Three-dimensional solid','0 0 620 360');
   if(visual.kind==='triangular_prism'){
@@ -204,7 +218,7 @@ export function renderVisual(container,visual,formatNumber){
   if(!visual){container.hidden=true;return;}
   container.hidden=false;
   const format=value=>formatNumber(Math.round((value+Number.EPSILON)*1000)/1000);
-  const renderers={number_line:renderNumberLine,table:renderTable,timetable:renderTable,bar_chart:renderBarChart,line_graph:renderLineGraph,pictogram:renderPictogram,pie_chart:renderPieChart,coordinate_grid:renderCoordinateGrid,grid:renderGrid,function_machine:renderFunctionMachine,equation:renderEquation,thermometer:renderThermometer,venn:renderVenn,angle:renderAngle,shape:renderShape,parallel_lines:renderParallelLines,circle:renderCircle,cuboid:renderCuboid,solid:renderSolid,clock:renderClock,text_symmetry:renderTextSymmetry,visual_pattern:renderVisualPattern,scale_route:renderScaleRoute};
+  const renderers={number_line:renderNumberLine,table:renderTable,timetable:renderTable,bar_chart:renderBarChart,line_graph:renderLineGraph,pictogram:renderPictogram,pie_chart:renderPieChart,coordinate_grid:renderCoordinateGrid,grid:renderGrid,function_machine:renderFunctionMachine,equation:renderEquation,thermometer:renderThermometer,venn:renderVenn,angle:renderAngle,shape:renderShape,parallel_lines:renderParallelLines,circle:renderCircle,cuboid:renderCuboid,painted_cuboid:renderPaintedCuboid,solid:renderSolid,clock:renderClock,text_symmetry:renderTextSymmetry,visual_pattern:renderVisualPattern,scale_route:renderScaleRoute};
   const renderer=renderers[visual.type];
   if(!renderer){container.hidden=true;return;}
   renderer(container,visual,format);

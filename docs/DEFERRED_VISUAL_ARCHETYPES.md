@@ -5,7 +5,6 @@ The following visual archetypes are intentionally deferred from the first struct
 | Archetype | Reason for deferral | Likely implementation |
 |---|---|---|
 | `composite_area_visual` | Needs reliable generation of non-overlapping composite/shaded regions with sufficient dimensions. | Orthogonal-polygon constraint generator and dimension-line renderer. |
-| `cube_painting_faces` | Requires unambiguous 3D cube-stack visibility and hidden-face reasoning. | Isometric cube-stack renderer with face adjacency model. |
 | `spatial_equal_distance_3d` | Depends on spatial relationships in a 3D solid. | Dedicated solid model and projected vertex/edge labelling. |
 | `net_to_open_box_volume` | Requires valid foldable nets and clear face correspondence. | Net topology generator plus fold validation. |
 | `complete_shape_from_symmetry` | Requires generating partial shapes whose completion is unique. | Grid polygon model with reflection and uniqueness checking. |

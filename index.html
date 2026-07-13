@@ -22,22 +22,14 @@
       <section class="hero">
         <div>
           <p class="eyebrow">Build confidence, one skill at a time</p>
-          <h1>What would you like to practise?</h1>
-          <p class="hero-copy">Choose an available exercise below. More exercises will unlock as we build them.</p>
+          <h1>Choose a topic to get started</h1>
+          <p class="hero-copy">Open a topic and take its short assessment. We’ll identify the skills to practise and build your learning plan.</p>
         </div>
         <div class="progress-panel" aria-label="Overall skill summary">
-          <h2>Skill overview</h2>
-          <div class="summary-grid practice-summary">
-            <span><strong id="skills-started">0</strong><small>Started</small></span>
-            <span><strong id="skills-in-progress">0</strong><small>In progress</small></span>
-            <span><strong id="skills-completed">0</strong><small>Completed</small></span>
-          </div>
-          <div class="progress-track"><span id="overall-progress"></span></div>
-          <div class="summary-grid evaluation-summary">
-            <span><strong id="skills-not-evaluated">0</strong><small>Not evaluated</small></span>
-            <span><strong id="skills-todo">0</strong><small>TODO</small></span>
-            <span><strong id="skills-known">0</strong><small>I know this</small></span>
-          </div>
+          <p class="eyebrow">Your learning plan</p>
+          <div class="plan-primary"><strong id="skills-todo">0</strong><span>skills need practice</span></div>
+          <p class="evaluation-overview"><strong id="skills-known">0</strong> confident · <strong id="skills-not-evaluated">0</strong> not assessed</p>
+          <p class="practice-overview"><strong id="skills-started">0</strong> started · <strong id="skills-in-progress">0</strong> in progress · <strong id="skills-completed">0</strong> completed</p>
           <p id="question-summary">No questions answered yet</p>
           <button id="reset-all-button" class="reset-button reset-all" type="button">Reset all progress</button>
         </div>
@@ -46,14 +38,14 @@
       <section class="catalogue-heading">
         <div>
           <p class="eyebrow">Exercise library</p>
-          <h2>Skills by topic</h2>
+          <h2>Choose a topic</h2>
         </div>
         <div class="catalogue-tools">
           <div class="skill-filter" role="group" aria-label="Filter skills">
             <button class="active" data-filter="all" type="button">All skills</button>
-            <button data-filter="todo" type="button">TODO <span id="todo-count">0</span></button>
-            <button data-filter="known" type="button">I know this <span id="known-count">0</span></button>
-            <button data-filter="unmarked" type="button">Not evaluated <span id="unmarked-count">0</span></button>
+            <button data-filter="todo" type="button">Needs practice <span id="todo-count">0</span></button>
+            <button data-filter="known" type="button">Confident <span id="known-count">0</span></button>
+            <button data-filter="unmarked" type="button">Not assessed <span id="unmarked-count">0</span></button>
           </div>
           <div class="legend" aria-label="Exercise status key">
             <span><i class="dot active"></i> Available</span>
@@ -68,11 +60,11 @@
     </main>
 
     <main id="diagnostic-view" class="practice-view" hidden>
-      <button id="diagnostic-exit-button" class="back-button" type="button">← Exit skills check</button>
+      <button id="diagnostic-exit-button" class="back-button" type="button">← Exit assessment</button>
       <section class="practice-shell diagnostic-shell" data-difficulty="hard">
         <div class="diagnostic-test-header">
           <div>
-            <p class="eyebrow">Maths skills check</p>
+            <p class="eyebrow">Topic assessment</p>
             <h1 id="diagnostic-topic-title"></h1>
           </div>
           <strong id="diagnostic-overall-progress"></strong>
@@ -89,9 +81,9 @@
           <div id="diagnostic-answer-options" class="answer-options"></div>
           <fieldset class="diagnostic-evaluation">
             <legend>My assessment</legend>
-            <label><input type="radio" name="diagnostic-evaluation" value="unmarked"> Not evaluated</label>
-            <label><input type="radio" name="diagnostic-evaluation" value="todo"> I need to practise this</label>
-            <label><input type="radio" name="diagnostic-evaluation" value="known"> I know this already</label>
+            <label><input type="radio" name="diagnostic-evaluation" value="unmarked"> Not assessed</label>
+            <label><input type="radio" name="diagnostic-evaluation" value="todo"> Needs practice</label>
+            <label><input type="radio" name="diagnostic-evaluation" value="known"> Confident</label>
           </fieldset>
           <div id="diagnostic-feedback" class="feedback" role="status" aria-live="polite" hidden></div>
           <div class="diagnostic-question-actions">
@@ -163,16 +155,17 @@
         </button>
         <div class="topic-content">
           <div class="topic-dashboard">
-            <div class="topic-summary" aria-label="Topic skill summary"></div>
-            <div class="topic-test-controls">
-              <label>Difficulty
-                <select class="topic-test-difficulty">
-                  <option value="hard" selected>Hard</option>
-                  <option value="medium">Medium</option>
-                  <option value="easy">Easy</option>
-                </select>
-              </label>
-              <button class="topic-test-button" type="button">Check this topic →</button>
+            <div class="topic-workflow-card assessment-step">
+              <p class="step-label">Step 1 · Assess</p>
+              <h3>Find out what to practise</h3>
+              <p class="topic-assessment-copy"></p>
+              <button class="topic-test-button" type="button">Start assessment →</button>
+            </div>
+            <div class="topic-workflow-card practice-step">
+              <p class="step-label">Step 2 · Practise</p>
+              <h3 class="topic-plan-title"></h3>
+              <p class="topic-plan-copy"></p>
+              <button class="topic-practice-button" type="button">Practise recommended skill →</button>
             </div>
           </div>
           <div class="exercise-grid"></div>
