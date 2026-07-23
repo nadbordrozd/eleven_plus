@@ -38,6 +38,9 @@ button { font: inherit; }
 
 .brand { display: flex; align-items: center; gap: 12px; color: var(--ink); text-decoration: none; font-weight: 750; }
 .brand-mark { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; background: var(--blue); color: white; }
+.header-actions { display: flex; align-items: center; gap: 20px; }
+.projects-link { color: var(--muted); font-size: 13px; font-weight: 700; text-decoration: none; }
+.projects-link:hover, .projects-link:focus-visible { color: var(--blue); }
 .header-score { color: var(--muted); font-size: 14px; }
 .header-score span { color: var(--ink); font-weight: 750; }
 
@@ -223,6 +226,8 @@ h1, h2, p { margin-top: 0; }
 
 @media (max-width: 760px) {
   .site-header { height: 64px; padding: 0 20px; }
+  .header-actions { gap: 12px; }
+  .projects-link { font-size: 12px; }
   #catalogue-view, .practice-view { width: min(100% - 28px, 1160px); }
   .hero { grid-template-columns: 1fr; gap: 28px; padding: 44px 0; }
   .catalogue-heading { display: block; }
