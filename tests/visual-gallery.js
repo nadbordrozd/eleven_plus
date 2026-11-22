@@ -1,5 +1,6 @@
 import { generators } from '../app.js';
 import { renderVisual } from '../visual-renderers.js';
+import { generateSafely } from '../generators/core.js';
 
 const params = new URLSearchParams(location.search);
 const difficulty = params.get('difficulty') || 'medium';
@@ -17,7 +18,7 @@ const format = (value) => Number.isFinite(value) ? value.toLocaleString('en-GB',
 
 for (const id of ids) {
   for (const seed of seeds) {
-    const question = generators[id](seed, { difficulty });
+    const question = generateSafely(generators[id], seed, { difficulty });
     const card = document.createElement('article');
     card.className = 'sample';
     card.innerHTML = `<h2>${id}</h2><div class="meta">${difficulty} · seed ${seed}</div><p class="prompt"></p><div class="question-visual"></div><p class="answer"></p>`;

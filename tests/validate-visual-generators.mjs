@@ -75,6 +75,13 @@ const validateVisual=(id,difficulty,seed,visual)=>{
     if(!Array.isArray(visual.counts)||visual.counts.length<3||visual.counts.some(value=>!Number.isInteger(value)||value<1)) throw new Error(`${id} ${difficulty} seed ${seed}: malformed visual pattern`);
   }else if(visual.type==='scale_route'){
     if(!Number.isFinite(visual.scale)||visual.scale<=0||!Number.isFinite(visual.mapLength)||visual.mapLength<=0||!Array.isArray(visual.points)||visual.points.length<3||visual.points.some(point=>!Array.isArray(point)||point.length!==2||point.some(value=>!Number.isFinite(value)))) throw new Error(`${id} ${difficulty} seed ${seed}: malformed scale route`);
+  }else if(visual.type==='dial_scale'){
+    const tick=visual.majorStep/visual.minorDivisions,ticks=visual.value/tick;
+    if(![visual.max,visual.majorStep,visual.minorDivisions,visual.value].every(Number.isFinite)||!visual.unit||visual.value<=0||visual.value>=visual.max||Math.abs(ticks-Math.round(ticks))>1e-9) throw new Error(`${id} ${difficulty} seed ${seed}: malformed dial scale`);
+  }else if(['network_diagram','logic_grid','symbol_grid','grid_paths','route_grid'].includes(visual.type)){
+    // Structure and solvability are enforced by the solvers in generators/puzzles.js.
+  }else if(['transform_panels','cube_net_panels','tile_pattern'].includes(visual.type)){
+    if(visual.panels?.length!==5||visual.panels.some((panel,index)=>panel.label!=='ABCDE'[index])) throw new Error(`${id} ${difficulty} seed ${seed}: expected five labelled panels`);
   }else throw new Error(`${id} ${difficulty} seed ${seed}: unvalidated visual type ${visual.type}`);
 };
 const boundedVisualFamilies={

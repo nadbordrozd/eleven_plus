@@ -4995,3 +4995,256 @@
     implementation_priority: v2_visual_or_placeholder
   generator_notes: Render first 3 patterns; ask nth count/difference.
   source_use: Derived pattern only; do not copy source questions into public repo.
+- id: compare_fdp_of_amounts
+  skill_id: pct_percent_of_amount
+  topic_id: percentages
+  title: Compare fraction, decimal and percentage calculations
+  archetype_summary: Work out five calculations that mix fractions, percentages, decimals and products of amounts, then choose the largest, smallest or one matching a target.
+  requires_visual_component: false
+  visual_component_type: null
+  difficulty: 3
+  exam_facing: true
+  source_problem_count: 5
+  source_use: Derived pattern only; do not copy source questions into public repo.
+- id: fdp_balance_missing_value
+  skill_id: frac_of_amount
+  topic_id: fractions
+  title: Balance parts of amounts
+  archetype_summary: Use one known fraction or percentage of a quantity to find another part, or find the unknown that makes two parts of amounts equal.
+  requires_visual_component: false
+  visual_component_type: null
+  difficulty: 3
+  exam_facing: true
+  source_problem_count: 4
+  source_use: Derived pattern only; do not copy source questions into public repo.
+- id: quadrilateral_angle_sum
+  skill_id: geom_angle_facts
+  topic_id: geometry
+  title: Quadrilateral angle sum
+  archetype_summary: Find a missing angle in a quadrilateral using the 360 degree total or trapezium, parallelogram and kite angle facts.
+  requires_visual_component: true
+  visual_component_type: polygon_angle_diagram
+  difficulty: 3
+  exam_facing: true
+  source_problem_count: 4
+  source_use: Derived pattern only; do not copy source questions into public repo.
+- id: sector_fraction_of_circle
+  skill_id: geom_circle_measure
+  topic_id: geometry
+  title: Sector as a fraction of a circle
+  archetype_summary: Link the angle of a shaded sector to its fraction of the circle or to its share of the circle's area.
+  requires_visual_component: true
+  visual_component_type: circle_diagram
+  difficulty: 3
+  exam_facing: true
+  source_problem_count: 2
+  source_use: Derived pattern only; do not copy source questions into public repo.
+- id: volume_scaling_length_changes
+  skill_id: geom_volume
+  topic_id: geometry
+  title: Volume change after length scaling
+  archetype_summary: Work out how the volume of a cube or cuboid changes when some or all of its edges are scaled.
+  requires_visual_component: false
+  visual_component_type: null
+  difficulty: 3
+  exam_facing: true
+  source_problem_count: 2
+  source_use: Derived pattern only; do not copy source questions into public repo.
+- id: triangle_inequality
+  skill_id: geom_shape_names
+  topic_id: geometry
+  title: Which lengths make a triangle
+  archetype_summary: Decide which three lengths can form a triangle, or which third side is possible given two sides.
+  requires_visual_component: false
+  visual_component_type: null
+  difficulty: 3
+  exam_facing: true
+  source_problem_count: 1
+  source_use: Derived pattern only; do not copy source questions into public repo.
+- id: time_unit_conversion
+  skill_id: meas_calendar_timetable_timezone
+  topic_id: measurement_units
+  title: Convert units of time
+  archetype_summary: Convert between units of time such as fortnights, decades and hours, or total the days in a run of months.
+  requires_visual_component: false
+  visual_component_type: null
+  difficulty: 2
+  exam_facing: true
+  source_problem_count: 4
+  source_use: Derived pattern only; do not copy source questions into public repo.
+- id: age_relationship_numeric
+  skill_id: alg_relationship_word_problems
+  topic_id: algebra
+  title: Linked ages with a numeric answer
+  archetype_summary: Use chained statements about present, past and future ages to find one age or a total.
+  requires_visual_component: false
+  visual_component_type: null
+  difficulty: 3
+  exam_facing: true
+  source_problem_count: 3
+  source_use: Derived pattern only; do not copy source questions into public repo.
+- id: read_measuring_scale
+  skill_id: meas_mass_weight
+  topic_id: measurement_units
+  title: Read a dial scale
+  archetype_summary: Read a round weighing scale with unlabelled minor marks, then use the reading in a further step.
+  requires_visual_component: true
+  visual_component_type: dial_scale
+  difficulty: 3
+  exam_facing: true
+  source_problem_count: 2
+  source_use: Derived pattern only; do not copy source questions into public repo.
+- id: number_riddle_clues
+  skill_id: np_digit_place_value
+  topic_id: number_place_value
+  title: Number riddle from clues
+  archetype_summary: Combine digit and number-property clues to identify the one number that fits them all.
+  requires_visual_component: false
+  visual_component_type: null
+  difficulty: 3
+  exam_facing: true
+  source_problem_count: 1
+  source_use: Derived pattern only; do not copy source questions into public repo.
+- id: calculation_pattern_extension
+  skill_id: seq_arithmetic_geometric
+  topic_id: sequences_patterns
+  title: Extend a pattern of calculations
+  archetype_summary: Spot the rule in a short table of related calculations and use it to answer a later one.
+  requires_visual_component: true
+  visual_component_type: table
+  difficulty: 3
+  exam_facing: true
+  source_problem_count: 1
+  source_use: Derived pattern only; do not copy source questions into public repo.
+- id: number_grid_position
+  skill_id: seq_repeating_patterns
+  topic_id: sequences_patterns
+  title: Position in a number grid
+  archetype_summary: Use the row length of a sequentially filled table to find a later number, row or column.
+  requires_visual_component: true
+  visual_component_type: table
+  difficulty: 3
+  exam_facing: true
+  source_problem_count: 1
+  source_use: Derived pattern only; do not copy source questions into public repo.
+- id: shape_transform_match
+  skill_id: geom_coordinate_transformations
+  topic_id: geometry
+  title: Match a transformed shape
+  archetype_summary: Choose the panel showing a shape after a given rotation, reflection or view from behind.
+  requires_visual_component: true
+  visual_component_type: shape_options
+  difficulty: 3
+  exam_facing: true
+  source_problem_count: 6
+  source_use: Derived pattern only; do not copy source questions into public repo.
+- id: cube_net_fold
+  skill_id: geom_nets
+  topic_id: geometry
+  title: Fold a net into a cube
+  archetype_summary: Decide which pictured cube can or cannot be folded from a net with marked faces.
+  requires_visual_component: true
+  visual_component_type: net_diagram
+  difficulty: 4
+  exam_facing: true
+  source_problem_count: 3
+  source_use: Derived pattern only; do not copy source questions into public repo.
+- id: tile_pattern_missing_piece
+  skill_id: seq_repeating_patterns
+  topic_id: sequences_patterns
+  title: Complete a tile pattern
+  archetype_summary: Choose the block of tiles that fills a gap in a repeating grid pattern.
+  requires_visual_component: true
+  visual_component_type: shape_options
+  difficulty: 2
+  exam_facing: true
+  source_problem_count: 3
+  source_use: Derived pattern only; do not copy source questions into public repo.
+- id: grid_path_directions
+  skill_id: geom_compass_rotation
+  topic_id: geometry
+  title: Follow a route on a grid
+  archetype_summary: Choose the list of forward moves and turns that follows a route drawn on a square grid.
+  requires_visual_component: true
+  visual_component_type: grid_paths
+  difficulty: 3
+  exam_facing: true
+  source_problem_count: 1
+  source_use: Derived pattern only; do not copy source questions into public repo.
+- id: set_inclusion_exclusion
+  skill_id: sets_venn_overlap
+  topic_id: probability_sets_logic
+  title: Two overlapping groups
+  archetype_summary: Use a total, two groups and an overlap or neither count to find a missing region.
+  requires_visual_component: false
+  visual_component_type: null
+  difficulty: 3
+  exam_facing: true
+  source_problem_count: 3
+  source_use: Derived pattern only; do not copy source questions into public repo.
+- id: two_way_sorting_table
+  skill_id: sets_venn_overlap
+  topic_id: probability_sets_logic
+  title: Two-way sorting table
+  archetype_summary: Choose the number that fits a marked cell in a table sorted by two rules.
+  requires_visual_component: true
+  visual_component_type: table
+  difficulty: 3
+  exam_facing: true
+  source_problem_count: 2
+  source_use: Derived pattern only; do not copy source questions into public repo.
+- id: fencepost_intervals
+  skill_id: mixed_multistep
+  topic_id: mixed_problem_solving
+  title: Equally spaced objects
+  archetype_summary: Count objects or length for equal spacing along a line or around a closed shape.
+  requires_visual_component: false
+  visual_component_type: null
+  difficulty: 3
+  exam_facing: true
+  source_problem_count: 2
+  source_use: Derived pattern only; do not copy source questions into public repo.
+- id: position_in_line
+  skill_id: mixed_constraints
+  topic_id: mixed_problem_solving
+  title: Position in a line
+  archetype_summary: Use positions counted from both ends of a line to find a total, position or gap.
+  requires_visual_component: false
+  visual_component_type: null
+  difficulty: 3
+  exam_facing: true
+  source_problem_count: 2
+  source_use: Derived pattern only; do not copy source questions into public repo.
+- id: counting_choices_product
+  skill_id: prob_basic
+  topic_id: probability_sets_logic
+  title: Counting combinations
+  archetype_summary: Count choices from menus or digit arrangements by multiplying options.
+  requires_visual_component: false
+  visual_component_type: null
+  difficulty: 3
+  exam_facing: true
+  source_problem_count: 2
+  source_use: Derived pattern only; do not copy source questions into public repo.
+- id: set_criteria_membership
+  skill_id: sets_venn_overlap
+  topic_id: probability_sets_logic
+  title: Numbers meeting two rules
+  archetype_summary: Find or count numbers belonging to two sets defined by rules.
+  requires_visual_component: false
+  visual_component_type: null
+  difficulty: 2
+  exam_facing: true
+  source_problem_count: 2
+  source_use: Derived pattern only; do not copy source questions into public repo.
+- id: knockout_tournament
+  skill_id: mixed_multistep
+  topic_id: mixed_problem_solving
+  title: Knockout tournament
+  archetype_summary: Reason about rounds, matches and remaining players in a knockout competition.
+  requires_visual_component: false
+  visual_component_type: null
+  difficulty: 3
+  exam_facing: true
+  source_problem_count: 1
+  source_use: Derived pattern only; do not copy source questions into public repo.

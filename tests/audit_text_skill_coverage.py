@@ -18,12 +18,12 @@ eligible_archetypes = {
     if re.search(r"(?m)^  requires_visual_component: false$", block)
 }
 
-app_text = (ROOT / "app.js").read_text()
-extra_text = (ROOT / "extra-generators.js").read_text()
-covered_skills = set(re.findall(r"skill_id: '([^']+)'", app_text))
-covered_skills.update(re.findall(r": gen\('[^']+', '([^']+)'", extra_text))
-implemented_archetypes = set(re.findall(r"archetype_id:\s*'([^']+)'", app_text))
-implemented_archetypes.update(re.findall(r"^  ([a-z0-9_]+): gen\('", extra_text, re.MULTILINE))
+generator_text = "\n".join(path.read_text() for path in sorted((ROOT / "generators").glob("*.js")))
+registered = re.findall(r"^\s*([a-z0-9_]+):\s*gen\(\s*'([^']+)',\s*'([^']+)'", generator_text, re.MULTILINE)
+covered_skills = {skill for _, _, skill in registered} | set(re.findall(r"skill_id: '([^']+)'", generator_text))
+implemented_archetypes = {archetype for _, archetype, _ in registered}
+# Older generators are registered by function name rather than with gen(...).
+implemented_archetypes.update(re.findall(r"^  ([a-z0-9_]+): [A-Za-z]+,$", generator_text, re.MULTILINE))
 
 missing = sorted(eligible_skills - covered_skills)
 if missing:
