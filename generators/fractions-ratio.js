@@ -1,4 +1,5 @@
 import { pick, integer, shuffle, clean, greatestCommonDivisor as gcd, fractionLabel, mixedLabel, display, money, gen, size, cap, plural, pickNames } from './core.js';
+import { calc, needsWritten } from './working.js';
 
 // Distractor helpers: keep real misconceptions first, then fall back to nearby values of the same kind.
 const nice = (answer, values, step = 1, test = () => true) => {
@@ -192,7 +193,7 @@ const AFFORD_FORMS = [
 
 const MIXTURES = [
   { a: 'red paint', b: 'white paint', fmt: counted('litre'), noun: 'litres of paint' }, { a: 'orange squash', b: 'water', fmt: withUnit('ml'), noun: 'ml of drink' },
-  { a: 'sand', b: 'cement', fmt: withUnit('kg'), noun: 'kg of mix' }, { a: 'oats', b: 'dried fruit', fmt: withUnit('g'), noun: 'g of muesli' },
+  { a: 'sand', b: 'cement', fmt: withUnit('kg'), noun: 'kg of mix' }, { a: 'flour', b: 'sugar', fmt: withUnit('g'), noun: 'g of cake mix' },
   { a: 'apple juice', b: 'mango juice', fmt: counted('litre'), noun: 'litres of juice' }, { a: 'flour', b: 'butter', fmt: withUnit('g'), noun: 'g of pastry mix' },
 ];
 const MIX_FORMS = [
@@ -355,6 +356,178 @@ function fdpTerm(r, value, kind) {
   return `${value / k} × ${k}`;
 }
 
+// Step-by-step solutions: school methods, worked with the numbers in each question.
+const worked = (text, a, op, b) => ({ ...calc(a, op, b), text });
+const calcStep = (a, op, b, options) => { const step = calc(a, op, b, options); return { ...step, text: `${step.text}.` }; };
+const isAre = (name) => (name.endsWith('s') ? 'are' : 'is');
+const PLACE_NAMES = { 10: 'tenths', 100: 'hundredths', 1000: 'thousandths' };
+const placeBack = (digits, places, unit = '') => {
+  const padded = String(digits).padStart(places + 1, '0'), written = `${padded.slice(0, -places)}.${padded.slice(-places)}`, value = display(digits / 10 ** places);
+  return written === value ? `${written}${unit}` : `${written}, which is ${value}${unit}`;
+};
+const decimalTimesSteps = (a, b, x, y, places, unit = '') => {
+  const points = [a, b].filter((value) => !Number.isInteger(value)).length === 1 ? 'point' : 'points';
+  return [
+    calcStep(x, '×', y, { intro: `Ignore the decimal ${points}: ` }),
+    `${display(a)} and ${display(b)} have ${plural(places, 'decimal place')} between them, so the answer has ${places} too: ${placeBack(x * y, places, unit)}.`,
+  ];
+};
+const scaleSteps = (value, factor, e, divide, answer, unit = '') => [
+  `${divide ? 'Dividing' : 'Multiplying'} by ${display(factor)} moves each digit ${plural(e, 'place')} to the ${divide ? 'right' : 'left'}.`,
+  `${display(value)} becomes ${display(answer)}${unit}.`,
+];
+const toDecimalSteps = (n, den) => {
+  const value = display(n / den);
+  if (den === 8) return [worked(`A fraction is a division: ${n} ÷ 8 = ${value}.`, n, '÷', 8)];
+  const target = [10, 100, 1000].find((power) => power % den === 0), scale = target / den, top = n * scale;
+  if (scale === 1) return [`${n}/${den} means ${top} ${PLACE_NAMES[target]}, which is ${value}.`];
+  return [`Multiply top and bottom by ${scale} to make the denominator ${target}: ${n}/${den} = ${top}/${target}.`, `${top} ${PLACE_NAMES[target]} is ${value}.`];
+};
+const toFractionSteps = (value, n, den) => {
+  const text = display(value), power = 10 ** text.split('.')[1].length, top = Math.round(value * power), divisor = gcd(top, power);
+  return [`${text} is ${top} ${PLACE_NAMES[power]}, so write it as ${top}/${power}.`, `Divide top and bottom by ${divisor}: ${top}/${power} = ${n}/${den}.`];
+};
+const decimalOf = ([n, den]) => `${n}/${den} ${Math.abs(clean(n / den) - n / den) < 1e-9 ? '=' : '≈'} ${display(n / den)}`;
+const compareSteps = (chosen, best, mode, answer, word) => {
+  const dens = chosen.map(([, den]) => den), big = mode === 'big', most = big ? 'largest' : 'smallest';
+  if (mode === 'half') {
+    const gap = Math.abs(best[0] / best[1] - .5), exact = Math.abs(clean(gap) - gap) < 1e-9;
+    return [`Change each to a decimal: ${chosen.map(decimalOf).join(', ')}.`, `1/2 is 0.5. ${answer} is ${exact ? '' : 'about '}${display(gap)} away, the smallest gap, so it is closest to 1/2.`];
+  }
+  if (dens.every((den) => den === dens[0])) return [`The denominators are all ${dens[0]}, so the pieces are the same size. Compare the numerators.`, `${answer} has the ${most} numerator, so it is ${word}.`];
+  if (chosen.every(([n]) => n === 1)) return ['The numerators are all 1, and a bigger denominator means smaller pieces.', `${answer} has the ${big ? 'smallest' : 'largest'} denominator, so it is ${word}.`];
+  const common = dens.reduce((x, y) => lcm(x, y));
+  if (common <= 60) {
+    const tops = chosen.map(([n, den]) => n * common / den), listed = chosen.map(([n, den], i) => (den === common ? `${n}/${den}` : `${n}/${den} = ${tops[i]}/${common}`));
+    return [`Use a common denominator of ${common}: ${listed.join(', ')}.`, `The ${most} numerator is ${big ? Math.max(...tops) : Math.min(...tops)}, so ${answer} is ${word}.`];
+  }
+  return [`Change each to a decimal: ${chosen.map(decimalOf).join(', ')}.`, `The ${most} decimal is ${display(best[0] / best[1])}, so ${answer} is ${word}.`];
+};
+const fractionOf = (n, den, whole, fmt = display, lead = `For ${n}/${den} of ${fmt(whole)}`) => {
+  const one = clean(whole / den), result = clean(one * n);
+  if (n === 1) return [worked(`${lead}, divide by ${den}: ${fmt(whole)} ÷ ${den} = ${fmt(one)}.`, whole, '÷', den)];
+  if (!needsWritten(whole, '÷', den) && !needsWritten(one, '×', n)) return [`${lead}, divide by ${den} and multiply by ${n}: ${fmt(whole)} ÷ ${den} = ${fmt(one)}, then ${fmt(one)} × ${n} = ${fmt(result)}.`];
+  return [worked(`${lead}, first divide by ${den}: ${fmt(whole)} ÷ ${den} = ${fmt(one)}.`, whole, '÷', den), worked(`Then multiply by ${n}: ${fmt(one)} × ${n} = ${fmt(result)}.`, one, '×', n)];
+};
+const wholeFromFraction = (value, parts, den, fmt = display, lead = `${fmt(value)} is ${parts}/${den} of the whole`) => {
+  if (parts === 1) return [worked(`${lead}, so multiply by ${den}: ${fmt(value)} × ${den} = ${fmt(value * den)}.`, value, '×', den)];
+  const one = value / parts;
+  return [worked(`${lead}, so 1/${den} is ${fmt(value)} ÷ ${parts} = ${fmt(one)}.`, value, '÷', parts), worked(`The whole is ${den} lots of that: ${fmt(one)} × ${den} = ${fmt(one * den)}.`, one, '×', den)];
+};
+const addFractionsText = (a, b, c, e) => {
+  if (b === e) return `The denominators match, so add the numerators: ${a}/${b} + ${c}/${e} = ${a + c}/${b}.`;
+  const den = lcm(b, e), p = a * den / b, q = c * den / e;
+  return `Use a common denominator of ${den}: ${a}/${b} + ${c}/${e} = ${p}/${den} + ${q}/${den} = ${p + q}/${den}.`;
+};
+const leftOverText = (used, den) => {
+  const left = den - used, label = fractionLabel(left, den);
+  return `The whole is ${den}/${den}, so ${den}/${den} − ${used}/${den} = ${left}/${den}${label === `${left}/${den}` ? '' : `, which simplifies to ${label}`}.`;
+};
+const restOfTotalSteps = (a, b, c, e, total, fmt = display) => {
+  const den = lcm(b, e), used = a * den / b + c * den / e, left = den - used, divisor = gcd(left, den);
+  return [addFractionsText(a, b, c, e), leftOverText(used, den), ...fractionOf(left / divisor, den / divisor, total, fmt)];
+};
+const fractionThenRestSteps = (a, b, c, e, total, fmt = display) => {
+  const first = total * a / b, rest = total - first, second = rest * c / e;
+  return [...fractionOf(a, b, total, fmt), calcStep(total, '−', first, { format: fmt, intro: 'That leaves ' }), ...fractionOf(c, e, rest, fmt, `The next fraction is of what is left. For ${c}/${e} of ${fmt(rest)}`), calcStep(rest, '−', second, { format: fmt, intro: 'Take that away: ' })];
+};
+const shareSteps = (a, p, s, answer) => {
+  if (a < p) {
+    const label = `${a}/${p}`;
+    return label === answer ? [`Share ${a} between ${p}: each person gets ${a} ÷ ${p}, which is ${label} of a ${s.one}.`] : [`Share ${a} between ${p}: each person gets ${a} ÷ ${p}, which is ${label} of a ${s.one}.`, `Simplify: ${label} = ${answer}.`];
+  }
+  const whole = Math.floor(a / p), rem = a % p, label = `${rem}/${p}`, simple = fractionLabel(rem, p);
+  return [`${a} ÷ ${p} is ${whole} remainder ${rem}, so each person gets ${plural(whole, `whole ${s.one}`, `whole ${s.many}`)}.`, `Sharing the ${rem} left over gives ${label} each${simple === label ? '' : `, which simplifies to ${simple}`}.`, `So each person gets ${answer} ${s.many}.`];
+};
+const percentOfSteps = (p, whole, fmt = display, finalFmt = fmt) => {
+  const part = (q) => clean(whole * q / 100), W = fmt(whole), ten = part(10), five = part(5), result = finalFmt(part(p)), tenth = `10% of ${W} is ${fmt(ten)}`;
+  if (p === 10) return [`10% means divide by 10, so 10% of ${W} is ${result}.`];
+  if (p === 50) return [`50% is a half, so halve ${W}: ${result}.`];
+  if (p === 25) return [`25% is a quarter, so halve ${W} twice: ${fmt(part(50))}, then ${result}.`];
+  if (p === 75) return [`50% of ${W} is ${fmt(part(50))}, and half of that is 25%: ${fmt(part(25))}.`, worked(`75% is 50% + 25%: ${fmt(part(50))} + ${fmt(part(25))} = ${result}.`, part(50), '+', part(25))];
+  if (p % 10 === 0) return [`${tenth}.`, worked(`${p}% is ${p / 10} lots of 10%: ${fmt(ten)} × ${p / 10} = ${result}.`, ten, '×', p / 10)];
+  if (p === 5) return [`${tenth}.`, `5% is half of 10%: half of ${fmt(ten)} is ${result}.`];
+  const withFive = `${tenth}, so 5% is ${fmt(five)}.`;
+  if (p === 15) return [withFive, worked(`15% is 10% + 5%: ${fmt(ten)} + ${fmt(five)} = ${result}.`, ten, '+', five)];
+  if (p === 95) return [withFive, worked(`95% is 100% − 5%: ${W} − ${fmt(five)} = ${result}.`, whole, '−', five)];
+  const tens = p - 5;
+  return [withFive, worked(`${tens}% is ${tens / 10} lots of 10%: ${fmt(ten)} × ${tens / 10} = ${fmt(part(tens))}.`, ten, '×', tens / 10), worked(`${p}% is ${tens}% + 5%: ${fmt(part(tens))} + ${fmt(five)} = ${result}.`, part(tens), '+', five)];
+};
+const percentPhrase = (p, whole, fmt = display) => {
+  const W = fmt(whole), part = (q) => fmt(clean(whole * q / 100));
+  if (p === 10) return `10% of ${W} is ${part(10)}`;
+  if (p === 50) return `50% is half of ${W}: ${part(50)}`;
+  if (p === 25) return `25% is a quarter of ${W}: ${part(25)}`;
+  if (p === 75) return `25% of ${W} is ${part(25)}, so 75% is ${part(75)}`;
+  if (p % 10 === 0) return `10% of ${W} is ${part(10)}, so ${p}% is ${part(p)}`;
+  return `10% of ${W} is ${part(10)} and 5% is ${part(5)}, so ${p}% is ${part(p)}`;
+};
+const takeOff = (label, p, price) => {
+  const off = clean(price * p / 100), left = clean(price - off);
+  return worked(`${label}: ${percentPhrase(p, price, money)}. ${money(price)} − ${money(off)} = ${money(left)}.`, price, '−', off);
+};
+const fromPercentSteps = (p, value, fmt = display) => {
+  const step = gcd(p, 100), lots = p / step, one = value / lots, scale = 100 / step, steps = [];
+  if (lots > 1) steps.push(worked(`${p}% is ${lots} lots of ${step}%, so ${step}% is ${fmt(value)} ÷ ${lots} = ${fmt(one)}.`, value, '÷', lots));
+  steps.push(worked(`100% is ${scale} lots of ${step}%: ${fmt(one)} × ${scale} = ${fmt(one * scale)}.`, one, '×', scale));
+  return steps;
+};
+const percentToPercent = (p, q, given) => {
+  const step = gcd(p, q), one = given * step / p, steps = [];
+  if (p !== step) steps.push(worked(`${p}% is ${p / step} lots of ${step}%, so ${step}% is ${given} ÷ ${p / step} = ${one}.`, given, '÷', p / step));
+  if (q !== step) steps.push(worked(`${q}% is ${q / step} lots of ${step}%: ${one} × ${q / step} = ${display(one * q / step)}.`, one, '×', q / step));
+  return steps;
+};
+const percentFromCount = (count, total) => (total === 100
+  ? `${count} out of 100 is ${display(count)}%.`
+  : `${count} out of ${total} is ${count}/${total} = ${fractionLabel(count, total)}, which is ${display(count / total * 100)}%.`);
+const partsStep = (who, parts, unit, fmt) => (parts === 1
+  ? `${who} 1 part, which is ${fmt(unit)}.`
+  : worked(`${who} ${parts} parts: ${fmt(unit)} × ${parts} = ${fmt(unit * parts)}.`, unit, '×', parts));
+const mixedSteps = ({ w1, n1, den1, w2, n2, den2, common, subtract, a, b, top, answer }) => {
+  const p = n1 * common / den1, q = n2 * common / den2;
+  const convert = den1 === den2 ? [] : [den1 === common ? `Use a common denominator of ${common}: ${n2}/${den2} = ${q}/${common}.` : `Use a common denominator of ${common}: ${n1}/${den1} = ${p}/${common}.`];
+  const together = (fraction) => `Put them together${fractionLabel(fraction, common) === `${fraction}/${common}` ? '' : ' and simplify'}: ${answer}.`;
+  if (!subtract) {
+    const whole = w1 + w2, sum = p + q, steps = [...convert, `Add the whole numbers: ${w1} + ${w2} = ${whole}.`, `Add the fractions: ${p}/${common} + ${q}/${common} = ${sum}/${common}.`];
+    if (sum === common) return [...steps, `${sum}/${common} is 1 whole, so the answer is ${answer}.`];
+    if (sum > common) return [...steps, `${sum}/${common} is ${mixedLabel(sum, common)}. Adding this to ${whole} gives ${answer}.`];
+    return [...steps, together(sum)];
+  }
+  if (p >= q) {
+    const whole = w1 - w2, diff = p - q, steps = [...convert, `Subtract the whole numbers: ${w1} − ${w2} = ${whole}.`];
+    if (!diff) return [...steps, `The fractions are equal, so they cancel out. The answer is ${answer}.`];
+    return [...steps, `Subtract the fractions: ${p}/${common} − ${q}/${common} = ${diff}/${common}.`, together(diff)];
+  }
+  const steps = [...convert, `${p}/${common} is smaller than ${q}/${common}, so use improper fractions: ${w1} ${p}/${common} = ${a}/${common} and ${w2} ${q}/${common} = ${b}/${common}.`, `Subtract the numerators: ${a}/${common} − ${b}/${common} = ${top}/${common}.`];
+  if (answer === `${top}/${common}`) return steps;
+  return [...steps, `${top < common ? 'Simplify' : 'Change back to a mixed number'}: ${top}/${common} = ${answer}.`];
+};
+const partHourTime = (distance, v, minutes) => [
+  `Time = distance ÷ speed, so the journey takes ${distance}/${v} ${minutes > 60 ? 'hours' : 'of an hour'}.`,
+  `${distance}/${v} simplifies to ${mixedLabel(minutes, 60)}${minutes > 60 ? ' hours' : ' of an hour'}, which is ${timeLabel(minutes)}.`,
+];
+const partHourDistance = (v, minutes) => {
+  const km = withUnit('km');
+  if (minutes === 90) return ['1 hour 30 minutes is 1 1/2 hours.', `In 1 hour it goes ${km(v)}, and in half an hour ${km(v / 2)}.`, worked(`Add them: ${v} + ${display(v / 2)} = ${display(v * 1.5)} km.`, v, '+', v / 2)];
+  const divisor = gcd(minutes, 60), n = minutes / divisor, den = 60 / divisor;
+  return [`${timeLabel(minutes)} is ${n}/${den} of an hour.`, ...fractionOf(n, den, v, km)];
+};
+const compoundSteps = (s, n, amount, t, rate, m, e, answer) => {
+  const one = s.who.slice(0, -1);
+  return [
+    worked(`In one ${s.time}, ${n} ${s.who} ${s.verb} ${amount} ÷ ${t} = ${n * rate} ${s.what}.`, amount, '÷', t),
+    worked(`So one ${one} ${s.verb}s ${n * rate} ÷ ${n} = ${rate} per ${s.time}.`, n * rate, '÷', n),
+    worked(`${m} ${s.who} ${s.verb} ${rate} × ${m} = ${rate * m} per ${s.time}.`, rate, '×', m),
+    worked(`In ${e} ${s.time}s that is ${rate * m} × ${e} = ${display(answer)} ${s.what}.`, rate * m, '×', e),
+  ];
+};
+const bestValueSteps = (labels, counts, costs, totals, target, low, finish) => [
+  worked(`Divide to find the cost of one item. For ${labels[target]}: ${money(totals[target] / 100)} ÷ ${counts[target]} = ${money(costs[target] / 100)}.`, totals[target] / 100, '÷', counts[target]),
+  `Do the same for each pack: ${labels.map((label, i) => `${label.replace('Pack ', '')} is ${costs[i]}p`).join(', ')}.`,
+  `The ${low ? 'lowest' : 'highest'} price per item is ${costs[target]}p, so ${finish}.`,
+];
+
 export const generators = {
   fraction_decimal_conversion: gen('fraction_decimal_conversion', 'dec_fraction_percent_conversion', (r, d) => {
     const pool = size(d,
@@ -368,12 +541,14 @@ export const generators = {
         prompt: pick(r, [`Write ${text} as a fraction in its simplest form.`, `What is ${text} as a fraction in its simplest form?`, `Which fraction is equal to ${text}?`, `Change ${text} into a fraction. Which answer is correct?`, `A jug is ${text} full. What fraction of the jug is this?`, `${text} of a wall has been painted. What fraction of the wall is this?`]),
         answer: label, distractors: fractionChoices(n, den, [[den - n, den], [Math.floor(value * 10), 10], [Math.round(value * 100), 1000]]), longDecimalsOk,
         explanation: `${text} = ${Math.round(value * 1000)}/1000, which simplifies to ${label}.`,
+        solution: toFractionSteps(value, n, den),
       };
     }
     return {
       prompt: pick(r, [`Write ${label} as a decimal.`, `What is ${label} as a decimal?`, `Which decimal is equal to ${label}?`, `Change ${label} into a decimal.`, `Write the decimal that goes in the box: ${label} = □.`, `A tank is ${label} full. What is this as a decimal?`, `${label} of a pizza has been eaten. Write this fraction as a decimal.`]),
       answer: value, distractors: nice(value, [clean(n / 10), Number(`0.${n}${den}`), clean(1 - value), clean(value * 10), clean(value / 10)], .1), longDecimalsOk,
       explanation: `${n} ÷ ${den} = ${display(value)}.`,
+      solution: toDecimalSteps(n, den),
     };
   }),
 
@@ -386,6 +561,7 @@ export const generators = {
         prompt: pick(r, [`${x} × ${y} = ${display(product)}. What is ${display(a)} × ${display(b)}?`, `Given that ${x} × ${y} = ${display(product)}, work out ${display(a)} × ${display(b)}.`, `You are told that ${x} × ${y} = ${display(product)}. What does ${display(a)} × ${display(b)} equal?`, `Use ${x} × ${y} = ${display(product)} to find ${display(a)} × ${display(b)}.`, `If ${x} × ${y} = ${display(product)}, what is ${display(a)} × ${display(b)}?`, `Here is a fact: ${x} × ${y} = ${display(product)}. Calculate ${display(a)} × ${display(b)}.`]),
         answer, distractors: nice(answer, [...slips(product, places), (product + 10) / 10 ** places, (product - 10) / 10 ** places], 1 / 10 ** Math.min(places, 2)), longDecimalsOk: true,
         explanation: `The two numbers have ${places} decimal places between them, so ${display(product)} becomes ${display(answer)}.`,
+        solution: [`Use the fact: ${display(a)} is ${x} ÷ ${10 ** px} and ${display(b)} is ${y} ÷ ${10 ** py}, so the answer is ${display(product)} ÷ ${display(10 ** places)}.`, `Move the digits ${plural(places, 'place')} to the right: ${placeBack(product, places)}.`],
       };
     }
     if (d === 'easy') {
@@ -393,9 +569,11 @@ export const generators = {
       const a = tenths / 10, b = integer(r, 2, 9), product = tenths * b, answer = clean(product / 10), story = r() < .35;
       if (story) {
         const s = pick(r, [{ t: `One tile is ${display(a)} m long. How long is a row of ${b} tiles?`, u: 'm' }, { t: `A bottle holds ${display(a)} litres. How much do ${b} bottles hold?`, u: 'litres' }, { t: `A bag of nuts weighs ${display(a)} kg. What do ${b} bags weigh?`, u: 'kg' }]);
-        return { prompt: s.t, answer, distractors: nice(answer, slips(product, 1).concat([a + b]), .1), formatter: withUnit(s.u), explanation: `${display(a)} × ${b} = ${display(answer)} ${s.u}.` };
+        return { prompt: s.t, answer, distractors: nice(answer, slips(product, 1).concat([a + b]), .1), formatter: withUnit(s.u), explanation: `${display(a)} × ${b} = ${display(answer)} ${s.u}.`,
+          solution: decimalTimesSteps(a, b, tenths, b, 1, ` ${s.u}`) };
       }
-      return { prompt: bare(r, `${display(a)} × ${b}`, [`Multiply ${display(a)} by ${b}.`]), answer, distractors: nice(answer, slips(product, 1).concat([a + b]), .1), explanation: `${tenths} × ${b} = ${product}, so ${display(a)} × ${b} = ${display(answer)}.` };
+      return { prompt: bare(r, `${display(a)} × ${b}`, [`Multiply ${display(a)} by ${b}.`]), answer, distractors: nice(answer, slips(product, 1).concat([a + b]), .1), explanation: `${tenths} × ${b} = ${product}, so ${display(a)} × ${b} = ${display(answer)}.`,
+        solution: decimalTimesSteps(a, b, tenths, b, 1) };
     }
     const twoDp = r() < .4;
     let x = twoDp ? integer(r, 11, 95) : integer(r, 2, 9); if (x % 10 === 0) x += 1;
@@ -405,6 +583,7 @@ export const generators = {
       prompt: bare(r, `${display(a)} × ${display(b)}`, [`Multiply ${display(a)} by ${display(b)}.`]), answer,
       distractors: nice(answer, [...slips(product, places), clean(a + b)], .01), longDecimalsOk: true,
       explanation: `${x} × ${y} = ${product}. There are 2 decimal places in the question, so the answer is ${display(answer)}.`,
+      solution: decimalTimesSteps(a, b, x, y, 2),
     };
   }),
 
@@ -419,6 +598,7 @@ export const generators = {
         prompt: pick(r, [`${eq}. What number goes in the box?`, `${eq}. What is the missing number?`, `Look at this calculation: ${eq}. What should replace the box?`, `Find the missing number: ${eq}.`]),
         answer: factor, distractors: [1, 10, 100, 1000, 10000].filter((x) => x !== factor), longDecimalsOk: true,
         explanation: `The digits move ${plural(e, 'place')} to the ${divide ? 'right' : 'left'}, so the missing number is ${display(factor)}.`,
+        solution: [`From ${display(value)} to ${display(answer)}, the digits move ${plural(e, 'place')} to the ${divide ? 'right' : 'left'}.`, `Each place is a factor of 10, so the missing number is ${display(factor)}.`],
       };
     }
     const expr = `${display(value)} ${divide ? '÷' : '×'} ${display(factor)}`;
@@ -428,9 +608,9 @@ export const generators = {
       const story = divide
         ? pick(r, [{ t: `${display(value)} kg of rice is shared equally into ${display(factor)} bags. How much is in each bag?`, u: 'kg' }, { t: `A ${display(value)} m wire is cut into ${display(factor)} equal pieces. How long is each piece?`, u: 'm' }])
         : pick(r, [{ t: `One sheet of card is ${display(value)} mm thick. How thick is a pile of ${display(factor)} sheets?`, u: 'mm' }, { t: `A marble weighs ${display(value)} g. What do ${display(factor)} marbles weigh?`, u: 'g' }]);
-      return { prompt: story.t, answer, distractors: nice(answer, wrong, 10), formatter: withUnit(story.u), longDecimalsOk: true, explanation };
+      return { prompt: story.t, answer, distractors: nice(answer, wrong, 10), formatter: withUnit(story.u), longDecimalsOk: true, explanation, solution: scaleSteps(value, factor, e, divide, answer, ` ${story.u}`) };
     }
-    return { prompt: bare(r, expr, [divide ? `Divide ${display(value)} by ${display(factor)}.` : `Multiply ${display(value)} by ${display(factor)}.`]), answer, distractors: nice(answer, wrong, 10), longDecimalsOk: true, explanation };
+    return { prompt: bare(r, expr, [divide ? `Divide ${display(value)} by ${display(factor)}.` : `Multiply ${display(value)} by ${display(factor)}.`]), answer, distractors: nice(answer, wrong, 10), longDecimalsOk: true, explanation, solution: scaleSteps(value, factor, e, divide, answer) };
   }),
 
   compare_fractions: gen('compare_fractions', 'frac_compare_equivalence', (r, d) => {
@@ -465,7 +645,8 @@ export const generators = {
       half: ['Which fraction is closest to 1/2?', 'Which of these is nearest to one half?', 'Which fraction is the closest in value to 1/2?', 'Look at these fractions. Which one is nearest to 1/2?'],
     };
     const word = { big: 'the largest', small: 'the smallest', half: 'closest to 1/2' }[mode];
-    return { prompt: pick(r, prompts[mode]), answer, distractors: others, explanation: `As decimals these are ${chosen.map((x) => display(value(x))).join(', ')}, so ${answer} is ${word}.` };
+    return { prompt: pick(r, prompts[mode]), answer, distractors: others, explanation: `As decimals these are ${chosen.map((x) => display(value(x))).join(', ')}, so ${answer} is ${word}.`,
+      solution: compareSteps(chosen, best, mode, answer, word) };
   }),
 
   fraction_of_amount_simple: gen('fraction_of_amount_simple', 'frac_of_amount', (r, d) => {
@@ -475,12 +656,14 @@ export const generators = {
         return {
           prompt: bare(r, `${f(a, b)} of ${f(c, e)} of ${total}`), answer, distractors: ints(answer, [c * e * k, total * c / e, total * a / b, total - answer, total / b], k),
           explanation: `${f(c, e)} of ${total} is ${c * b * k}, and ${f(a, b)} of that is ${answer}.`,
+          solution: [...fractionOf(c, e, total, display, `Start on the right. For ${f(c, e)} of ${total}`), ...fractionOf(a, b, c * b * k, display, `For ${f(a, b)} of ${c * b * k}`)],
         };
       }
       const [a, b] = pick(r, [[3, 4], [2, 3], [3, 5], [5, 8], [5, 6]]), [c, e] = pick(r, [[1, 4], [2, 5], [3, 8], [1, 3], [3, 10]]), u = integer(r, 3, 12), v = integer(r, 2, 10), x = b * u, y = e * v, answer = a * u + c * v;
       return {
         prompt: bare(r, `${f(a, b)} of ${x} + ${f(c, e)} of ${y}`), answer, distractors: ints(answer, [u + v, a * u, c * v, x + y - answer, a * u + v], 2),
         explanation: `${f(a, b)} of ${x} is ${a * u} and ${f(c, e)} of ${y} is ${c * v}, so the total is ${answer}.`,
+        solution: [...fractionOf(a, b, x), ...fractionOf(c, e, y), calcStep(a * u, '+', c * v, { intro: 'Add the two parts: ' })],
       };
     }
     const den = pick(r, size(d, [2, 3, 4, 5, 10], [3, 4, 5, 6, 8], [])), num = integer(r, 1, den - 1), unit = integer(r, 3, size(d, 12, 20, 20)), total = den * unit, answer = num * unit, label = f(num, den), name = nameOf(r);
@@ -496,6 +679,7 @@ export const generators = {
       prompt: useStory ? story.t : bare(r, `${label} of ${total}`, [`Find ${label} of ${total}.`]), answer,
       distractors: ints(answer, [unit, total - answer, answer + unit, total / num, total], unit), formatter: useStory ? story.fmt : undefined,
       explanation: `${total} ÷ ${den} = ${unit}, and ${unit} × ${num} = ${answer}.`,
+      solution: fractionOf(num, den, total, (useStory && story.fmt) || display),
     };
   }),
 
@@ -515,6 +699,7 @@ export const generators = {
       return {
         prompt: form.t, answer, distractors: ints(answer, [total - firstUsed - total * c / e, rest, secondUsed, firstUsed, firstUsed + secondUsed], Math.max(1, Math.round(total / 20))), formatter: form.fmt,
         explanation: `${x} of ${total} is ${firstUsed}, leaving ${rest}. ${y} of ${rest} is ${secondUsed}, so ${answer} are left.`,
+        solution: fractionThenRestSteps(a, b, c, e, total, form.fmt || display),
       };
     }
     const [a, b, c, e] = pick(r, size(d,
@@ -534,6 +719,7 @@ export const generators = {
         prompt: pick(r, forms), answer: f(n, m),
         distractors: fractionChoices(n, m, [[used / ug, den / ug], [a + c, b + e], [Math.max(1, b + e - a - c), b + e], [1, den]]),
         explanation: `${x} + ${y} = ${fractionLabel(used, den)}, so ${f(n, m)} is left.`,
+        solution: [addFractionsText(a, b, c, e), leftOverText(used, den)],
       };
     }
     const k = integer(r, 2, size(d, 6, 8, 8)), total = den * k, answer = left * k, p1 = total * a / b, p2 = total * c / e;
@@ -548,18 +734,19 @@ export const generators = {
     return {
       prompt: form.t, answer, distractors: ints(answer, [p1, p2, p1 + p2, total - p1, total - p2], k), formatter: form.fmt,
       explanation: `${x} of ${total} is ${p1} and ${y} of ${total} is ${p2}. ${total} − ${p1 + p2} = ${answer}.`,
+      solution: restOfTotalSteps(a, b, c, e, total, form.fmt || display),
     };
   }),
 
   fraction_remainder_complement: gen('fraction_remainder_complement', 'frac_reverse_remainder', (r, d) => {
     const name = nameOf(r);
-    let usedTop, den, usedText, explainUsed;
+    let usedTop, den, usedText, explainUsed, addedStep = [];
     if (d === 'hard') {
       const [b, e] = pick(r, [[4, 8], [2, 8], [3, 6], [5, 10], [2, 6], [3, 12]]);
       let a, c;
       do { a = integer(r, 1, b - 1); c = integer(r, 1, e - 1); } while (a * e / b + c >= e || gcd(a, b) !== 1 || gcd(c, e) !== 1);
       den = e; usedTop = a * e / b + c; usedText = [f(a, b), f(c, e)];
-      explainUsed = `${f(a, b)} + ${f(c, e)} = ${fractionLabel(usedTop, den)}`;
+      explainUsed = `${f(a, b)} + ${f(c, e)} = ${fractionLabel(usedTop, den)}`; addedStep = [addFractionsText(a, b, c, e)];
     } else {
       den = pick(r, size(d, [3, 4, 5, 8], [5, 6, 8, 10], []));
       do { usedTop = integer(r, 1, den - 1); } while (gcd(usedTop, den) !== 1);
@@ -579,6 +766,7 @@ export const generators = {
       return {
         prompt: form.t, answer, distractors: ints(answer, [usedTop * k, total, k, answer + k, answer - k], k), formatter: form.fmt,
         explanation: `${explainUsed}, leaving ${fractionLabel(leftTop, den)} of ${total}, which is ${answer}.`,
+        solution: [...addedStep, leftOverText(usedTop, den), ...fractionOf(n, m, total, form.fmt || display)],
       };
     }
     const forms = [
@@ -592,6 +780,7 @@ export const generators = {
     return {
       prompt: pick(r, forms), answer: f(n, m), distractors: fractionChoices(n, m, [[usedTop / used, den / used], [1, den], [leftTop - 1, den], [leftTop + 1, den]]),
       explanation: `${explainUsed}, so 1 − ${fractionLabel(usedTop, den)} = ${f(n, m)} is left.`,
+      solution: [...addedStep, leftOverText(usedTop, den)],
     };
   }),
 
@@ -605,7 +794,8 @@ export const generators = {
     const wrong = a < p
       ? [mixedLabel(p, a), ...fractionChoices(top, bottom, [[1, p], [a - 1, p], [a + 1, p]])]
       : [fractionLabel(p, a), ...mixedChoices(top, bottom, [top + 1, top - 1, top + bottom])];
-    return { prompt: pick(r, SHARE_FORMS)(s, a, p, ask), answer, distractors: wrong, explanation: `Each share is ${a} ÷ ${p} = ${answer}.` };
+    return { prompt: pick(r, SHARE_FORMS)(s, a, p, ask), answer, distractors: wrong, explanation: `Each share is ${a} ÷ ${p} = ${answer}.`,
+      solution: shareSteps(a, p, s, answer) };
   }),
 
   percentage_discount_final_price: gen('percentage_discount_final_price', 'pct_discount_sale_price', (r, d) => {
@@ -626,6 +816,7 @@ export const generators = {
           ]),
           answer, distractors: pennies(answer, [price * x / 100, price * y / 100, answer * 2, price * (x + y) / 100, single], 1), formatter: money,
           explanation: `The single discount gives ${money(single)}. The two discounts give ${money(first)} and then ${money(final)}, a difference of ${money(answer)}.`,
+          solution: [takeOff(`Single ${x + y}% discount`, x + y, price), takeOff(`Two discounts, ${x}% first`, x, price), takeOff(`Then ${y}% off the lower price`, y, first), worked(`The difference is ${money(final)} − ${money(single)} = ${money(answer)}.`, final, '−', single)],
         };
       }
       return {
@@ -637,6 +828,7 @@ export const generators = {
         ]),
         answer: final, distractors: pennies(final, [single, first, price - x - y, price * (100 - y) / 100], 1), formatter: money,
         explanation: `${x}% off ${money(price)} is ${money(first)}. ${y}% off ${money(first)} is ${money(final)}.`,
+        solution: [takeOff(`Take off ${x}%`, x, price), takeOff(`The ${y}% comes off the new price`, y, first)],
       };
     }
     const discount = pick(r, size(d, [10, 20, 25, 50], [5, 15, 20, 25, 30, 40], []));
@@ -645,6 +837,7 @@ export const generators = {
     return {
       prompt: pick(r, DISCOUNT_FORMS)(item, money(price), discount), answer, distractors: pennies(answer, [off, price + off, price - discount, price], 1), formatter: money,
       explanation: `${discount}% of ${money(price)} is ${money(off)}, so the sale price is ${money(answer)}.`,
+      solution: [...percentOfSteps(discount, price, money), worked(`Take it off the price: ${money(price)} − ${money(off)} = ${money(answer)}.`, price, '−', off)],
     };
   }),
 
@@ -655,6 +848,7 @@ export const generators = {
         prompt: pick(r, [`A rectangle is ${l} cm long and ${w} cm wide. Its length is increased by ${p}% and the width stays the same. By what percentage does the area increase?`, `The length of a rectangle goes up by ${p}%. Its width does not change. What is the percentage increase in its area?`, `A ${l} cm by ${w} cm rectangle is made ${p}% longer but no wider. By what percentage has its area grown?`, `A rectangular lawn is made ${p}% longer. It stays the same width. By what percentage does the area of the lawn increase?`]),
         answer: p, distractors: halves(p, [p * 2, p / 2, 100 + p, p * p / 100 + p, 100 - p], 5), formatter: pct,
         explanation: `Only one side changes, so the area is multiplied by ${display(1 + p / 100)} and rises by ${p}%.`,
+        solution: ['Area = length × width. Only the length changes, so the area grows by the same percentage.', `The length is now ${100 + p}% of what it was, so the area is too: an increase of ${p}%.`],
       };
     }
     if (d === 'medium') {
@@ -663,6 +857,7 @@ export const generators = {
         prompt: pick(r, [`A square has sides of ${side} cm. Each side is increased by ${p}%. By what percentage does the area increase?`, `The sides of a square are all made ${p}% longer. What is the percentage increase in its area?`, `A square tile has a side of ${side} cm. A larger tile has sides ${p}% longer. By what percentage is its area bigger?`, `Each side of a square garden is increased by ${p}%. By what percentage does the area of the garden go up?`]),
         answer, distractors: halves(answer, [p, p * 2, p * p / 100, answer + p], 5), formatter: pct,
         explanation: `A ${side} cm square has area ${side * side} cm². With sides of ${newSide} cm the area is ${newSide * newSide} cm², an increase of ${answer}%.`,
+        solution: [worked(`Take a ${side} cm square: its area is ${side} × ${side} = ${display(side * side)} cm².`, side, '×', side), worked(`Each side becomes ${newSide} cm, so the new area is ${newSide} × ${newSide} = ${display(newSide * newSide)} cm².`, newSide, '×', newSide), worked(`The increase is ${display(newSide * newSide)} − ${display(side * side)} = ${display(newSide * newSide - side * side)} cm², and ${display(newSide * newSide - side * side)} ÷ ${display(side * side)} × 100 = ${answer}%.`, newSide * newSide, '−', side * side)],
       };
     }
     if (r() < .3) {
@@ -671,6 +866,7 @@ export const generators = {
         prompt: pick(r, [`Each side of a square is decreased by ${p}%. By what percentage does the area decrease?`, `The sides of a square are made ${p}% shorter. What is the percentage decrease in its area?`, `A square card is trimmed so each side is ${p}% shorter. By what percentage has its area fallen?`, `A square flower bed has its sides cut by ${p}%. By what percentage does its area go down?`]),
         answer, distractors: halves(answer, [p, p * 2, p * p / 100, 100 - answer], 5), formatter: pct,
         explanation: `The area is multiplied by ${display((100 - p) / 100)} × ${display((100 - p) / 100)} = ${display((100 - answer) / 100)}, a decrease of ${answer}%.`,
+        solution: [`${p}% shorter means each side is multiplied by ${display((100 - p) / 100)}.`, `Area uses two sides: ${display((100 - p) / 100)} × ${display((100 - p) / 100)} = ${display((100 - answer) / 100)}.`, `The area is now ${display(100 - answer)}% of what it was, a decrease of ${answer}%.`],
       };
     }
     const [x, y] = pick(r, [[50, 20], [20, 25], [50, 40], [25, 40], [100, 25], [20, 10], [50, 10], [100, 20], [10, 10]]);
@@ -679,6 +875,7 @@ export const generators = {
       prompt: pick(r, [`A rectangle's length is increased by ${x}% and its width is decreased by ${y}%. What is the percentage ${word} in its area?`, `The length of a rectangle goes up by ${x}%, but the width goes down by ${y}%. By what percentage does the area ${word}?`, `A rectangular pond is made ${x}% longer and ${y}% narrower. What is the percentage ${word} in its area?`, `A photo is stretched so it is ${x}% longer and ${y}% narrower. By what percentage does its area ${word}?`]),
       answer, distractors: halves(answer, [Math.abs(x - y) === answer ? x + y : Math.abs(x - y), x + y, x, y], 5), formatter: pct,
       explanation: `The area is multiplied by ${display((100 + x) / 100)} × ${display((100 - y) / 100)} = ${display(scaled / 100)}, ${up ? 'an' : 'a'} ${word} of ${answer}%.`,
+      solution: [`${x}% longer means × ${display((100 + x) / 100)}, and ${y}% narrower means × ${display((100 - y) / 100)}.`, worked(`The area is multiplied by both: ${display((100 + x) / 100)} × ${display((100 - y) / 100)} = ${display(scaled / 100)}.`, (100 + x) / 100, '×', (100 - y) / 100), `That is ${display(scaled)}% of the old area, ${up ? 'an' : 'a'} ${word} of ${answer}%.`],
     };
   }),
 
@@ -700,6 +897,7 @@ export const generators = {
         ]),
         answer, distractors: halves(answer, raw, 5), formatter: pct,
         explanation: `There are now ${finalChosen} ${s.sub} out of ${finalTotal}, and ${finalChosen} ÷ ${finalTotal} × 100 = ${answer}%.`,
+        solution: [`There are now ${chosen} − ${leave} = ${finalChosen} ${s.sub}.`, `The whole group changes too: ${total} − ${leave} + ${join} = ${finalTotal} ${s.members}.`, percentFromCount(finalChosen, finalTotal)],
       };
     }
     const joinMode = finalChosen >= 4 && r() < .5;
@@ -709,6 +907,7 @@ export const generators = {
     return {
       prompt: pick(r, joinMode ? COMPOSITION_JOIN : COMPOSITION_LEAVE)(s, total, chosen, change), answer: percent, distractors: halves(percent, raw, 5), formatter: pct,
       explanation: `There are now ${finalChosen} ${s.sub} out of ${finalTotal}, and ${finalChosen} ÷ ${finalTotal} × 100 = ${percent}%.`,
+      solution: [`There are now ${chosen} ${joinMode ? '+' : '−'} ${change} = ${finalChosen} ${s.sub}.`, `The whole group changes too: ${total} ${joinMode ? '+' : '−'} ${change} = ${finalTotal} ${s.members}.`, percentFromCount(finalChosen, finalTotal)],
     };
   }),
 
@@ -720,6 +919,7 @@ export const generators = {
       return {
         prompt: pick(r, RISE_FORMS)(item, rise, money(after)), answer: before, distractors: pennies(before, [after * (100 - rise) / 100, after - rise, after, before + rise], 5), formatter: money,
         explanation: `${money(after)} is ${100 + rise}% of the old price. ${money(after)} ÷ ${display((100 + rise) / 100)} = ${money(before)}.`,
+        solution: [`The old price is 100%, so the new price of ${money(after)} is ${100 + rise}%.`, ...fromPercentSteps(100 + rise, after, money)],
       };
     }
     const sale = original * (100 - discount) / 100;
@@ -729,11 +929,13 @@ export const generators = {
         prompt: pick(r, [`With ${discount}% off, a ${item} costs ${money(sale)}. How much money is saved?`, `A ${item} is ${money(sale)} in a ${discount}% off sale. How much less is this than the full price?`, `A shop cuts the price of a ${item} by ${discount}% to ${money(sale)}. By how many pounds was the price cut?`, `After a ${discount}% reduction a ${item} is ${money(sale)}. What was the reduction in pounds?`]),
         answer: saved, distractors: pennies(saved, [sale * discount / 100, original, sale, discount], 5), formatter: money,
         explanation: `${money(sale)} is ${100 - discount}% of the full price, so the full price is ${money(original)} and the saving is ${money(saved)}.`,
+        solution: [`After ${discount}% off, ${money(sale)} is ${100 - discount}% of the full price.`, ...fromPercentSteps(100 - discount, sale, money), worked(`The saving is ${money(original)} − ${money(sale)} = ${money(saved)}.`, original, '−', sale)],
       };
     }
     return {
       prompt: pick(r, REVERSE_FORMS)(item, discount, money(sale)), answer: original, distractors: pennies(original, [sale * (100 + discount) / 100, sale + discount, sale + 2 * discount, original - sale], 5), formatter: money,
       explanation: `${money(sale)} is ${100 - discount}% of the original. ${money(sale)} ÷ ${display((100 - discount) / 100)} = ${money(original)}.`,
+      solution: [`After ${discount}% off, ${money(sale)} is ${100 - discount}% of the original price.`, ...fromPercentSteps(100 - discount, sale, money)],
     };
   }),
 
@@ -747,11 +949,13 @@ export const generators = {
         prompt: pick(r, [`${workers} ${s.many} can ${s.job} in ${time} ${s.time}s. How many more ${s.many} are needed to do it in ${answer} ${s.time}s?`, `It takes ${workers} ${s.many} ${time} ${s.time}s to ${s.job}. The job must now take only ${answer} ${s.time}s. How many extra ${s.many} are needed?`, `A team of ${workers} ${s.many} would take ${time} ${s.time}s to ${s.job}. How many should join the team to finish in ${answer} ${s.time}s?`, `To ${s.job} in ${answer} ${s.time}s rather than ${time}, how many ${s.many} must be added to a team of ${workers}?`]),
         answer: extra, distractors: ints(extra, [n, time - answer, workers, extra + 2], 1), formatter: counted(s.one, s.many),
         explanation: `The job takes ${total} ${s.one}-${s.time}s, so ${total} ÷ ${answer} = ${n} ${s.many} are needed. That is ${extra} more.`,
+        solution: [worked(`One ${s.one} alone would take ${workers} × ${time} = ${total} ${s.time}s.`, workers, '×', time), worked(`To finish in ${answer} ${s.time}s you need ${total} ÷ ${answer} = ${n} ${s.many}.`, total, '÷', answer), `You already have ${workers}, so you need ${n} − ${workers} = ${extra} more ${extra === 1 ? s.one : s.many}.`],
       };
     }
     return {
       prompt: pick(r, WORK_FORMS)(s, workers, time, n), answer, distractors: ints(answer, [time * n / workers, time + workers - n, time + n, total, time], 1), formatter: counted(s.time),
       explanation: `The job takes ${workers} × ${time} = ${total} ${s.one}-${s.time}s, and ${total} ÷ ${n} = ${plural(answer, s.time)}.`,
+      solution: [worked(`${n > workers ? 'More' : 'Fewer'} ${s.many} means ${n > workers ? 'less' : 'more'} time. One ${s.one} alone would take ${workers} × ${time} = ${total} ${s.time}s.`, workers, '×', time), worked(`${n} ${s.many} share that equally: ${total} ÷ ${n} = ${plural(answer, s.time)}.`, total, '÷', n)],
     };
   }),
 
@@ -761,6 +965,7 @@ export const generators = {
     return {
       prompt: context.prompt, answer, distractors: ints(answer, [amount + wanted - serves, amount * serves / wanted, per, amount * wanted, answer + per], per), formatter: withUnit(context.unit),
       explanation: `One share is ${amount} ÷ ${serves} = ${per} ${context.unit}, so ${wanted} shares need ${per} × ${wanted} = ${display(answer)} ${context.unit}.`,
+      solution: [worked(`Find the amount for one: ${display(amount)} ${context.unit} ÷ ${serves} = ${per} ${context.unit}.`, amount, '÷', serves), worked(`Multiply for ${wanted}: ${per} ${context.unit} × ${wanted} = ${display(answer)} ${context.unit}.`, per, '×', wanted)],
     };
   }),
 
@@ -774,12 +979,16 @@ export const generators = {
         prompt: pick(r, [`A map has a scale of 1:${scale}. Two towns are ${display(km)} km apart. How far apart are they on the map?`, `On a 1:${scale} map, what length shows a real distance of ${display(km)} km?`, `A path is ${display(km)} km long. How long is it on a map with a scale of 1:${scale}?`, `The scale of a ${s.map} is 1:${scale}. How many centimetres on the map show ${display(km)} km?`]),
         answer, distractors: nice(answer, [answer * 10, answer / 10, km, answer * 100, answer + 1], .5, (v) => Number.isInteger(v * 10)), formatter: fmt, longDecimalsOk: false,
         explanation: `1 cm stands for ${display(n)} cm = ${display(n / 100000)} km, so ${display(km)} ÷ ${display(n / 100000)} = ${display(answer)} cm.`,
+        solution: [`On a 1:${scale} map, 1 cm stands for ${scale} cm in real life.`, `Divide by 100 for metres, then by 1,000 for km: ${scale} cm = ${display(n / 100)} m = ${display(n / 100000)} km.`, n === 100000 ? `So 1 cm stands for 1 km, and ${display(km)} km is ${display(answer)} cm.` : worked(`Divide the real distance by this: ${display(km)} ÷ ${display(n / 100000)} = ${display(answer)} cm.`, km, '÷', n / 100000)],
       };
     }
     const k = pick(r, size(d, [2, 5, 10], [2, 4, 10, 20], [])), answer = d === 'easy' ? integer(r, 2, 10) : integer(r, 3, 19) / 2, real = k * answer;
     return {
       prompt: pick(r, MAP_FORMS)(s, k, display(real)), answer, distractors: nice(answer, [real * k, real - k, k, answer + k, answer * 2], .5), formatter: fmt,
       explanation: `Divide the real distance by the scale: ${display(real)} ÷ ${k} = ${display(answer)} cm.`,
+      solution: [k === 10 ? `Each 1 cm stands for 10 km, so divide by 10: ${display(real)} becomes ${display(answer)} cm.`
+        : k === 20 ? `Each 1 cm stands for 20 km, so divide by 20. Divide by 10 to get ${display(real / 10)}, then halve it: ${display(answer)} cm.`
+        : worked(`Each 1 cm stands for ${k} km, so divide the real distance by ${k}: ${display(real)} ÷ ${k} = ${display(answer)} cm.`, real, '÷', k)],
     };
   }),
 
@@ -790,6 +999,7 @@ export const generators = {
         prompt: pick(r, [`A shape is enlarged by scale factor ${factor}. One side was ${side} cm. How long is it now?`, `A triangle has a side of ${side} cm. It is enlarged by scale factor ${factor}. What is the new length of that side?`, `A photo ${side} cm wide is made ${factor} times as wide. How wide is it now?`, `A drawing is enlarged so every length is ${factor} times as long. A line was ${side} cm. How long is it after the enlargement?`]),
         answer, distractors: ints(answer, [side + factor, side, answer + factor, answer + side], 1), formatter: withUnit('cm'),
         explanation: `${side} × ${factor} = ${answer} cm.`,
+        solution: [worked(`Multiply the length by the scale factor: ${side} × ${factor} = ${answer} cm.`, side, '×', factor)],
       };
     }
     if (d === 'medium') {
@@ -798,6 +1008,7 @@ export const generators = {
         prompt: pick(r, [`A rectangle ${length} cm by ${width} cm is enlarged. The ${length} cm side becomes ${display(newLength)} cm. What does the ${width} cm side become?`, `A ${length} cm by ${width} cm photo is enlarged so that its ${length} cm edge is now ${display(newLength)} cm. How long is the other edge now?`, `A card measures ${length} cm by ${width} cm. A bigger card is the same shape, with a side of ${display(newLength)} cm in place of ${length} cm. How long is its other side?`, `A flag is ${length} cm by ${width} cm. A larger flag of the same shape is ${display(newLength)} cm long where the small one is ${length} cm. What is its other measurement?`]),
         answer, distractors: nice(answer, [width + newLength - length, newLength, width * 2 === answer ? width * 3 : width * 2, answer + 1], 1, (v) => Number.isInteger(v * 2)), formatter: withUnit('cm'),
         explanation: `The scale factor is ${display(newLength)} ÷ ${length} = ${display(factor)}, so ${width} × ${display(factor)} = ${display(answer)} cm.`,
+        solution: [worked(`Find the scale factor: ${display(newLength)} ÷ ${length} = ${display(factor)}.`, newLength, '÷', length), worked(`Multiply the other side by it: ${width} × ${display(factor)} = ${display(answer)} cm.`, width, '×', factor)],
       };
     }
     const [factor, model] = pick(r, [[20, 20], [25, 12], [25, 16], [25, 20], [50, 8], [50, 10], [50, 12]]), part = pick(r, [2, 3, 4, 5]), realLength = clean(model * factor / 100), answer = clean(part * factor / 100), thing = pick(r, ['car', 'van', 'boat', 'lorry']);
@@ -805,6 +1016,7 @@ export const generators = {
       prompt: pick(r, [`A model ${thing} is ${model} cm long. The real ${thing} is ${display(realLength)} m long. The model is ${part} cm high. How high is the real ${thing}?`, `A real ${thing} is ${display(realLength)} m long and its model is ${model} cm long. If the model is ${part} cm wide, how wide is the real ${thing}?`, `A ${model} cm model is made of a ${thing} that is ${display(realLength)} m long. A part of the model measures ${part} cm. How long is that part on the real ${thing}?`, `The model of a ${thing} is ${model} cm long, and the real one is ${display(realLength)} m. A stripe on the model is ${part} cm long. How long is the stripe on the real ${thing}?`]),
       answer, distractors: nice(answer, [part * factor, part * factor / 10, realLength, answer * 10, answer + .5], .25), formatter: withUnit('m'),
       explanation: `${display(realLength)} m is ${model * factor} cm, so the scale factor is ${factor}. ${part} × ${factor} = ${part * factor} cm = ${display(answer)} m.`,
+      solution: [`Use the same units: ${display(realLength)} m = ${display(model * factor)} cm.`, worked(`Scale factor: ${display(model * factor)} ÷ ${model} = ${factor}.`, model * factor, '÷', model), worked(`The real length is ${part} × ${factor} = ${part * factor} cm.`, part, '×', factor), `${part * factor} cm is ${display(answer)} m.`],
     };
   }),
 
@@ -812,13 +1024,17 @@ export const generators = {
     const s = pick(r, TRAVELLERS), v = pick(r, s.speeds), km = withUnit('km');
     if (d === 'easy') {
       const hours = pick(r, [2, 3, 4, 5]), distance = v * hours;
-      if (r() < .35) return { prompt: pick(r, TIME_FORMS)(s, v, distance), answer: hours, distractors: ints(hours, [hours + 1, hours - 1, hours + 2, hours * 2], 1), formatter: counted('hour'), explanation: `Time = distance ÷ speed = ${distance} ÷ ${v} = ${plural(hours, 'hour')}.` };
-      return { prompt: pick(r, DISTANCE_FORMS)(s, v, plural(hours, 'hour')), answer: distance, distractors: ints(distance, [v + hours, distance + v, distance - v, v], 5), formatter: km, explanation: `Distance = speed × time = ${v} × ${hours} = ${distance} km.` };
+      if (r() < .35) return { prompt: pick(r, TIME_FORMS)(s, v, distance), answer: hours, distractors: ints(hours, [hours + 1, hours - 1, hours + 2, hours * 2], 1), formatter: counted('hour'), explanation: `Time = distance ÷ speed = ${distance} ÷ ${v} = ${plural(hours, 'hour')}.`,
+        solution: [worked(`Time = distance ÷ speed: ${distance} ÷ ${v} = ${plural(hours, 'hour')}.`, distance, '÷', v)] };
+      return { prompt: pick(r, DISTANCE_FORMS)(s, v, plural(hours, 'hour')), answer: distance, distractors: ints(distance, [v + hours, distance + v, distance - v, v], 5), formatter: km, explanation: `Distance = speed × time = ${v} × ${hours} = ${distance} km.`,
+        solution: [worked(`Distance = speed × time: ${v} × ${hours} = ${distance} km.`, v, '×', hours)] };
     }
     if (d === 'medium') {
       const minutes = pick(r, [15, 20, 30, 45, 90].filter((m) => (v * m) % 60 === 0)), distance = v * minutes / 60;
-      if (r() < .35) return { prompt: pick(r, TIME_FORMS)(s, v, distance), answer: minutes, distractors: ints(minutes, [minutes + 15, minutes + 5, minutes * 2, minutes + 10, minutes + 30], 5), formatter: (x) => timeLabel(x), explanation: `Time = ${distance} ÷ ${v} = ${mixedLabel(minutes, 60)} h, which is ${timeLabel(minutes)}.` };
-      return { prompt: pick(r, DISTANCE_FORMS)(s, v, timeLabel(minutes)), answer: distance, distractors: ints(distance, [v, v * minutes, v + minutes, distance * 2, distance + v], 5), formatter: km, explanation: `${timeLabel(minutes)} is ${mixedLabel(minutes, 60)} h, so ${v} × ${mixedLabel(minutes, 60)} = ${display(distance)} km.` };
+      if (r() < .35) return { prompt: pick(r, TIME_FORMS)(s, v, distance), answer: minutes, distractors: ints(minutes, [minutes + 15, minutes + 5, minutes * 2, minutes + 10, minutes + 30], 5), formatter: (x) => timeLabel(x), explanation: `Time = ${distance} ÷ ${v} = ${mixedLabel(minutes, 60)} h, which is ${timeLabel(minutes)}.`,
+        solution: partHourTime(distance, v, minutes) };
+      return { prompt: pick(r, DISTANCE_FORMS)(s, v, timeLabel(minutes)), answer: distance, distractors: ints(distance, [v, v * minutes, v + minutes, distance * 2, distance + v], 5), formatter: km, explanation: `${timeLabel(minutes)} is ${mixedLabel(minutes, 60)} h, so ${v} × ${mixedLabel(minutes, 60)} = ${display(distance)} km.`,
+        solution: partHourDistance(v, minutes) };
     }
     if (r() < .4) {
       const ms = pick(r, [5, 10, 15, 20, 25]), answer = ms * 18 / 5;
@@ -826,6 +1042,7 @@ export const generators = {
         prompt: pick(r, [`A ${s.who} travels at ${ms} m/s. What is this speed in km/h?`, `Change ${ms} metres per second into kilometres per hour.`, `A ${s.who} covers ${ms} metres every second. How many kilometres is that in an hour?`, `At ${ms} m/s, how many km does a ${s.who} travel in one hour?`]),
         answer, distractors: ints(answer, [ms * 60, ms * 6, ms * 10, ms * 36], 2), formatter: withUnit('km/h'),
         explanation: `In one hour it goes ${ms} × 3600 = ${display(ms * 3600)} m, which is ${answer} km, so the speed is ${answer} km/h.`,
+        solution: [worked(`There are 3,600 seconds in an hour: ${ms} × 3,600 = ${display(ms * 3600)} m.`, ms, '×', 3600), `1,000 m is 1 km, so ${display(ms * 3600)} m is ${answer} km. The speed is ${answer} km/h.`],
       };
     }
     const hours = pick(r, [1, 2, 3]), v2 = pick(r, s.speeds), minutes = pick(r, [15, 20, 30, 45].filter((m) => (v2 * m) % 60 === 0)), part1 = v * hours, part2 = v2 * minutes / 60, answer = part1 + part2, t1 = plural(hours, 'hour'), t2 = timeLabel(minutes);
@@ -833,6 +1050,7 @@ export const generators = {
       prompt: pick(r, [`A ${s.who} travels at ${v} km/h for ${t1}, then at ${v2} km/h for ${t2}. How far does it travel altogether?`, `For ${t1} a ${s.who} goes at ${v} km/h. It then goes at ${v2} km/h for ${t2}. What is the total distance?`, `A ${s.who} does the first part of a trip at ${v} km/h for ${t1} and the second part at ${v2} km/h for ${t2}. How long is the trip in km?`, `How far does a ${s.who} go in a journey of ${t1} at ${v} km/h followed by ${t2} at ${v2} km/h?`]),
       answer, distractors: ints(answer, [part1, part2, v + v2, v * hours + v2, answer + 10], 5), formatter: km,
       explanation: `${v} × ${hours} = ${part1} km and ${v2} km/h for ${t2} is ${part2} km, so the total is ${answer} km.`,
+      solution: [hours === 1 ? `First part: 1 hour at ${v} km/h is ${part1} km.` : worked(`First part: ${v} × ${hours} = ${part1} km.`, v, '×', hours), ...partHourDistance(v2, minutes), worked(`Add the two parts: ${part1} + ${part2} = ${answer} km.`, part1, '+', part2)],
     };
   }),
 
@@ -843,6 +1061,7 @@ export const generators = {
       return {
         prompt: pick(r, AFFORD_FORMS)(s, items, money(cost), money(budget)), answer: canBuy, distractors: ints(canBuy, [canBuy + 1, canBuy - 1, canBuy + items, Math.max(1, canBuy - items)], 1), formatter: counted(s.one, s.many),
         explanation: `One costs ${money(cost)} ÷ ${items} = ${money(unitPence / 100)}, so ${money(budget)} buys ${canBuy}.`,
+        solution: [worked(`Find the cost of one: ${money(cost)} ÷ ${items} = ${money(unitPence / 100)}.`, cost, '÷', items), worked(`See how many fit in the budget: ${money(budget)} ÷ ${money(unitPence / 100)} = ${canBuy} ${s.many}.`, budget, '÷', unitPence / 100)],
       };
     }
     let wanted = d === 'easy' ? items * pick(r, [2, 3]) : integer(r, 2, 15);
@@ -851,6 +1070,7 @@ export const generators = {
     return {
       prompt: pick(r, RATE_FORMS)(s, items, money(cost), wanted), answer, distractors: pennies(answer, [cost + wanted - items, cost * wanted, unitPence / 100, answer + cost, cost], .5), formatter: money,
       explanation: `One costs ${money(cost)} ÷ ${items} = ${money(unitPence / 100)}, so ${wanted} cost ${money(answer)}.`,
+      solution: [worked(`Find the cost of one: ${money(cost)} ÷ ${items} = ${money(unitPence / 100)}.`, cost, '÷', items), worked(`Multiply for ${wanted}: ${money(unitPence / 100)} × ${wanted} = ${money(answer)}.`, unitPence / 100, '×', wanted)],
     };
   }),
 
@@ -861,6 +1081,7 @@ export const generators = {
         prompt: pick(r, [`Which ratio is equivalent to ${a}:${b}?`, `Which of these is the same ratio as ${a}:${b}?`, `Which ratio is equal to ${a}:${b}?`, `A recipe uses flour and sugar in the ratio ${a}:${b}. Which of these is the same ratio?`, `For every ${plural(a, 'red bead')} there are ${plural(b, 'blue bead')}. Which ratio of red to blue is the same?`]),
         answer, distractors: ratioChoices(a, b, p, q, [[a + k, b + k], [p, b], [a, q], [q, p]]), ratio: true,
         explanation: `Multiply both parts by ${k}: ${a}:${b} = ${answer}.`,
+        solution: ['Multiplying both parts by the same number keeps the ratio equal.', `Multiply by ${k}: ${a} × ${k} = ${p} and ${b} × ${k} = ${q}, so the answer is ${answer}.`],
       };
     }
     if (d === 'medium') {
@@ -872,12 +1093,14 @@ export const generators = {
           prompt: pick(r, [`Which ratio is NOT equivalent to ${a}:${b}?`, `Four of these ratios are equal to ${a}:${b}. Which one is not?`, `Which of these is NOT the same as ${a}:${b}?`, `Which ratio does not simplify to ${a}:${b}?`]),
           answer: wrong, distractors: others.map((x) => `${a * x}:${b * x}`), allowEquivalent: true,
           explanation: `The others are all ${a}:${b} multiplied by a whole number. ${wrong} is not.`,
+          solution: ['In an equivalent ratio, both parts are multiplied by the same number.', `Test ${wrong}: ${a * odd} ÷ ${a} = ${odd}, so the second part should be ${b} × ${odd} = ${b * odd}, not ${b * odd + 1}.`, `So ${wrong} is not equivalent to ${a}:${b}.`],
         };
       }
       return {
         prompt: pick(r, [`Which ratio is equivalent to ${a}:${b}?`, `Which of these is the same ratio as ${a}:${b}?`, `Which ratio is equal to ${a}:${b}?`, `Paint is mixed in the ratio ${a}:${b}. Which of these would give the same colour?`, `For every ${a} boys in a club there are ${b} girls. Which ratio of boys to girls is the same?`]),
         answer, distractors: ratioChoices(a, b, p, q, [[a + k, b + k], [p + 1, q], [q - 1 <= 23 ? q - 1 : p - 1, q], [p, q + b]]), ratio: true,
         explanation: `Multiply both parts by ${k}: ${a}:${b} = ${answer}.`,
+        solution: ['Multiplying both parts by the same number keeps the ratio equal.', `Multiply by ${k}: ${a} × ${k} = ${p} and ${b} × ${k} = ${q}, so the answer is ${answer}.`],
       };
     }
     const [a, b] = pick(r, [[2, 3], [3, 4], [3, 5], [2, 5], [4, 5], [5, 6], [3, 7], [4, 7], [5, 8], [7, 9]]), k = integer(r, 3, 9), p = a * k, q = b * k;
@@ -886,6 +1109,7 @@ export const generators = {
         prompt: pick(r, [`What is ${p}:${q} in its simplest form?`, `Simplify the ratio ${p}:${q}.`, `Write ${p}:${q} as simply as possible.`, `A class has ${p} boys and ${q} girls. What is the ratio of boys to girls in its simplest form?`, `There are ${p} red counters and ${q} blue counters. Write the ratio of red to blue in its simplest form.`]),
         answer: `${a}:${b}`, distractors: ratioChoices(a, b, a, b, [[b, a], [a + 1, b], [a, b + 1], [a + 1, b + 1], [a - 1, b]]), ratio: true,
         explanation: `Divide both parts by ${k}: ${p}:${q} = ${a}:${b}.`,
+        solution: [`The highest common factor of ${p} and ${q} is ${k}.`, `Divide both parts by ${k}: ${p} ÷ ${k} = ${a} and ${q} ÷ ${k} = ${b}, so the ratio is ${a}:${b}.`],
       };
     }
     const asksSecond = r() < .5, shown = asksSecond ? `${a}:${b} = ${p}:□` : `${a}:${b} = □:${q}`, answer = asksSecond ? q : p;
@@ -893,6 +1117,7 @@ export const generators = {
       prompt: pick(r, [`${shown}. What number goes in the box?`, `${shown}. What is the missing number?`, `Find the missing number: ${shown}.`, `These two ratios are equal: ${shown}. What should replace the box?`]),
       answer, distractors: ints(answer, asksSecond ? [b + p - a, q + 1, q - k, p] : [a + q - b, p + 1, p - k, q], 1),
       explanation: `The scale factor is ${k}, so the missing number is ${asksSecond ? b : a} × ${k} = ${answer}.`,
+      solution: [`Find the scale factor: ${asksSecond ? p : q} ÷ ${asksSecond ? a : b} = ${k}.`, `Do the same to the other part: ${asksSecond ? b : a} × ${k} = ${answer}.`],
     };
   }),
 
@@ -905,12 +1130,14 @@ export const generators = {
         prompt: pick(r, [`${cap(s.a)} and ${s.b} are mixed in the ratio ${a}:${b}. A mixture has ${s.fmt(given)} of ${givenName}. How much ${otherName} does it have?`, `A mixture uses ${s.a} and ${s.b} in the ratio ${a}:${b}. If ${s.fmt(given)} of ${givenName} is used, how much ${otherName} is needed?`, `The ratio of ${s.a} to ${s.b} is ${a}:${b}. How much ${otherName} goes with ${s.fmt(given)} of ${givenName}?`, `To keep ${s.a} and ${s.b} in the ratio ${a}:${b}, how much ${otherName} must be added to ${s.fmt(given)} of ${givenName}?`]),
         answer, distractors: ints(answer, [given, total, unit, given + (givenFirst ? b - a : a - b), answer + unit], unit), formatter: s.fmt,
         explanation: `${s.fmt(given)} is ${plural(givenFirst ? a : b, 'part')}, so one part is ${s.fmt(unit)}. ${cap(otherName)} is ${plural(givenFirst ? b : a, 'part')}, which is ${s.fmt(answer)}.`,
+        solution: [worked(`${cap(givenName)} ${isAre(givenName)} ${plural(givenFirst ? a : b, 'part')}, so one part is ${s.fmt(given)} ÷ ${givenFirst ? a : b} = ${s.fmt(unit)}.`, given, '÷', givenFirst ? a : b), partsStep(`${cap(otherName)} ${isAre(otherName)}`, givenFirst ? b : a, unit, s.fmt)],
       };
     }
     const wantFirst = r() < .5, want = wantFirst ? s.a : s.b, answer = wantFirst ? first : second, other = wantFirst ? second : first;
     return {
       prompt: pick(r, MIX_FORMS)(s, a, b, total, want), answer, distractors: ints(answer, [other, unit, total, Math.floor(total / 2), answer + unit], unit), formatter: s.fmt,
       explanation: `There are ${a + b} parts, so one part is ${s.fmt(unit)}. ${cap(want)} is ${plural(wantFirst ? a : b, 'part')}, which is ${s.fmt(answer)}.`,
+      solution: [`Add the parts: ${a} + ${b} = ${a + b}.`, worked(`One part is ${s.fmt(total)} ÷ ${a + b} = ${s.fmt(unit)}.`, total, '÷', a + b), partsStep(`${cap(want)} ${isAre(want)}`, wantFirst ? a : b, unit, s.fmt)],
     };
   }),
 
@@ -924,6 +1151,7 @@ export const generators = {
           prompt: pick(r, [`${x}, ${y} and ${z} share ${amount(total)} in the ratio ${a}:${b}:${c}. ${useMoney ? 'How much' : `How many ${thing}`} does ${who[0]} get?`, `${amount(total)} is divided between ${x}, ${y} and ${z} in the ratio ${a}:${b}:${c}. What is ${who[0]}'s share?`, `In the ratio ${a}:${b}:${c}, ${x}, ${y} and ${z} split ${amount(total)}. What does ${who[0]} end up with?`, `${x}, ${y} and ${z} divide ${amount(total)} so that their shares are in the ratio ${a}:${b}:${c}. What does ${who[0]} receive?`]),
           answer, distractors: ints(answer, [a * unit, b * unit, c * unit, unit, total - answer], unit), formatter: fmt,
           explanation: `There are ${a + b + c} parts, so one part is ${amount(unit)}. ${who[0]} gets ${plural(who[1], 'part')}: ${amount(answer)}.`,
+          solution: [`Add the parts: ${a} + ${b} + ${c} = ${a + b + c}.`, worked(`One part is ${amount(total)} ÷ ${a + b + c} = ${amount(unit)}.`, total, '÷', a + b + c), partsStep(`${who[0]} gets`, who[1], unit, amount)],
         };
       }
       const [a, b] = pick(r, [[2, 3], [3, 5], [2, 5], [3, 4], [4, 7], [5, 8]]), unit = integer(r, 3, 15), gap = (b - a) * unit, total = (a + b) * unit;
@@ -931,6 +1159,7 @@ export const generators = {
         prompt: pick(r, [`${x} and ${y} share some money in the ratio ${a}:${b}. ${y} gets ${money(gap)} more than ${x}. How much was shared altogether?`, `A prize is split between ${x} and ${y} in the ratio ${a}:${b}. The difference between their shares is ${money(gap)}. What was the whole prize?`, `${x} and ${y} divide their savings in the ratio ${a}:${b}, and ${x} ends up with ${money(gap)} less than ${y}. What was the total?`, `In the ratio ${a}:${b}, ${y}'s share is ${money(gap)} bigger than ${x}'s. How much money is there in total?`]),
         answer: total, distractors: ints(total, [gap * b, gap * a, a * unit, b * unit, gap * (a + b + 1)], unit), formatter: money,
         explanation: `The difference is ${b - a} part${b - a === 1 ? '' : 's'}, so one part is ${money(unit)}. The total is ${a + b} parts: ${money(total)}.`,
+        solution: [b - a === 1 ? `The difference is ${b} − ${a} = 1 part, so one part is ${money(gap)}.` : worked(`The difference is ${b} − ${a} = ${b - a} parts, so one part is ${money(gap)} ÷ ${b - a} = ${money(unit)}.`, gap, '÷', b - a), worked(`The total is ${a} + ${b} = ${a + b} parts: ${money(unit)} × ${a + b} = ${money(total)}.`, unit, '×', a + b)],
       };
     }
     const [a, b] = pick(r, size(d, [[1, 2], [2, 1], [1, 3], [3, 1], [2, 3], [3, 2], [1, 4]], [[2, 3], [3, 2], [3, 4], [4, 3], [2, 5], [5, 2], [3, 5], [5, 3], [4, 5]], []));
@@ -944,6 +1173,7 @@ export const generators = {
     return {
       prompt: `${setup} ${ask}`, answer, distractors: ints(answer, [A, B, unit, total, total - answer, Math.abs(A - B)], unit), formatter: fmt,
       explanation: `There are ${a + b} parts, so one part is ${amount(unit)}. ${x} gets ${amount(A)} and ${y} gets ${amount(B)}.`,
+      solution: [`Add the parts: ${a} + ${b} = ${a + b}.`, worked(`One part is ${amount(total)} ÷ ${a + b} = ${amount(unit)}.`, total, '÷', a + b), mode === 'gap' ? partsStep(`The difference is ${Math.max(a, b)} − ${Math.min(a, b)} =`, Math.abs(a - b), unit, amount) : partsStep(mode === 'named' ? `${who} gets` : `The ${mode} share is`, mode === 'named' ? (named ? a : b) : mode === 'larger' ? Math.max(a, b) : Math.min(a, b), unit, amount)],
     };
   }),
 
@@ -956,6 +1186,7 @@ export const generators = {
         prompt: pick(r, [`Which of these is NOT equal to ${label}?`, `Four of these are the same as ${label}. Which one is different?`, `Which value does not match ${label}?`, `Which of these is NOT another way of writing ${label}?`]),
         answer: wrong, distractors: [display(value), `${display(percent)}%`, `${n * k}/${den * k}`, `${n * (k + 2)}/${den * (k + 2)}`], allowEquivalent: true, longDecimalsOk: true,
         explanation: `${label} = ${display(value)} = ${display(percent)}%, so ${wrong} is the odd one out.`,
+        solution: [...toDecimalSteps(n, den), `As a percentage: ${display(value)} × 100 = ${display(percent)}%.`, `The other options all equal ${label}, so the odd one out is ${wrong}.`],
       };
     }
     const pair = (x, y) => `${display(x)} and ${display(y)}%`, answer = pair(value, percent);
@@ -965,6 +1196,7 @@ export const generators = {
       prompt: pick(r, [`Which decimal and percentage are both equal to ${label}?`, `${label} can be written as which decimal and percentage?`, `Which pair shows ${label} as a decimal and as a percentage?`, `Write ${label} as a decimal and a percentage. Which pair is correct?`]),
       answer, distractors, longDecimalsOk: true,
       explanation: `${n} ÷ ${den} = ${display(value)}, and ${display(value)} × 100 = ${display(percent)}%.`,
+      solution: [...toDecimalSteps(n, den), `Multiply by 100 for the percentage: ${display(value)} × 100 = ${display(percent)}%.`, `So the pair is ${answer}.`],
     };
   }),
 
@@ -977,6 +1209,7 @@ export const generators = {
           : pick(r, [`A fraction is equal to ${f(n, den)}. Its denominator is ${given} more than its numerator. What is the denominator?`, `The bottom of a fraction equal to ${f(n, den)} is ${given} more than the top. What is the bottom number?`, `A fraction equivalent to ${f(n, den)} has a numerator ${given} less than its denominator. What is the denominator?`, `${f(n, den)} is written with bigger numbers so that the top and bottom differ by ${given}. What is the bottom number?`]),
         answer: bottom, distractors: ints(bottom, [top, given, given + den, bottom + k, bottom - k], k),
         explanation: `${useSum ? `Top and bottom together are ${n + den} parts` : `The gap is ${den - n} part${den - n === 1 ? '' : 's'}`}, so one part is ${k} and the denominator is ${den} × ${k} = ${bottom}.`,
+        solution: [useSum ? `In ${f(n, den)}, top and bottom add up to ${n} + ${den} = ${n + den}.` : `In ${f(n, den)}, the bottom is ${den} − ${n} = ${den - n} more than the top.`, useSum || den - n > 1 ? worked(`The real ${useSum ? 'total' : 'gap'} is ${given}, so the multiplier is ${given} ÷ ${useSum ? n + den : den - n} = ${k}.`, given, '÷', useSum ? n + den : den - n) : `The real gap is ${given}, so the multiplier is ${k}.`, `Multiply the bottom by ${k}: ${den} × ${k} = ${bottom}.`],
       };
     }
     const [n, den] = pick(r, size(d, [[1, 2], [1, 3], [2, 3], [1, 4], [3, 4], [1, 5], [2, 5], [3, 5], [4, 5]], [[2, 3], [3, 4], [2, 5], [3, 5], [4, 5], [5, 6], [3, 8], [5, 8], [7, 8]], [])), k = integer(r, 2, size(d, 6, 9, 9)), top = n * k, bottom = den * k, missingTop = d === 'medium' && r() < .5;
@@ -985,6 +1218,7 @@ export const generators = {
       prompt: pick(r, [`${eq}. What number goes in the box?`, `Complete the equivalent fraction: ${eq}.`, `${eq}. What is the missing number?`, `These two fractions are equal: ${eq}. What should replace the box?`, `Find the missing number: ${eq}.`]),
       answer, distractors: ints(answer, missingTop ? [n + bottom - den, bottom, n + k, top + 1] : [den + top - n, top, den + k, bottom + 1], 1),
       explanation: `${missingTop ? `${den} × ${k} = ${bottom}` : `${n} × ${k} = ${top}`}, so the missing number is ${missingTop ? n : den} × ${k} = ${answer}.`,
+      solution: [`The ${missingTop ? 'bottom' : 'top'} has been multiplied by ${k}: ${missingTop ? `${den} × ${k} = ${bottom}` : `${n} × ${k} = ${top}`}.`, `Do the same to the ${missingTop ? 'top' : 'bottom'}: ${missingTop ? n : den} × ${k} = ${answer}.`],
     };
   }),
 
@@ -995,6 +1229,7 @@ export const generators = {
         prompt: pick(r, [`What is ${a} ÷ 1/${b}?`, `Work out ${a} ÷ 1/${b}.`, `${a} ÷ 1/${b} = □. What number goes in the box?`, `How many ${name} are there in ${a}?`, `Calculate ${a} ÷ 1/${b}.`, `A ${a} m rope is cut into pieces 1/${b} m long. How many pieces are there?`]),
         answer, distractors: ints(answer, [a + b, a, b, answer + b, answer - b], b),
         explanation: `There are ${b} lots of 1/${b} in each whole, so ${a} × ${b} = ${answer}.`,
+        solution: [`There are ${b} lots of 1/${b} in every whole.`, `So in ${a} wholes there are ${a} × ${b} = ${answer}.`],
       };
     }
     if (d === 'medium') {
@@ -1003,6 +1238,7 @@ export const generators = {
         prompt: pick(r, [`What is ${a} ÷ ${f(c, b)}?`, `Work out ${a} ÷ ${f(c, b)}.`, `${a} ÷ ${f(c, b)} = □. What number goes in the box?`, `Calculate ${a} ÷ ${f(c, b)}.`, `How many lots of ${f(c, b)} are there in ${a}?`, `A ${a} litre barrel fills jugs that hold ${f(c, b)} of a litre. How many jugs can be filled?`]),
         answer, distractors: ints(answer, [a * b, a * c, a + b, m, answer + b], b),
         explanation: `${a} ÷ ${f(c, b)} = ${a} × ${f(b, c)} = ${answer}.`,
+        solution: [`To divide by a fraction, flip it and multiply: ${a} ÷ ${f(c, b)} becomes ${a} × ${f(b, c)}.`, `Divide by ${c}, then multiply by ${b}: ${a} ÷ ${c} = ${m}, then ${m} × ${b} = ${answer}.`],
       };
     }
     const [n, b, e] = pick(r, [[3, 4, 8], [1, 2, 8], [5, 6, 12], [2, 3, 6], [3, 5, 10], [3, 4, 12], [2, 3, 12], [1, 2, 6], [4, 5, 10], [5, 8, 16]]), answer = n * e / b, label = f(n, b);
@@ -1010,6 +1246,7 @@ export const generators = {
       prompt: pick(r, [`What is ${label} ÷ 1/${e}?`, `Work out ${label} ÷ 1/${e}.`, `${label} ÷ 1/${e} = □. What number goes in the box?`, `How many lots of 1/${e} are there in ${label}?`, `A jug holds ${label} of a litre. A cup holds 1/${e} of a litre. How many cups can be filled from the jug?`, `${label} of a metre of ribbon is cut into pieces 1/${e} m long. How many pieces are there?`]),
       answer, distractors: ints(answer, [n * e, e, e - b, b + e, answer + 1], 1),
       explanation: `${label} = ${n * (e / b)}/${e}, so there are ${answer} lots of 1/${e}.`,
+      solution: [`Write ${label} with a denominator of ${e}: ${label} = ${n * (e / b)}/${e}.`, `${n * (e / b)}/${e} is ${n * (e / b)} lots of 1/${e}, so the answer is ${answer}.`],
     };
   }),
 
@@ -1031,6 +1268,7 @@ export const generators = {
     return {
       prompt: bare(r, `${x} ${sign} ${y}`, [story, story]), answer, distractors: mixedChoices(top, common, [noCarry, subtract ? a + b : Math.abs(a - b), top + common, top - common]).filter((t) => t !== answer),
       explanation: `With a denominator of ${common}, ${mixedLabel(a, common)} ${sign} ${mixedLabel(b, common)} = ${answer}.`,
+      solution: mixedSteps({ w1, n1, den1, w2, n2, den2, common, subtract, a, b, top, answer }),
     };
   }),
 
@@ -1047,12 +1285,14 @@ export const generators = {
         ]),
         answer: total, distractors: ints(total, [after, rem * b, rem * e, rem * b / a, rem + total / b], Math.max(1, k)),
         explanation: `Before the second step there were ${rem} ÷ ${f(e - c, e)} = ${after}. Before the first there were ${after} ÷ ${f(b - a, b)} = ${total}.`,
+        solution: [...wholeFromFraction(rem, e - c, e, display, `Work backwards. ${rem} is ${f(e - c, e)} of what there was before the second step`), ...wholeFromFraction(after, b - a, b, display, `${after} is ${f(b - a, b)} of the starting number`)],
       };
     }
     const den = pick(r, size(d, [3, 4, 5], [5, 6, 8, 10], [])), used = pick(r, Array.from({ length: den - 1 }, (_, i) => i + 1).filter((x) => gcd(x, den) === 1)), unit = integer(r, 3, size(d, 12, 25, 25)), total = den * unit, rem = (den - used) * unit;
     return {
       prompt: pick(r, REVERSE_FRACTION_FORMS)(s, f(used, den), rem), answer: total, distractors: ints(total, [rem * den / used, rem + used, rem * den, used * unit, rem + unit], unit),
       explanation: `${rem} is the ${f(den - used, den)} left, so 1/${den} is ${unit} and the whole is ${unit} × ${den} = ${total}.`,
+      solution: wholeFromFraction(rem, den - used, den, display, `If ${f(used, den)} went, ${rem} is the remaining ${f(den - used, den)}`),
     };
   }),
 
@@ -1066,6 +1306,7 @@ export const generators = {
         prompt: pick(r, [`How many ${name} are there in ${m}?`, `How many lots of 1/${den} make ${m}?`, `A jug holds ${m} litres. A cup holds 1/${den} of a litre. How many cups can be filled?`, `A ${m} m plank is cut into pieces 1/${den} m long. How many pieces are there?`, `${m} is the same as how many ${name}?`]),
         answer, distractors: ints(answer, [whole * den, whole + n, whole * n, answer + den, answer - 1], 1),
         explanation: `${whole} wholes make ${whole * den} ${name}, and ${n} more makes ${answer}.`,
+        solution: [`Each whole has ${den} ${name}, so ${whole} wholes make ${whole} × ${den} = ${whole * den}.`, `The extra ${f(n, den)} is ${n} more: ${whole * den} + ${n} = ${answer}.`],
       };
     }
     const whole = integer(r, size(d, 1, 2, 2), size(d, 5, 10, 10)), answer = den * whole, wholes = plural(whole, 'whole'), litres = plural(whole, 'litre');
@@ -1073,6 +1314,7 @@ export const generators = {
       prompt: pick(r, [`How many ${name} are there in ${whole}?`, `How many 1/${den} pieces make ${wholes}?`, `A jug holds ${litres}. A cup holds 1/${den} of a litre. How many cups fill the jug?`, `A ${whole} m rope is cut into pieces 1/${den} m long. How many pieces are there?`, `${whole} is the same as how many ${name}?`, `Each slice is 1/${den} of a cake. How many slices are in ${plural(whole, 'cake')}?`]),
       answer, distractors: ints(answer, [den + whole, den, whole, answer + den, answer + 1], 1),
       explanation: `Each whole contains ${den} ${name}, so ${whole} × ${den} = ${answer}.`,
+      solution: [`Each whole contains ${den} ${name}, so ${whole} × ${den} = ${answer}.`],
     };
   }),
 
@@ -1083,6 +1325,7 @@ export const generators = {
       prompt: useStory ? pick(r, UNIT_FORMS)(s, W, P) : pick(r, [`What percentage of ${W} is ${P}?`, `Write ${P} as a percentage of ${W}.`]),
       answer: percent, distractors: halves(percent, [part / whole, part / (whole * 10), 100 - percent, percent / 10, percent * 2, percent + 10], 5), formatter: pct,
       explanation: `${W} = ${s.p(whole * s.factor)}, and ${display(part)} ÷ ${display(whole * s.factor)} × 100 = ${percent}%.`,
+      solution: [`Use the same unit: ${W} = ${s.p(whole * s.factor)}.`, `1% of ${s.p(whole * s.factor)} is ${s.p(whole * s.factor / 100)}.`, worked(`${P} is ${display(part)} ÷ ${display(whole * s.factor / 100)} = ${percent} lots of 1%, so the answer is ${percent}%.`, part, '÷', whole * s.factor / 100)],
     };
   }),
 
@@ -1096,12 +1339,14 @@ export const generators = {
         prompt: pick(r, [`${s.stuff} would last ${n} ${s.many} for ${t} days. After ${gone} days, ${more} more ${s.many} arrive. How many more days will it last?`, `There is enough in ${s.stuff.toLowerCase()} for ${n} ${s.many} for ${t} days. After ${gone} days another ${more} ${s.many} join them. For how many more days will it last?`, `${s.stuff} feeds ${n} ${s.many} for ${t} days. When ${gone} days have passed, ${more} extra ${s.many} arrive. How much longer will it last?`, `${n} ${s.many} have ${s.stuff.toLowerCase()} to last ${t} days. After ${gone} days, ${more} more ${s.many} turn up. How many days will the rest last?`]),
         answer, distractors: ints(answer, [t - gone, t * n / (n + more), t - gone - more, answer + more], 1), formatter: fmt,
         explanation: `After ${gone} days there is enough for ${n} × ${t - gone} = ${n * (t - gone)} ${s.one}-days. ${n * (t - gone)} ÷ ${n + more} = ${plural(answer, 'day')}.`,
+        solution: [`After ${gone} days there is enough left for ${n} ${s.many} for ${t} − ${gone} = ${t - gone} days.`, worked(`That would last one ${s.one} ${n} × ${t - gone} = ${n * (t - gone)} days.`, n, '×', t - gone), worked(`Now there are ${n + more} ${s.many}: ${n * (t - gone)} ÷ ${n + more} = ${plural(answer, 'day')}.`, n * (t - gone), '÷', n + more)],
       };
     }
     const total = pick(r, size(d, [24, 30, 36, 40], [48, 60, 72, 80, 90], [])), factors = Array.from({ length: 13 }, (_, i) => i + 2).filter((x) => total % x === 0 && total / x >= 2), n = pick(r, factors), m = pick(r, factors.filter((x) => x !== n)), t = total / n, answer = total / m;
     return {
       prompt: pick(r, RESOURCE_FORMS)(s, n, t, m), answer, distractors: ints(answer, [t * m / n, t + n - m, t, total, answer + 1], 1), formatter: fmt,
       explanation: `The supply is ${n} × ${t} = ${total} ${s.one}-days, and ${total} ÷ ${m} = ${plural(answer, 'day')}.`,
+      solution: [worked(`${m > n ? 'More' : 'Fewer'} ${s.many} means it runs out ${m > n ? 'sooner' : 'later'}. One ${s.one} would make it last ${n} × ${t} = ${total} days.`, n, '×', t), worked(`Share that between ${m} ${s.many}: ${total} ÷ ${m} = ${plural(answer, 'day')}.`, total, '÷', m)],
     };
   }),
 
@@ -1110,6 +1355,7 @@ export const generators = {
     return {
       prompt: pick(r, SHADOW_FORMS)(s, display(h), display(shadow), display(big)), answer, distractors: nice(answer, [big, clean(h + big - shadow), big / h, clean(answer + h), clean(h * shadow)], .5, (v) => Number.isInteger(Math.round(v * 1000) / 10)), formatter: withUnit('m'),
       explanation: `The ${s[1]}'s shadow is ${display(big)} ÷ ${display(shadow)} = ${display(factor)} times as long, so its height is ${display(h)} × ${display(factor)} = ${display(answer)} m.`,
+      solution: [worked(`Heights and shadows grow in proportion. The ${s[1]}'s shadow is ${display(big)} ÷ ${display(shadow)} = ${display(factor)} times as long.`, big, '÷', shadow), worked(`So its height is ${display(h)} × ${display(factor)} = ${display(answer)} m.`, h, '×', factor)],
     };
   }),
 
@@ -1121,6 +1367,7 @@ export const generators = {
     return {
       prompt: pick(r, COMPOUND_FORMS)(s, n, amount, t, m, e), answer, distractors: ints(answer, [amount * m / n, amount * e / t, amount + m * e, amount + (m - n) + (e - t), rate * m], rate), formatter: fmt,
       explanation: `One of the ${s.who} makes ${amount} ÷ (${n} × ${t}) = ${rate} per ${s.time}, so ${m} × ${e} × ${rate} = ${answer}.`,
+      solution: compoundSteps(s, n, amount, t, rate, m, e, answer),
     };
   }),
 
@@ -1142,6 +1389,7 @@ export const generators = {
         prompt: pick(r, [`Look at the table of ${product}. What is the cost of one item in the ${low ? 'best' : 'worst'} value pack?`, `The table shows packs of ${product}. How much does one item cost in the pack that is ${low ? 'cheapest' : 'dearest'} per item?`, `Which price per item is the ${low ? 'lowest' : 'highest'} in this table of ${product}?`, `Work out the price of one of the ${product} in each pack. What is the ${low ? 'lowest' : 'highest'} price per item?`]),
         answer: best, distractors: [...costs.filter((_, i) => i !== target).map((c) => c / 100)], formatter: money,
         explanation: `${answer} works out at ${unitText(costs[target])} per item, the ${low ? 'lowest' : 'highest'} of the five.`,
+        solution: bestValueSteps(labels, counts, costs, totals, target, low, `the answer is ${money(best)}`),
         visual: { type: 'table', headers: ['Pack', 'Items', 'Price'], rows: labels.map((label, i) => [label, counts[i], money(totals[i] / 100)]) },
       };
     }
@@ -1151,6 +1399,7 @@ export const generators = {
         : [`Which pack of ${product} is the worst value?`, `Which pack of ${product} has the highest cost per item?`, `Look at the table. Which pack makes each of the ${product} the most expensive?`, `Which pack of ${product} should you avoid if you want a good deal?`]),
       answer, distractors: labels.filter((label) => label !== answer),
       explanation: `${answer} works out at ${unitText(costs[target])} per item, the ${low ? 'lowest' : 'highest'} of the five.`,
+      solution: bestValueSteps(labels, counts, costs, totals, target, low, `${answer} is the ${low ? 'best' : 'worst'} value`),
       visual: { type: 'table', headers: ['Pack', 'Items', 'Price'], rows: labels.map((label, i) => [label, counts[i], money(totals[i] / 100)]) },
     };
   }),
@@ -1164,6 +1413,7 @@ export const generators = {
         prompt: pick(r, [`How many more squares must be shaded so that ${f(n, den)} of the grid is shaded?`, `Some squares are shaded. How many more need shading to make ${f(n, den)} of the grid shaded?`, `To have ${f(n, den)} of this grid shaded, how many extra squares must be coloured in?`, `What is the smallest number of extra squares to shade so that exactly ${f(n, den)} of the grid is shaded?`]),
         answer, distractors: ints(answer, [goal, shaded, total - shaded, total - goal, answer + 1], 1),
         explanation: `${f(n, den)} of ${total} is ${goal}. ${shaded} ${shaded === 1 ? 'is' : 'are'} shaded, so ${answer} more ${answer === 1 ? 'is' : 'are'} needed.`,
+        solution: [`The grid has ${rows} × ${cols} = ${total} squares.`, ...fractionOf(n, den, total), `${shaded} ${shaded === 1 ? 'is' : 'are'} already shaded, so shade ${goal} − ${shaded} = ${plural(answer, 'more square', 'more squares')}.`],
         visual: { type: 'grid', rows, cols, shaded: makeCells(shaded) },
       };
     }
@@ -1172,6 +1422,7 @@ export const generators = {
       prompt: pick(r, [`What fraction of the grid is ${word}?`, `What fraction of this shape is ${word}? Give your answer in its simplest form.`, `How much of the grid is ${word}? Give the fraction in its simplest form.`, `Look at the grid. What fraction of the squares are ${word}?`]),
       answer: f(n, den), distractors: fractionChoices(n, den, [[total - count, total], [count, rows + cols], [count, cols], [count, rows], [count, total + 1]]),
       explanation: `${count} out of ${total} equal squares ${count === 1 ? 'is' : 'are'} ${word}${g === 1 ? `, which is ${f(n, den)}` : `, and ${count}/${total} = ${f(n, den)}`}.`,
+      solution: [`Count the squares: ${count} of the ${total} ${count === 1 ? 'is' : 'are'} ${word}.`, g === 1 ? `As a fraction that is ${f(n, den)}.` : `As a fraction that is ${count}/${total}. Divide top and bottom by ${g}: ${f(n, den)}.`],
       visual: { type: 'grid', rows, cols, shaded: makeCells(shaded) },
     };
   }),
@@ -1183,6 +1434,7 @@ export const generators = {
       prompt: pick(r, ['The diagram shows a route on a map. How long is the real route?', 'Use the scale to find the real length of this route.', 'A walker follows the route on this map. How far is the walk in real life?', 'How many kilometres long is the real route shown on the map?', 'The route on this map is marked with its length. What distance does it stand for?']),
       answer, distractors: nice(answer, [clean(mapLength / scale), clean(mapLength + scale), scale, clean(answer + mapLength), clean(answer * 10)], .5), formatter: withUnit('km'),
       explanation: `Each centimetre stands for ${display(scale)} km, so ${display(mapLength)} × ${display(scale)} = ${display(answer)} km.`,
+      solution: [`Read the diagram: the route is ${display(mapLength)} cm and 1 cm represents ${display(scale)} km.`, worked(`Multiply: ${display(mapLength)} × ${display(scale)} = ${display(answer)} km.`, mapLength, '×', scale)],
       visual: { type: 'scale_route', scale, mapLength, points: pick(r, routes) },
     };
   }),
@@ -1197,6 +1449,7 @@ export const generators = {
         : [`On this plan, ${scaleText}. What is the real area of the room?`, `The rectangle is a plan of a garden where ${scaleText}. What is the area of the real garden?`, `A scale drawing of a playground is shown. If ${scaleText}, what is its real area?`, `This is a plan of a hall, and ${scaleText}. What is the area of the real floor?`]),
       answer, distractors: ints(answer, [length * width, length * width * factor, 2 * (realL + realW), length * width + factor, answer * factor], factor), formatter: withUnit('m²'),
       explanation: `In real life it is ${realL} m by ${realW} m, so the area is ${realL} × ${realW} = ${display(answer)} m².`,
+      solution: [asRatio ? `The plan is ${length} cm by ${width} cm. At ${scaleText}, 1 cm is ${factor * 100} cm, which is ${factor} m.` : `The plan is ${length} cm by ${width} cm, and each 1 cm is ${factor} m in real life.`, `Scale the sides first: ${length} × ${factor} = ${realL} m and ${width} × ${factor} = ${realW} m.`, worked(`Real area: ${realL} × ${realW} = ${display(answer)} m².`, realL, '×', realW)],
       visual: { type: 'shape', kind: 'rectangle', dimensions: { width: length, height: width, unit: 'cm' }, caption: `Scale: ${scaleText}` },
     };
   }),
@@ -1208,18 +1461,20 @@ export const generators = {
       return {
         prompt: bare(r, expr, [`Find ${expr}.`]), answer, distractors: pennies(answer, [base - answer, base / 10, answer + base / 10, answer * 2, percent / 10], .5), formatter: money,
         explanation: `1% of ${money(base)} is ${money(base / 100)}, so ${percent}% is ${money(answer)}.`,
+        solution: percentOfSteps(percent, base, money),
       };
     }
     const base = 20 * integer(r, 2, size(d, 10, 20, 30)), answer = base * percent / 100, expr = `${percent}% of ${display(base)}`;
     return {
       prompt: bare(r, expr, [`Find ${expr}.`]), answer, distractors: ints(answer, [base - answer, base / 10, answer + base / 10, answer * 2, percent], base / 20),
       explanation: `1% of ${display(base)} is ${display(base / 100)}, so ${percent}% is ${display(base / 100)} × ${percent} = ${display(answer)}.`,
+      solution: percentOfSteps(percent, base),
     };
   }),
 
   percent_of_amount_word_problem: gen('percent_of_amount_word_problem', 'pct_percent_of_amount', (r, d) => {
     const percent = pick(r, size(d, [10, 20, 25, 50], [5, 15, 30, 40, 60, 75], [15, 35, 45, 65, 85, 95])), base = 20 * integer(r, 2, size(d, 10, 20, 30)), part = base * percent / 100, story = pick(r, PERCENT_STORIES), useRest = d === 'hard', answer = useRest ? base - part : part;
-    const fmt = story.isMoney ? money : counted(story.one, story.many);
+    const fmt = story.isMoney ? money : display;
     const show = (value) => (story.isMoney ? money(value) : display(value));
     return {
       prompt: `${story.set(base, percent, nameOf(r))} ${useRest ? story.rest : story.ask}`, answer,
@@ -1227,6 +1482,7 @@ export const generators = {
       explanation: useRest
         ? `${percent}% of ${show(base)} is ${show(part)}, so the rest is ${show(base)} − ${show(part)} = ${show(answer)}.`
         : `${percent}% of ${show(base)} is ${show(part)}.`,
+        solution: useRest ? [...percentOfSteps(percent, base, show), worked(`The rest is ${show(base)} − ${show(part)} = ${fmt(answer)}.`, base, '−', part)] : percentOfSteps(percent, base, show, fmt),
     };
   }),
 
@@ -1242,6 +1498,7 @@ export const generators = {
     return {
       prompt: context.prompt, answer, distractors: nice(answer, wrong, .1, (v) => Math.abs(v * 100 - Math.round(v * 100)) < 1e-6 && v !== 1), formatter: withUnit(context.unit),
       explanation: `Line up the decimal points: ${a} ${add ? '+' : '−'} ${b} = ${display(answer)} ${context.unit}.`,
+      solution: [`Line up the decimal points, then ${add ? 'add' : 'subtract'} each column from the right.`, calcStep(big / 100, add ? '+' : '−', small / 100, { format: withUnit(context.unit), force: true })],
     };
   }),
 
@@ -1260,6 +1517,7 @@ export const generators = {
     return {
       prompt: pick(r, prompts[mode]), answer: chosen.text, distractors: terms.filter((term) => term !== chosen).map((term) => term.text),
       explanation: `The values are ${terms.map((term) => `${term.text} = ${term.value}`).join(', ')}.`,
+      solution: [`Work out each one: ${terms.map((term) => `${term.text} is ${term.value}`).join(', ')}.`, mode === 'target' ? `${chosen.text} is the one that equals ${chosen.value}.` : `The ${mode === 'big' ? 'largest' : 'smallest'} value is ${chosen.value}, which comes from ${chosen.text}.`],
     };
   }),
 
@@ -1275,6 +1533,7 @@ export const generators = {
         prompt: pick(r, [`${eq}. What number goes in the box?`, `${eq}. What is the missing number?`, `Find the missing number: ${eq}.`, `${cap(right)} is the same as ${p}% of a number. What is the number?`, `${p}% of a number is equal to ${right}. What is the number?`]),
         answer, distractors: ints(answer, [value, known, value * p / 100, value + known, answer * 2], 5),
         explanation: `${right} = ${value}. If ${p}% of the number is ${value}, the number is ${value} ÷ ${display(p / 100)} = ${answer}.`,
+        solution: [...fractionOf(a, b, known), `So ${p}% of the number is ${value}.`, ...fromPercentSteps(p, value)],
       };
     }
     const percentMode = d === 'medium' && r() < .5;
@@ -1284,6 +1543,7 @@ export const generators = {
         prompt: pick(r, [`${p}% of a number is ${given}. What is ${q}% of the same number?`, `I think of a number. ${p}% of it is ${given}. What is ${q}% of it?`, `If ${p}% of a number equals ${given}, what does ${q}% of that number equal?`, `${p}% of the pupils in a school is ${given} pupils. How many pupils is ${q}%?`]),
         answer, distractors: ints(answer, [number, given, given + q - p, given * q, answer * 2], 5),
         explanation: `${p}% is ${given}, so the whole number is ${number}. ${q}% of ${number} is ${answer}.`,
+        solution: percentToPercent(p, q, given),
       };
     }
     const [n, den] = pick(r, d === 'easy' ? [[1, 2], [1, 3], [1, 4], [1, 5]] : [[2, 3], [3, 4], [2, 5], [3, 5], [3, 8], [5, 6]]);
@@ -1293,6 +1553,7 @@ export const generators = {
       prompt: pick(r, [`${f(n, den)} of a number is ${given}. What is ${f(m, e)} of the same number?`, `I think of a number. ${f(n, den)} of it is ${given}. What is ${f(m, e)} of it?`, `If ${f(n, den)} of a number is ${given}, what is ${f(m, e)} of that number?`, `${f(n, den)} of the sweets in a jar is ${plural(given, 'sweet')}. How many sweets is ${f(m, e)} of the jar?`]),
       answer, distractors: ints(answer, [number, given, given + m, given * m, number - answer], Math.max(1, Math.round(number / lcm(den, e)))),
       explanation: `${f(n, den)} is ${given}, so the whole number is ${number}. ${f(m, e)} of ${number} is ${answer}.`,
+      solution: [...wholeFromFraction(given, n, den), ...fractionOf(m, e, number)],
     };
   }),
 };

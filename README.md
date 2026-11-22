@@ -14,6 +14,8 @@ Every skill card also has a **Question types** developer view. It lists the unde
 
 Skills carry a separate, mutually exclusive assessment tag, displayed as **Needs practice**, **Confident**, or **Not assessed**. These can be filtered independently of practice progress, and reaching 100 points automatically marks a skill **Confident**. Each collapsible topic presents a two-step assessment-and-practice workflow. Its assessment asks one automatically levelled question from every available skill in that topic, plus a second question when a first answer would otherwise award Confident or remove it from a completed skill. Skipping leaves a skill's existing tag unchanged.
 
+After a wrong answer, a **How to solve it** panel shows the method step by step, including written column, short and long methods for harder calculations. After a correct answer, the same panel is available but collapsed.
+
 Generator implementation standards are documented in `docs/GENERATOR_IMPLEMENTATION_GUIDELINES.md`.
 
 ## Repository structure
@@ -44,6 +46,8 @@ Additional audits in `tests/audit-numeric-diversity.mjs`,
 question shapes in direct-calculation skills.
 `tests/audit-question-quality.mjs` checks for equivalent options, awkward decimals, formatting
 errors and low wording variety. Pass a module name, such as `geometry`, to audit one topic.
+`tests/validate-solutions.mjs` checks every step-by-step solution, and
+`tests/validate-written-methods.mjs` checks the written calculation layouts.
 
 ## Run locally
 

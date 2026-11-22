@@ -1,4 +1,5 @@
 import { NAMES, display, gen, integer, letters, pick, shuffle } from './core.js';
+import { addWork, calc } from './working.js';
 
 // Every puzzle here is checked by a solver before it is returned. Builders return null
 // for a rejected candidate and `search` simply tries again.
@@ -80,6 +81,26 @@ const networkVisual = ({ nodes, edges }, hidden = null) => ({
 const lengthOf = (edges, route) => routeLegs(edges, route).reduce((sum, edge) => sum + edge.length, 0);
 const dashed = (names, route) => route.map((town) => names[town]).join(' to ');
 
+// Road lengths are held in tenths of a km. Whole and half kilometres are added mentally.
+const kmValue = (value) => `${display(value)} km`;
+const isMental = (tenths) => tenths.every((value) => value % 5 === 0);
+const ended = (step) => ({ ...step, text: `${step.text}.` });
+
+function addRoads(tenths, intro = '') {
+  const total = tenths.reduce((sum, value) => sum + value, 0);
+  const text = `${intro}${tenths.map((value) => km(value)).join(' + ')} = ${km(total)}`;
+  if (tenths.length === 1) return { text: `${intro}${km(total)}` };
+  if (isMental(tenths)) return { text };
+  if (tenths.length === 2) return calc(tenths[0] / 10, '+', tenths[1] / 10, { format: kmValue, intro });
+  return { text, working: addWork(...tenths.map((value) => value / 10)) };
+}
+
+const takeRoads = (whole, part, intro) => (isMental([whole, part])
+  ? { text: `${intro}${km(whole)} − ${km(part)} = ${km(whole - part)}` }
+  : calc(whole / 10, '−', part / 10, { format: kmValue, intro }));
+
+const roadList = (names, edges, route) => listWords(routeLegs(edges, route).map((edge, index) => `${names[route[index]]} to ${names[route[index + 1]]} is ${km(edge.length)}`));
+
 function networkTotal(r, net, legsWanted) {
   const { names, edges, routes } = net;
   const route = pick(r, routes.filter((candidate) => candidate.length === legsWanted + 1));
@@ -101,6 +122,10 @@ function networkTotal(r, net, legsWanted) {
     distractors: positive([answer - legs[0].length, answer + others[0].length, answer - legs[legs.length - 1].length + others[1].length, answer + legs[0].length, answer + 10, answer - 10]),
     formatter: km,
     explanation: `Add the roads on the route: ${kmSum(legs.map((edge) => edge.length))} = ${km(answer)}.`,
+    solution: [
+      `Read each road on the route: ${roadList(names, edges, route)}.`,
+      ended(addRoads(legs.map((edge) => edge.length), 'Add them: ')),
+    ],
     visual: networkVisual(net),
   };
 }
@@ -125,6 +150,11 @@ function networkDifference(r, net) {
       distractors: positive([a + b, Math.max(a, b), Math.min(a, b), answer + 10, Math.abs(answer - 10), answer + 5]),
       formatter: km,
       explanation: `${one} is ${km(a)} and ${two} is ${km(b)}, so the difference is ${km(answer)}.`,
+      solution: [
+        addRoads(routeLegs(edges, first).map((edge) => edge.length), `${one}: `),
+        addRoads(routeLegs(edges, second).map((edge) => edge.length), `${two}: `),
+        ended(takeRoads(Math.max(a, b), Math.min(a, b), 'Take the shorter from the longer: ')),
+      ],
       visual: networkVisual(net),
     };
   });
@@ -151,6 +181,11 @@ function networkMissing(r, net, legOptions) {
     explanation: known.length === 1
       ? `Take the known road from the total: ${km(total)} − ${km(known[0].length)} = ${km(answer)}.`
       : `Take the known roads from the total: ${km(total)} − (${kmSum(known.map((edge) => edge.length))}) = ${km(answer)}.`,
+    solution: [
+      `All the roads on the route add up to ${km(total)}, so the missing road is the total minus the roads you know.`,
+      ...(known.length > 1 ? [ended(addRoads(known.map((edge) => edge.length), 'Add the known roads: '))] : []),
+      ended(takeRoads(total, knownSum, `${x} to ${y}: `)),
+    ],
     visual: networkVisual(net, hidden),
   };
 }
@@ -174,6 +209,11 @@ function networkShortest(r, net) {
       distractors: positive([...lengths.slice(1).map((item) => item.length), answer + 10, answer + 5, answer - 5, answer + 20]),
       formatter: km,
       explanation: `The shortest way is ${dashed(names, best.route)}: ${kmSum(routeLegs(edges, best.route).map((edge) => edge.length))} = ${km(answer)}.`,
+      solution: [
+        `List every way from ${start} to ${end} that does not visit a town twice, and add up each one.`,
+        ...[...lengths].sort((p, q) => p.route.length - q.route.length || p.length - q.length).map(({ route }) => ({ text: addRoads(routeLegs(edges, route).map((edge) => edge.length), `${dashed(names, route)}: `).text })),
+        { ...addRoads(routeLegs(edges, best.route).map((edge) => edge.length)), text: `The smallest total is ${dashed(names, best.route)}, at ${km(answer)}.` },
+      ],
       visual: networkVisual(net),
     };
   });
@@ -215,14 +255,33 @@ function fillByLines(given, total) {
   return LINES.every((cellLine) => cellLine.reduce((sum, cell) => sum + values[cell], 0) === total) ? { values, depth, source } : null;
 }
 
-function fillTrace(solved, target, total) {
+// The squares that must be filled to reach the target, earliest first.
+function fillOrder(solved, target) {
   const needed = new Set();
   const visit = (cell) => { if (solved.depth[cell] > 0 && !needed.has(cell)) { needed.add(cell); solved.source[cell].forEach(visit); } };
   visit(target);
-  return [...needed].sort((p, q) => solved.depth[p] - solved.depth[q]).map((cell) => {
-    const [p, q] = solved.source[cell];
-    return `${total} − ${solved.values[p]} − ${solved.values[q]} = ${solved.values[cell]}`;
-  });
+  return [...needed].sort((p, q) => solved.depth[p] - solved.depth[q]);
+}
+
+const fillSum = (solved, cell, total) => {
+  const [p, q] = solved.source[cell];
+  return `${total} − ${solved.values[p]} − ${solved.values[q]} = ${solved.values[cell]}`;
+};
+
+const fillTrace = (solved, target, total) => fillOrder(solved, target).map((cell) => fillSum(solved, cell, total));
+
+const LINE_NAMES = ['top row', 'middle row', 'bottom row', 'left column', 'middle column', 'right column'];
+const lineNameOf = (cells) => LINE_NAMES[LINES.findIndex((cellLine) => cells.every((cell) => cellLine.includes(cell)))];
+
+function fillSolution(solved, target, total) {
+  return [
+    'Find a row or column with only one empty square. That square is the total minus the other two numbers.',
+    ...fillOrder(solved, target).map((cell, index) => {
+      const where = lineNameOf([cell, ...solved.source[cell]]), sum = fillSum(solved, cell, total);
+      if (cell === target) return `${index ? 'Now the' : 'The'} ${where} has only the question mark left: ${sum}.`;
+      return `${index ? 'Now the' : 'The'} ${where} has one gap: ${sum}.`;
+    }),
+  ];
 }
 
 function sumGridVariantB(r, difficulty) {
@@ -252,6 +311,7 @@ function sumGridVariantB(r, difficulty) {
       prompt, answer,
       distractors: positive([answer + 1, answer - 1, answer + 2, answer - 2, ...grid.filter((value) => value !== answer), ...spread(answer)]),
       explanation: `Fill the squares one at a time: ${fillTrace(solved, target, total).join(', then ')}. The missing number is ${answer}.`,
+      solution: fillSolution(solved, target, total),
       visual: { type: 'logic_grid', cells, total },
     };
   });
@@ -275,6 +335,65 @@ function productGrids(total) {
   return grids;
 }
 
+const CELL_NAMES = ['top-left corner', 'top row', 'top-right corner', 'left column', 'centre', 'right column', 'bottom-left corner', 'bottom row', 'bottom-right corner'];
+const OPPOSITE_CORNER = { 0: 8, 8: 0, 2: 6, 6: 2 };
+const EDGE_CORNERS = { 1: [0, 2], 3: [0, 6], 5: [2, 8], 7: [6, 8] };
+const factorPairs = (value) => {
+  const pairs = [];
+  for (let low = 1; low * low <= value; low += 1) if (value % low === 0) pairs.push([low, value / low]);
+  return pairs;
+};
+const orList = (items) => items.length < 2 ? items.join('') : `${items.slice(0, -1).join(', ')} or ${items[items.length - 1]}`;
+
+// Every way to place a centre and two corner pairs, as a full grid.
+function placedGrids({ centre, down, up }, total) {
+  const grids = [];
+  for (const [a, i] of [down, [...down].reverse()]) for (const [c, g] of [up, [...up].reverse()]) {
+    const b = total - a - c, d = total - a - g, f = total - c - i, h = total - g - i;
+    grids.push([a, b, c, d, centre, f, g, h, i]);
+  }
+  return grids;
+}
+
+// Top row + bottom row − middle column leaves corners − centre, which pins the corners down.
+function productGridSolution(chosen, total, shownCells, finish) {
+  const { cells, down, up } = chosen, centre = cells[4];
+  const centreShown = shownCells.includes(4);
+  const centres = centreShown ? [centre] : factorPairs(down).flat().filter((value, index, all) => all.indexOf(value) === index && up % value === 0).sort((p, q) => p - q);
+  const sets = [];
+  centres.forEach((value) => factorPairs(down / value).forEach((downPair) => factorPairs(up / value).forEach((upPair) => {
+    if (downPair[0] + downPair[1] + upPair[0] + upPair[1] === total + value) sets.push({ centre: value, down: downPair, up: upPair });
+  })));
+  const sameSet = (set) => set.centre === centre && set.down.includes(cells[0]) && set.down.includes(cells[8]) && set.up.includes(cells[2]) && set.up.includes(cells[6]);
+  const real = sets.find(sameSet), rival = sets.find((set) => !sameSet(set));
+  const steps = [`Top row + bottom row − middle column leaves the four corners minus the centre, so the corners add up to ${total} + the centre.`];
+  steps.push(centreShown
+    ? `The centre is ${centre}, so the corners of one diagonal multiply to ${down / centre} and the other to ${up / centre}.`
+    : `The centre is on both diagonals, so it is a factor of both ${down} and ${up}. It can only be ${orList(centres)}.`);
+  const [p1, p2] = real.down, [q1, q2] = real.up;
+  const opener = centres.length > 1 ? `Testing each, centre ${centre} works` : `Centre ${centre} works`;
+  steps.push(`${opener}: corners ${p1} × ${p2} = ${down / centre} and ${q1} × ${q2} = ${up / centre}, and ${p1} + ${p2} + ${q1} + ${q2} = ${total + centre}, which is ${total} + ${centre}.`);
+  if (rival) {
+    const options = placedGrids(rival, total), workable = options.filter((grid) => grid.every((value) => value >= 1));
+    const blocker = shownCells.find((cell) => workable.every((grid) => grid[cell] !== cells[cell]));
+    const label = `${rival.centre === centre ? 'Corners' : `With centre ${rival.centre}, corners`} ${rival.down.join(', ')} and ${rival.up.join(', ')} would also add up`;
+    steps.push(!workable.length ? `${label}, but they would leave a square below 1.`
+      : blocker !== undefined ? `${label}, but they cannot fit the ${cells[blocker]} in the ${CELL_NAMES[blocker]}.`
+        : `${label}, but they cannot fit both numbers shown.`);
+  }
+  const clues = shownCells.filter((cell) => cell !== 4).map((cell) => {
+    const value = cells[cell];
+    if (cell in OPPOSITE_CORNER) return `the ${value} in the ${CELL_NAMES[cell]} puts ${cells[OPPOSITE_CORNER[cell]]} in the opposite corner`;
+    return `the ${value} in the ${CELL_NAMES[cell]} leaves ${total - value} for its two corners`;
+  });
+  if (clues.length) {
+    const sentence = listWords(clues);
+    steps.push(`To place them: ${sentence}.`);
+  }
+  steps.push(`Filling in the totals gives rows ${rowsOf(cells).map((row) => row.join(', ')).join('; ')}. ${finish}`);
+  return steps;
+}
+
 function sumGridVariantA(r) {
   return search(() => {
     const total = pick(r, [10, 11, 12, 13]);
@@ -289,10 +408,10 @@ function sumGridVariantA(r) {
     if (X === Y) return null;
     const cells = chosen.cells.map((value, cell) => cell === xCell ? 'X' : cell === yCell ? 'Y' : cell === firstShown || cell === secondShown ? String(value) : '');
     const form = pick(r, [
-      { ask: 'What is the value of X?', answer: X, near: [Y, X + Y] },
-      { ask: 'What number is Y?', answer: Y, near: [X, X + Y] },
-      { ask: 'What is X + Y?', answer: X + Y, near: [X * Y, X, Y] },
-      { ask: 'What is X × Y?', answer: X * Y, near: [X + Y, X, Y] },
+      { ask: 'What is the value of X?', answer: X, near: [Y, X + Y], finish: `So X = ${X}.` },
+      { ask: 'What number is Y?', answer: Y, near: [X, X + Y], finish: `So Y = ${Y}.` },
+      { ask: 'What is X + Y?', answer: X + Y, near: [X * Y, X, Y], finish: `So X + Y = ${X} + ${Y} = ${X + Y}.` },
+      { ask: 'What is X × Y?', answer: X * Y, near: [X + Y, X, Y], finish: `So X × Y = ${X} × ${Y} = ${X * Y}.` },
     ]);
     const lead = pick(r, [
       `Each square holds a positive whole number, and every row and column adds up to ${total}. The diagonal going down to the right multiplies to ${chosen.down}. The other diagonal multiplies to ${chosen.up}.`,
@@ -306,6 +425,7 @@ function sumGridVariantA(r) {
       answer: form.answer,
       distractors: positive([...form.near, form.answer + 1, form.answer - 1, form.answer + 2, form.answer - 2, ...spread(form.answer)]),
       explanation: `Only one grid fits the totals and both products. Its rows are ${rows}, so X = ${X} and Y = ${Y}.`,
+      solution: productGridSolution(chosen, total, [firstShown, secondShown], form.finish),
       visual: { type: 'logic_grid', cells, total, products: { down: chosen.down, up: chosen.up } },
     };
   });
@@ -332,7 +452,7 @@ function eliminate(lines, count, allowPairs) {
       if (!times) return;
       if (known[icon] === null) unknown.push(icon); else rest -= times * known[icon];
     });
-    return { rest, unknown, counts: line.counts };
+    return { rest, unknown, counts: line.counts, name: line.name, total: line.total, knownAt: [...known] };
   };
   while (known.includes(null)) {
     const state = lines.map(reduced);
@@ -340,7 +460,7 @@ function eliminate(lines, count, allowPairs) {
     if (single) {
       const icon = single.unknown[0], value = single.rest / single.counts[icon];
       if (!Number.isInteger(value) || value < 1) return null;
-      known[icon] = value; steps.push({ kind: 'single', icon, value });
+      known[icon] = value; steps.push({ kind: 'single', icon, value, line: single });
       continue;
     }
     if (!allowPairs) return null;
@@ -352,7 +472,7 @@ function eliminate(lines, count, allowPairs) {
       if (!det) continue;
       const first = (p.rest * q.counts[v] - p.counts[v] * q.rest) / det, second = (p.counts[u] * q.rest - p.rest * q.counts[u]) / det;
       if (!Number.isInteger(first) || !Number.isInteger(second) || first < 1 || second < 1) return null;
-      known[u] = first; known[v] = second; steps.push({ kind: 'pair', icons: [u, v], values: [first, second] });
+      known[u] = first; known[v] = second; steps.push({ kind: 'pair', icons: [u, v], values: [first, second], lines: [p, q] });
       solved = true;
     }
     if (!solved) return null;
@@ -397,6 +517,85 @@ function symbolSteps(steps) {
   return sentences.join(' ');
 }
 
+const shapeCount = (times, icon) => `${times} ${ICONS[icon]}${times === 1 ? '' : 's'}`;
+const timesValue = (times, value) => times === 1 ? `${value}` : `${times} × ${value}`;
+
+// What a line's already-known shapes add up to, as a sum a pupil can read.
+function knownPart(line) {
+  const parts = [];
+  let sum = 0;
+  line.counts.forEach((times, icon) => {
+    if (!times || line.knownAt[icon] === null) return;
+    parts.push(timesValue(times, line.knownAt[icon]));
+    sum += times * line.knownAt[icon];
+  });
+  return { parts, sum, text: parts.length > 1 || parts[0]?.includes('×') ? `${parts.join(' + ')} = ${sum}` : `${sum}` };
+}
+
+function singleLineStep({ icon, value, line }) {
+  const times = line.counts[icon], known = knownPart(line), name = ICONS[icon];
+  if (!known.parts.length) return `${line.name} is all ${name}s: ${times} ${name}s make ${line.total}, so one ${name} is ${line.total} ÷ ${times} = ${value}.`;
+  if (times === 1) return `${line.name} totals ${line.total}. The known shapes make ${known.text}, so the ${name} is ${line.total} − ${known.sum} = ${value}.`;
+  return `${line.name} totals ${line.total}. The known shapes make ${known.text}, so ${times} ${name}s make ${line.total} − ${known.sum} = ${line.rest}. One ${name} is ${line.rest} ÷ ${times} = ${value}.`;
+}
+
+// Two lines holding the same two unknown shapes: match one shape, then subtract.
+function pairLineSteps({ icons, values, lines: [p, q] }, needed) {
+  const lcm = (a, b) => { let m = a; while (m % b) m += a; return m; };
+  const cost = (icon) => lcm(p.counts[icon], q.counts[icon]) / p.counts[icon] + lcm(p.counts[icon], q.counts[icon]) / q.counts[icon];
+  const canDrop = icons.filter((icon) => !needed.has(icon) || needed.has(icons[0]) && needed.has(icons[1]));
+  const drop = [...(canDrop.length ? canDrop : icons)].sort((a, b) => cost(a) - cost(b))[0];
+  const keep = icons[0] === drop ? icons[1] : icons[0], keepValue = values[icons.indexOf(keep)], dropValue = values[icons.indexOf(drop)];
+  const common = lcm(p.counts[drop], q.counts[drop]);
+  const scaled = [p, q].map((line) => {
+    const by = common / line.counts[drop];
+    return { line, by, keep: line.counts[keep] * by, rest: line.rest * by };
+  }).sort((a, b) => b.keep - a.keep);
+  const [big, small] = scaled, extra = big.keep - small.keep, gap = big.rest - small.rest;
+  const describe = (line) => `${shapeCount(line.counts[keep], keep)} + ${shapeCount(line.counts[drop], drop)} = ${line.rest}`;
+  const lead = (line) => line.rest === line.total ? `${line.name} has ${describe(line)}` : `Without its known shapes, ${line.name.toLowerCase()} has ${describe(line)}`;
+  const steps = [`${lead(p)}. ${lead(q)}.`];
+  const multiplied = scaled.filter((item) => item.by > 1);
+  const match = multiplied.length
+    ? `${listWords(multiplied.map((item) => `${item.line.name} × ${item.by} is ${shapeCount(item.keep, keep)} + ${shapeCount(common, drop)} = ${item.rest}`))}. `
+    : `Both have ${shapeCount(common, drop)}. `;
+  const result = extra === 1 ? `the ${ICONS[keep]} is ${big.rest} − ${small.rest} = ${keepValue}` : `${extra} ${ICONS[keep]}s make ${big.rest} − ${small.rest} = ${gap}, so one is ${gap} ÷ ${extra} = ${keepValue}`;
+  steps.push(`${match}Subtract: ${result}.`);
+  if (needed.has(drop)) {
+    const base = [p, q].sort((a, b) => a.counts[drop] - b.counts[drop])[0], times = base.counts[drop], part = base.counts[keep] * keepValue, left = base.rest - part;
+    const partText = base.counts[keep] === 1 ? `${part}` : `${base.counts[keep]} × ${keepValue} = ${part}`;
+    steps.push(times === 1
+      ? `In ${base.name.toLowerCase()}, the ${ICONS[keep]}s make ${partText}, so the ${ICONS[drop]} is ${base.rest} − ${part} = ${dropValue}.`
+      : `In ${base.name.toLowerCase()}, the ${ICONS[keep]}s make ${partText}, so ${times} ${ICONS[drop]}s make ${base.rest} − ${part} = ${left}. One ${ICONS[drop]} is ${left} ÷ ${times} = ${dropValue}.`);
+  }
+  return steps;
+}
+
+// Keeps only the deductions the wanted shapes depend on.
+function neededDeductions(steps, wanted) {
+  const needed = new Set(wanted), kept = [];
+  [...steps].reverse().forEach((step) => {
+    const gives = step.kind === 'single' ? [step.icon] : step.icons;
+    if (!gives.some((icon) => needed.has(icon))) return;
+    kept.unshift({ step, wanted: new Set(gives.filter((icon) => needed.has(icon))) });
+    const sources = step.kind === 'single' ? [step.line] : step.lines;
+    sources.forEach((line) => line.counts.forEach((times, icon) => { if (times && line.knownAt[icon] !== null) needed.add(icon); }));
+  });
+  return kept;
+}
+
+function symbolSolution({ solved, grid, values, asked, starRow, starCol, starValue }) {
+  const render = (deductions) => deductions.flatMap(({ step, wanted }) => step.kind === 'single' ? [singleLineStep(step)] : pairLineSteps(step, wanted));
+  if (asked !== null) return render(neededDeductions(solved.steps, [asked]));
+  const rowCells = grid[starRow], colCells = grid.map((row) => row[starCol]);
+  const options = [{ cells: rowCells, name: `Row ${starRow + 1}` }, { cells: colCells, name: `Column ${starCol + 1}` }]
+    .map((option) => ({ ...option, steps: render(neededDeductions(solved.steps, [...new Set(option.cells)])) }))
+    .sort((p, q) => p.steps.length - q.steps.length);
+  const { cells, name, steps } = options[0];
+  const sum = [...new Set(cells)].map((icon) => timesValue(cells.filter((cell) => cell === icon).length, values[icon])).join(' + ');
+  return [...steps, `The star is the total of ${name.toLowerCase()}: ${sum} = ${starValue}.`];
+}
+
 function symbolGrid(r, difficulty) {
   return search(() => {
     const dimension = difficulty === 'easy' ? 3 : 4, iconCount = dimension;
@@ -421,8 +620,8 @@ function symbolGrid(r, difficulty) {
     }
     const countsIn = (cells) => Array.from({ length: iconCount }, (_, icon) => cells.filter((cell) => cell === icon).length);
     const lines = [];
-    grid.forEach((row, index) => { if (index !== starRow) lines.push({ counts: countsIn(row), total: rows[index] }); });
-    for (let col = 0; col < dimension; col += 1) if (col !== starCol) lines.push({ counts: countsIn(grid.map((row) => row[col])), total: cols[col] });
+    grid.forEach((row, index) => { if (index !== starRow) lines.push({ counts: countsIn(row), total: rows[index], name: `Row ${index + 1}` }); });
+    for (let col = 0; col < dimension; col += 1) if (col !== starCol) lines.push({ counts: countsIn(grid.map((row) => row[col])), total: cols[col], name: `Column ${col + 1}` });
     if (!hasFullRank(lines, iconCount)) return null;
     if (difficulty === 'hard' && eliminate(lines, iconCount, false)) return null;
     const solved = eliminate(lines, iconCount, difficulty === 'hard');
@@ -449,6 +648,7 @@ function symbolGrid(r, difficulty) {
       answer,
       distractors: positive([...wrong, answer + 1, answer - 1, answer + 2, answer - 2, ...spread(answer)]),
       explanation: `${stepText}${ending}`,
+      solution: symbolSolution({ solved, grid, values, asked: askStar ? null : icon, starRow, starCol, starValue }),
       visual: {
         type: 'symbol_grid',
         grid: grid.map((row) => row.map((cell) => ICONS[cell])),
@@ -469,6 +669,29 @@ function countRoutes(cols, rows, blocked) {
     ways[y][x] = x === 0 && y === 0 ? 1 : (x ? ways[y][x - 1] : 0) + (y ? ways[y - 1][x] : 0);
   }
   return ways[rows][cols];
+}
+
+// Builds the running count row by row, from the bottom, exactly as a pupil would write it.
+function pathSolution(cols, rows, blocked, end, answer) {
+  const closed = new Set(blocked.map(([x, y]) => `${x},${y}`));
+  const ways = Array.from({ length: rows + 1 }, () => Array(cols + 1).fill(1));
+  const ordinals = ['', 'Second', 'Third', 'Fourth'];
+  const steps = [
+    'You can only reach a junction from the left or from below, so add those two numbers. A closed junction counts as 0.',
+    'Along the bottom and up the left side there is only 1 way to reach each junction.',
+  ];
+  for (let y = 1; y <= rows; y += 1) {
+    const parts = ['1'];
+    for (let x = 1; x <= cols; x += 1) {
+      if (closed.has(`${x},${y}`)) { ways[y][x] = 0; parts.push('closed'); continue; }
+      ways[y][x] = ways[y][x - 1] + ways[y - 1][x];
+      parts.push(`${ways[y][x - 1]} + ${ways[y - 1][x]} = ${ways[y][x]}`);
+    }
+    steps.push(y === rows
+      ? `Top row: ${parts.join(', ')}. So there are ${answer} routes to ${end}.`
+      : `${ordinals[y]} row up: ${parts.join(', ')}.`);
+  }
+  return steps;
 }
 
 function pathCount(r, difficulty) {
@@ -500,6 +723,7 @@ function pathCount(r, difficulty) {
       prompt, answer,
       distractors: positive([all, ...without, all - through.reduce((sum, value) => sum + value, 0), answer + 1, answer + 2, answer - 1, ...spread(answer)]),
       explanation: `Write the number of ways at each junction by adding the ways from the left and from below, with 0 at ${avoid}. This gives ${answer} routes to ${end}.`,
+      solution: pathSolution(cols, rows, blocked, end, answer),
       visual: { type: 'grid_paths', cols, rows, blocked, start, end },
     };
   });
@@ -627,12 +851,97 @@ function transformQuestion(r, form) {
   };
 }
 
+const SIDE_NAMES = { top: 'top row', bottom: 'bottom row', left: 'left-hand column', right: 'right-hand column' };
+const SIDE_MOVES = {
+  r90: { top: 'right', right: 'bottom', bottom: 'left', left: 'top' },
+  r180: { top: 'bottom', bottom: 'top', left: 'right', right: 'left' },
+  r270: { top: 'left', left: 'bottom', bottom: 'right', right: 'top' },
+  mv: { top: 'top', bottom: 'bottom', left: 'right', right: 'left' },
+  mh: { top: 'bottom', bottom: 'top', left: 'left', right: 'right' },
+};
+// Squares in the row or column `depth` lines in from a side of the shape.
+const lineCount = (cells, side, depth) => {
+  const xs = cells.map(([x]) => x), ys = cells.map(([, y]) => y);
+  const on = {
+    top: ([, y]) => y === Math.min(...ys) + depth, bottom: ([, y]) => y === Math.max(...ys) - depth,
+    left: ([x]) => x === Math.min(...xs) + depth, right: ([x]) => x === Math.max(...xs) - depth,
+  }[side];
+  return cells.filter(on).length;
+};
+const lineName = (side, depth) => {
+  if (!depth) return SIDE_NAMES[side];
+  const kind = side === 'top' || side === 'bottom' ? 'row' : 'column';
+  return `${['', 'second', 'third', 'fourth'][depth]} ${kind} from the ${side}`;
+};
+const TURN_RULES = {
+  r90: 'A 90° clockwise turn moves the top to the right, the right to the bottom, the bottom to the left and the left to the top.',
+  r180: 'A 180° turn swaps the top with the bottom and the left with the right.',
+  r270: 'A 90° anticlockwise turn moves the top to the left, the left to the bottom, the bottom to the right and the right to the top.',
+};
+const MIRROR_RULES = {
+  mv: 'A vertical mirror swaps left and right. Each square stays at the same height.',
+  mh: 'A horizontal mirror swaps top and bottom. Each square stays in the same column.',
+};
+
+// The fewest row and column counts that separate the right panel from every wrong one.
+function sideClues(original, moves, correct, wrong) {
+  const image = (side) => moves.reduce((current, move) => SIDE_MOVES[move][current], side);
+  const size = (side) => new Set(original.map(([x, y]) => (side === 'top' || side === 'bottom' ? y : x))).size;
+  // Outer lines first, and each row or column once, counted from its nearer side.
+  const lines = Object.keys(SIDE_NAMES)
+    .flatMap((side) => Array.from({ length: Math.ceil(size(side) / 2) }, (_, depth) => ({ side, depth })))
+    .sort((p, q) => p.depth - q.depth);
+  const splits = (line) => (panel) => lineCount(panel.cells, image(line.side), line.depth) !== lineCount(correct, image(line.side), line.depth);
+  const subsets = [...lines.map((a) => [a]), ...lines.flatMap((a, i) => lines.slice(i + 1).map((b) => [a, b]))];
+  const chosen = subsets.find((subset) => wrong.every((panel) => subset.some((line) => splits(line)(panel))));
+  if (!chosen) return null;
+  return listWords(chosen.map(({ side, depth }) => {
+    const count = lineCount(original, side, depth), target = image(side), from = lineName(side, depth), to = lineName(target, depth);
+    const held = `(${count} ${count === 1 ? 'square' : 'squares'})`;
+    return target === side ? `the ${from} ${held} stays the ${to}` : `the ${from} ${held} becomes the ${to}`;
+  }));
+}
+
+// When row and column counts cannot tell the panels apart, follow individual squares.
+function trackedSquares(original, moves, wrong) {
+  const moved = moves.reduce((cells, move) => cells.map(D4[move]), original);
+  const minX = Math.min(...moved.map(([x]) => x)), minY = Math.min(...moved.map(([, y]) => y));
+  const pairs = original.map((from, index) => ({ from, to: [moved[index][0] - minX, moved[index][1] - minY] }));
+  const lacks = (panel, [x, y]) => !panel.cells.some(([px, py]) => px === x && py === y);
+  const chosen = [];
+  let left = [...wrong];
+  while (left.length) {
+    const best = pairs.reduce((top, pair) => (left.filter((panel) => lacks(panel, pair.to)).length > left.filter((panel) => lacks(panel, top.to)).length ? pair : top));
+    chosen.push(best);
+    left = left.filter((panel) => !lacks(panel, best.to));
+  }
+  const at = ([x, y]) => `row ${y + 1} column ${x + 1}`;
+  const parts = chosen.map(({ from, to }, index) => (from.join() === to.join() ? `${at(from)} stays put` : `${at(from)} ${index ? 'to' : 'goes to'} ${at(to)}`));
+  return `counting from the top left, ${listWords(parts)}`;
+}
+
+function transformSolution(details, form, original, correct, wrong, answer) {
+  const clues = sideClues(original, details.moves, correct, wrong) ?? trackedSquares(original, details.moves, wrong);
+  const sentence = `${clues[0].toUpperCase()}${clues.slice(1)}.`;
+  const finish = `Only panel ${answer} shows this, so the answer is panel ${answer}.`;
+  const [first, second] = details.moves;
+  if (form === 'glass') return ['From the other side of the glass, left and right swap, but top and bottom stay the same.', sentence, finish];
+  if (form === 'mirrorV' || form === 'mirrorH') return [MIRROR_RULES[first], sentence, finish];
+  if (form === 'twoStep') return [`Reflect first. ${MIRROR_RULES[first]}`, `Then turn. ${TURN_RULES[second]}`, `After both moves, ${clues}.`, finish];
+  if (form === 'turnedOnly') {
+    const turn = { r90: '90° clockwise', r180: '180°', r270: '90° anticlockwise' }[first];
+    return ['A turn keeps the shape the same way round, but a flip makes a mirror image.', `Try each turn. A turn of ${turn} gives panel ${answer}.`, sentence, `The other panels are mirror images, so the answer is panel ${answer}.`];
+  }
+  return [TURN_RULES[first], sentence, finish];
+}
+
 const shapeTransform = (r, difficulty) => search(() => {
   const useLetter = difficulty !== 'hard' && r() < 0.3;
   const letter = useLetter ? pick(r, Object.keys(BLOCK_LETTERS)) : null;
   const original = useLetter ? normalise(BLOCK_LETTERS[letter]) : randomShape(r, difficulty === 'easy' ? integer(r, 4, 5) : difficulty === 'medium' ? integer(r, 5, 6) : integer(r, 6, 7));
   if (!hasNoSymmetry(original)) return null;
-  const details = transformQuestion(r, pick(r, TRANSFORM_FORMS[difficulty]));
+  const form = pick(r, TRANSFORM_FORMS[difficulty]);
+  const details = transformQuestion(r, form);
   const correctCells = details.moves.reduce((cells, move) => applyMove(cells, move), original);
   const correctKey = cellKey(correctCells);
   const seen = new Set([correctKey]), wrong = [];
@@ -651,6 +960,7 @@ const shapeTransform = (r, difficulty) => search(() => {
   return {
     prompt: details.prompt, answer, distractors,
     explanation: `${details.explain}, which gives panel ${answer}.`,
+    solution: transformSolution(details, form, original, correctCells, wrong, answer),
     visual: { type: 'transform_panels', original, mirror: details.mirror, caption: details.caption, panels },
   };
 });
@@ -761,6 +1071,53 @@ function wrongCubeView(r, base, faces, valid, kinds) {
   return view;
 }
 
+// Why a drawn cube cannot come from this net, checked in the order a pupil would check.
+function cubeFault(view, views, faces) {
+  const marks = view.map((face) => face.mark);
+  const oppositeOf = (mark) => {
+    const face = faces.find((candidate) => candidate.mark === mark);
+    return faces.find((candidate) => vec.same(candidate.N, vec.neg(face.N))).mark;
+  };
+  const clash = marks.find((mark) => marks.includes(oppositeOf(mark)));
+  if (clash) return { kind: 'opposite', pair: [clash, oppositeOf(clash)] };
+  const same = views.filter((candidate) => candidate.every((face, index) => face.mark === marks[index]));
+  if (!same.length) {
+    const real = views.find((candidate) => marks.every((mark) => candidate.some((face) => face.mark === mark)));
+    return { kind: 'order', clockwise: [real[0], real[2], real[1]].map((face) => MARKS[face.mark].name) };
+  }
+  const turned = view.find((face, index) => same.every((candidate) => mod(candidate[index].k - face.k, 4 / MARKS[face.mark].order) !== 0));
+  return { kind: 'turn', mark: MARKS[turned.mark].name };
+}
+
+const faultSentence = (label, fault) => {
+  if (fault.kind === 'opposite') return `Cube ${label} shows the ${MARKS[fault.pair[0]].name} and the ${MARKS[fault.pair[1]].name} together, but they are on opposite faces.`;
+  if (fault.kind === 'order') return `Cube ${label} has three faces that do meet, but clockwise round that corner they should go ${listWords(fault.clockwise)}.`;
+  return `Cube ${label} has the right three faces, but its ${fault.mark} is turned the wrong way.`;
+};
+
+function cubeSolution({ cells, opposites, faults, askNot, answer }) {
+  const hasLine = cells.some(([col, row]) => [[1, 0], [0, 1]].some(([dx, dy]) => [1, 2].every((n) => cells.some(([c, w]) => c === col + n * dx && w === row + n * dy))));
+  const steps = [];
+  if (hasLine) steps.push('Fold the net in your head. Two squares with one square between them in a straight line end up opposite.');
+  steps.push(`Folding puts ${listWords(opposites)}.`);
+  if (askNot) {
+    steps.push(faultSentence(answer, faults.find((fault) => fault.label === answer)));
+    steps.push(`So cube ${answer} could not be made.`);
+    return steps;
+  }
+  const named = (kind) => faults.filter((fault) => fault.kind === kind);
+  const group = (kind, many) => {
+    const found = named(kind);
+    if (found.length === 1) steps.push(faultSentence(found[0].label, found[0]));
+    else if (found.length) steps.push(`Cubes ${listWords(found.map((fault) => fault.label))} ${many}`);
+  };
+  group('opposite', 'each show two opposite faces together, so they are out.');
+  group('order', 'have faces that meet, but in the wrong order round the corner.');
+  group('turn', 'each have a mark turned the wrong way.');
+  steps.push(`That leaves cube ${answer}, so the answer is cube ${answer}.`);
+  return steps;
+}
+
 const cubeNet = (r, difficulty) => search(() => {
   const moveName = pick(r, Object.keys(D4));
   const cells = normalise(pick(r, NETS).map(D4[moveName]));
@@ -801,7 +1158,12 @@ const cubeNet = (r, difficulty) => search(() => {
     if (!wrong || wrong.some((view) => valid.has(viewKey(view)))) return null;
   }
 
-  const { panels, answer, distractors } = labelPanels(r, drawableView(correct), wrong.map(drawableView));
+  const drawnCorrect = drawableView(correct), drawnWrong = wrong.map(drawableView);
+  const { panels, answer, distractors } = labelPanels(r, drawnCorrect, drawnWrong);
+  const labelOf = (drawn) => panels.find((panel) => panel.faces === drawn.faces).label;
+  const faults = (askNot ? [{ view: correct, drawn: drawnCorrect }] : wrong.map((view, index) => ({ view, drawn: drawnWrong[index] })))
+    .map(({ view, drawn }) => ({ ...cubeFault(view, views, faces), label: labelOf(drawn) }))
+    .sort((p, q) => p.label.localeCompare(q.label));
   const opposites = [];
   faces.forEach((face) => {
     const other = faces.find((candidate) => vec.same(candidate.N, vec.neg(face.N)));
@@ -825,6 +1187,7 @@ const cubeNet = (r, difficulty) => search(() => {
   return {
     prompt, answer, distractors,
     explanation: `Folding puts ${listWords(opposites)}.${orientationNote} ${verdict}`,
+    solution: cubeSolution({ cells, opposites, faults, askNot, answer }),
     visual: { type: 'cube_net_panels', net: cells.map(([col, row], index) => ({ col, row, mark: markSet[index] })), panels },
   };
 });
@@ -855,6 +1218,28 @@ function latticeFills(grid, gap) {
   }
   return fills;
 }
+
+// The nearest whole copy of the missing block that is visible in the grid.
+function visibleCopy(gap, rows, cols, p, q, shift) {
+  const clear = (dy, dx) => {
+    const top = gap.row + dy, left = gap.col + dx;
+    if (top < 0 || left < 0 || top + gap.rows > rows || left + gap.cols > cols) return false;
+    return top + gap.rows <= gap.row || top >= gap.row + gap.rows || left + gap.cols <= gap.col || left >= gap.col + gap.cols;
+  };
+  const options = [];
+  for (let m = -rows; m <= rows; m += 1) for (let k = -cols; k <= cols; k += 1) {
+    const dy = m * p, dx = k * q - m * shift;
+    if ((dy || dx) && clear(dy, dx)) options.push({ dy, dx });
+  }
+  options.sort((a, b) => (a.dy ? 1 : 0) - (b.dy ? 1 : 0) || Math.abs(a.dy) + Math.abs(a.dx) - Math.abs(b.dy) - Math.abs(b.dx));
+  return options[0] ?? null;
+}
+
+const copyPlace = ({ dy, dx }) => {
+  const across = dx ? `${Math.abs(dx)} ${Math.abs(dx) === 1 ? 'tile' : 'tiles'} to the ${dx < 0 ? 'left' : 'right'}` : '';
+  const down = dy ? `${Math.abs(dy)} ${Math.abs(dy) === 1 ? 'row' : 'rows'} ${dy < 0 ? 'up' : 'down'}` : '';
+  return [down, across].filter(Boolean).join(' and ');
+};
 
 const tilePattern = (r, difficulty) => search(() => {
   const rows = difficulty === 'easy' ? 6 : 7, cols = difficulty === 'easy' ? 8 : 9;
@@ -904,9 +1289,15 @@ const tilePattern = (r, difficulty) => search(() => {
   const repeat = shift
     ? `The pattern repeats every ${q} tiles across, and each ${p === 1 ? 'row' : `pair of rows`} moves ${moved} ${moved === 1 ? 'tile' : 'tiles'} to the ${way} of the one above`
     : `The pattern repeats every ${q} tiles across and every ${p} tiles down`;
+  const copy = visibleCopy(gap, rows, cols, p, q, shift);
   return {
     prompt, answer, distractors,
     explanation: `${repeat}. Carrying it on into the gap gives panel ${answer}.`,
+    solution: [
+      `${repeat}.`,
+      copy ? `Imagine sliding the gap ${copyPlace(copy)}. The tiles it covers there are the missing piece.` : 'Carry each row of the pattern on across the gap, one tile at a time.',
+      `Those tiles match panel ${answer}, so the answer is panel ${answer}.`,
+    ],
     visual: { type: 'tile_pattern', cells, gap, panels },
   };
 });
@@ -948,6 +1339,23 @@ function mutateCommands(r, commands) {
     moves[index].forward = moves[index + 1].forward; moves[index + 1].forward = held;
   }
   return copy;
+}
+
+function routeSolution(commands, heading, formal, correct) {
+  const turnWords = (turn) => formal ? `turn 90° ${turn === 1 ? 'clockwise' : 'anticlockwise'}` : `turn ${turn === 1 ? 'right' : 'left'}`;
+  const steps = [];
+  let facing = heading, pending = 0;
+  commands.forEach((command) => {
+    if (command.turn) { pending = command.turn; return; }
+    const before = HEADINGS[facing].name;
+    facing = mod(facing + pending, 4);
+    const after = HEADINGS[facing].name;
+    if (!steps.length) steps.push(pending ? `You start facing ${before}, but the line goes ${after}. So ${turnWords(pending)}, then go forward ${command.forward}.` : `You start facing ${before} and the line goes ${after}, so go forward ${command.forward}.`);
+    else steps.push(`Corner ${steps.length}: you face ${before} and the line goes ${after}. So ${turnWords(pending)}, then go forward ${command.forward}.`);
+    pending = 0;
+  });
+  steps.push(`That reaches F, so the answer is: ${correct}.`);
+  return steps;
 }
 
 const gridPathDirections = (r, difficulty) => search(() => {
@@ -996,6 +1404,7 @@ const gridPathDirections = (r, difficulty) => search(() => {
   return {
     prompt, answer: correct, distractors: [...wrong],
     explanation: `Start at S facing ${facing} and follow the line: ${correct.toLowerCase()}.`,
+    solution: routeSolution(allCommands, heading, formal, correct),
     visual: { type: 'route_grid', cols, rows, path, heading: HEADINGS[heading].name, start: 'S', end: 'F' },
   };
 });

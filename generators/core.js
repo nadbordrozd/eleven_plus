@@ -125,15 +125,23 @@ export function generateSafely(generator, seed, config) {
   throw lastError;
 }
 
+// "8", "11" and "18" are said with a vowel sound: an 8 m rope, an £80 coat.
+const VOWEL_NUMBER = '£?(?:8[\\d,.]*|11(?:,\\d{3})*|18(?:,\\d{3})*)(?![\\d/])';
+const fixArticles = (text) => String(text)
+  .replace(new RegExp(`(^|[.?!:;“]\\s+|“)A (?=${VOWEL_NUMBER})`, 'g'), '$1An ')
+  .replace(new RegExp(`\\ba (?=${VOWEL_NUMBER})`, 'g'), 'an ');
+
 export function question(id, skill, seed, config, build) {
   const rng = rngFrom(seed);
   const difficulty = config?.difficulty || 'medium';
   const data = build(rng, difficulty);
+  const choices = options(rng, data.answer, data.distractors, data.formatter, { allowEquivalent: data.allowEquivalent, allowNegative: data.allowNegative, ratio: data.ratio });
   return {
-    id: `${id}-${seed}`, skill_id: skill, archetype_id: id, prompt: data.prompt,
-    answer_format: 'multiple_choice', ...options(rng, data.answer, data.distractors, data.formatter, { allowEquivalent: data.allowEquivalent, allowNegative: data.allowNegative, ratio: data.ratio }),
+    id: `${id}-${seed}`, skill_id: skill, archetype_id: id, prompt: fixArticles(data.prompt),
+    answer_format: 'multiple_choice', answer: choices.answer, options: choices.options.map((option) => ({ ...option, text: fixArticles(option.text) })),
     quality: { allowEquivalent: Boolean(data.allowEquivalent), longDecimalsOk: Boolean(data.longDecimalsOk) },
-    visual: data.visual ?? null, explanation: data.explanation, difficulty: difficulty === 'easy' ? 1 : difficulty === 'hard' ? 3 : 2,
+    visual: data.visual ?? null, explanation: fixArticles(data.explanation),
+    solution: data.solution?.map((step) => (typeof step === 'string' ? { text: fixArticles(step) } : { ...step, text: fixArticles(step.text) })) ?? null, difficulty: difficulty === 'easy' ? 1 : difficulty === 'hard' ? 3 : 2,
     tags: [skill, difficulty],
   };
 }

@@ -1,6 +1,7 @@
 import { extraGenerators, extraSkillIds } from './extra-generators.js';
 import { choose, formatNumber, generateSafely, seededRng } from './generators/core.js';
 import { renderVisual } from './visual-renderers.js';
+import { renderSolution } from './visuals/working.js';
 
 const CONTENT_ROOT = './data';
 const STORAGE_KEY = 'eleven_plus_maths_state_v1';
@@ -434,6 +435,7 @@ function showNextQuestion() {
   const feedback = document.querySelector('#feedback');
   feedback.hidden = true;
   feedback.className = 'feedback';
+  document.querySelector('#solution').hidden = true;
   document.querySelector('#next-button').hidden = true;
 }
 
@@ -474,11 +476,13 @@ function markAnswer(optionId, { skipped = false } = {}) {
   const feedback = document.querySelector('#feedback');
   feedback.hidden = false;
   feedback.classList.add(correct ? 'correct' : 'wrong');
+  const correctText = currentQuestion.options.find((option) => option.id === currentQuestion.answer)?.text;
   feedback.textContent = progress.status === 'done'
-    ? `Skill completed! ${currentQuestion.explanation}`
-    : skipped ? `Question skipped. +${CORRECT_POINTS} points. ${currentQuestion.explanation}`
-      : correct ? `Correct! +${CORRECT_POINTS} points. ${currentQuestion.explanation}`
-      : `Not quite. −${WRONG_POINTS} points. ${currentQuestion.explanation}`;
+    ? 'Skill completed!'
+    : skipped ? `Question skipped. +${CORRECT_POINTS} points.`
+      : correct ? `Correct! +${CORRECT_POINTS} points.`
+      : `Not quite. −${WRONG_POINTS} points. The answer is ${currentQuestion.answer}: ${correctText}.`;
+  renderSolution(document.querySelector('#solution'), currentQuestion, { open: !correct });
   document.querySelector('#next-button').hidden = false;
   updatePracticePoints();
   renderSummary();
@@ -553,6 +557,7 @@ function showDiagnosticQuestion() {
   document.querySelectorAll('input[name="diagnostic-evaluation"]').forEach((input) => { input.checked = input.value === skillEvaluation(skill.id); });
   const feedback = document.querySelector('#diagnostic-feedback');
   feedback.hidden = true; feedback.className = 'feedback';
+  document.querySelector('#diagnostic-solution').hidden = true;
   document.querySelector('#diagnostic-skip-question').hidden = false;
   document.querySelector('#diagnostic-next-question').hidden = true;
 }
@@ -583,7 +588,9 @@ function answerDiagnosticQuestion(optionId) {
   const outcome = session.needsConfirmation
     ? 'Let’s try one more question on this skill before updating your plan.'
     : `We have marked this skill ${correct ? 'Confident' : 'Needs practice'}; you can change that assessment above.`;
-  feedback.textContent = `${correct ? 'Correct.' : 'Not quite.'} ${session.question.explanation} ${outcome}`;
+  const correctText = session.question.options.find((option) => option.id === session.question.answer)?.text;
+  feedback.textContent = `${correct ? 'Correct.' : `Not quite. The answer is ${session.question.answer}: ${correctText}.`} ${outcome}`;
+  renderSolution(document.querySelector('#diagnostic-solution'), session.question, { open: !correct });
   document.querySelector('#diagnostic-skip-question').hidden = true;
   document.querySelector('#diagnostic-next-question').hidden = false;
 }

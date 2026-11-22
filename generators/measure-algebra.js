@@ -1,4 +1,5 @@
 import { pick, integer, shuffle, display, money, gen, size, article, cap, plural, clockTime, fractionLabel, NAMES, pickNames } from './core.js';
+import { calc, addWork, subtractWork, multiplyWork, divideWork, needsWritten } from './working.js';
 
 // ---------------------------------------------------------------------------
 // Local helpers
@@ -35,6 +36,160 @@ const wrongOrders = (order, join) => {
   for (let i = 0; i < order.length - 1; i += 1) { const swapped = [...order]; [swapped[i], swapped[i + 1]] = [swapped[i + 1], swapped[i]]; candidates.push(swapped); }
   for (let i = 1; i < order.length; i += 1) candidates.push([...order.slice(i), ...order.slice(0, i)]);
   return [...new Set(candidates.map(join))].filter((text) => text !== join(order));
+};
+
+// ---------------------------------------------------------------------------
+// Solution helpers
+// ---------------------------------------------------------------------------
+
+const say = (step, after) => ({ ...step, text: `${step.text}${after}` });
+const oneUnit = (unit) => unit.replace('litres', 'litre');
+const placeWord = (factor) => ({ 10: 'one place', 100: 'two places', 1000: 'three places' }[factor]);
+const worked = (text, a, op, b) => (needsWritten(a, op, b) ? { text, working: op === '÷' ? divideWork(a, b) : multiplyWork(a, b) } : { text });
+// Cancel shared zeros first, so 6,000 ÷ 400 is written out as 60 ÷ 4.
+const cancelDivide = (a, b, intro = '') => {
+  if (!needsWritten(a, '÷', b)) return calc(a, '÷', b, { intro });
+  let x = a, y = b;
+  while (x % 10 === 0 && y % 10 === 0 && y > 10) { x /= 10; y /= 10; }
+  return x === a ? calc(a, '÷', b, { intro }) : calc(x, '÷', y, { intro: `${intro}${display(a)} ÷ ${display(b)} is the same as ` });
+};
+
+// Money sums keep two decimal places in the written method.
+const twoPlaces = (pence) => (pence / 100).toFixed(2);
+const moneyTimes = (n, pence, intro = '') => {
+  const text = `${intro}${n} × ${pounds(pence)} = ${pounds(n * pence)}`;
+  if (!needsWritten(n, '×', pence / 100)) return { text };
+  if (pence % 100 === 0) return { text, working: multiplyWork(n, pence / 100) };
+  return { text, working: { ...multiplyWork(n, twoPlaces(pence)), note: `Ignore the decimal point, then put 2 decimal places back: ${pounds(n * pence)}` } };
+};
+const moneySum = (a, op, b, intro = '') => {
+  const text = `${intro}${pounds(a)} ${op} ${pounds(b)} = ${pounds(op === '+' ? a + b : a - b)}`;
+  if (!needsWritten(a, op, b)) return { text };
+  return { text, working: op === '+' ? addWork(twoPlaces(a), twoPlaces(b)) : subtractWork(twoPlaces(a), twoPlaces(b)) };
+};
+const moneyShare = (pence, n, intro = '') => {
+  const text = `${intro}${pounds(pence)} ÷ ${n} = ${pounds(pence / n)}`;
+  return needsWritten(pence / 100, '÷', n) ? { text, working: divideWork(pence % 100 ? twoPlaces(pence) : pence / 100, n) } : { text };
+};
+
+// Time is counted on or back through the next whole hour.
+const toNextHour = (time) => (60 - (time % 60)) % 60;
+const countOn = (start, minutes, show) => {
+  const hop = toNextHour(start), end = start + minutes;
+  if (!hop || minutes <= hop) return [`Count on ${hoursMinutes(minutes)} from ${show(start)} to reach ${show(end)}.`];
+  return [`Count on to the next hour: ${show(start)} to ${show(start + hop)} is ${minutesLabel(hop)}.`, `That leaves ${hoursMinutes(minutes - hop)} to add, which reaches ${show(end)}.`];
+};
+const countBack = (end, minutes, show) => {
+  const hop = end % 60, start = end - minutes;
+  if (!hop || minutes <= hop) return [`Count back ${hoursMinutes(minutes)} from ${show(end)} to reach ${show(start)}.`];
+  return [`Count back to the hour: ${show(end)} to ${show(end - hop)} is ${minutesLabel(hop)}.`, `That leaves ${hoursMinutes(minutes - hop)} to take off, which reaches ${show(start)}.`];
+};
+const howLong = (start, end, show) => {
+  const hop = toNextHour(start), length = end - start;
+  if (!hop || length <= hop) return [`Count on from ${show(start)} to ${show(end)}: ${hoursMinutes(length)}.`];
+  return [`Count on to the next hour: ${show(start)} to ${show(start + hop)} is ${minutesLabel(hop)}.`, `Then ${show(start + hop)} to ${show(end)} is ${hoursMinutes(length - hop)}.`, `Add the two parts: ${minutesLabel(hop)} and ${hoursMinutes(length - hop)} make ${hoursMinutes(length)}.`];
+};
+const fractionOfSteps = (length, top, bottom, frac) => {
+  const part = length / bottom;
+  if (bottom === 2) return [`Half of ${length} is ${plural(part, 'minute')}.`];
+  if (top === 1) return [say(calc(length, '÷', bottom, { intro: `To find ${frac}, divide by ${bottom}: ` }), ' minutes')];
+  return [calc(length, '÷', bottom, { intro: `First find 1/${bottom}: ` }), say(calc(part, '×', top, { intro: `Then ${frac} is ${top} lots of that: ` }), ' minutes')];
+};
+
+const walkDays = (start, count, back = false) => Array.from({ length: count }, (_, i) => DAYS[(start + (back ? -(i + 1) : i + 1) + 70) % 7]).join(', ');
+const weekSteps = (start, offset) => {
+  const weeks = Math.floor(offset / 7), extra = offset % 7;
+  if (offset < 7) return [`Count on ${plural(offset, 'day')} from ${DAYS[start]}: ${walkDays(start, offset)}.`];
+  if (!extra) return [`${offset} days is exactly ${plural(weeks, 'week')}, so the weekday stays the same: ${DAYS[start]}.`];
+  return [`${offset} days is ${plural(weeks, 'week')} and ${plural(extra, 'day')}. Whole weeks land on the same weekday.`, `Count on ${plural(extra, 'day')} from ${DAYS[start]}: ${walkDays(start, extra)}.`];
+};
+
+const UNIT_CHAINS = {
+  'weeks>hours': ['1 week is 7 days, and each day has 24 hours.', 7, 24], 'fortnights>hours': ['1 fortnight is 14 days, and each day has 24 hours.', 14, 24],
+  'decades>months': ['1 decade is 10 years, and each year has 12 months.', 10, 12], 'hours>seconds': ['1 hour is 60 minutes, and each minute has 60 seconds.', 60, 60],
+  'days>minutes': ['1 day is 24 hours, and each hour has 60 minutes.', 24, 60], 'centuries>months': ['1 century is 100 years, and each year has 12 months.', 100, 12],
+};
+const factorSteps = (c, one) => {
+  const chain = UNIT_CHAINS[`${c.from}>${c.to}`];
+  return chain ? [chain[0], say(calc(chain[1], '×', chain[2], { intro: `In 1 ${one}: ` }), ` ${c.to}`)] : [`1 ${one} is ${display(c.factor)} ${c.to}.`];
+};
+
+const UNIT_GUIDE = {
+  length: 'Millimetres suit tiny lengths, centimetres small objects, metres rooms and buildings, and kilometres long distances.',
+  mass: 'Grams suit light things, kilograms people and heavy bags, and tonnes very heavy things such as lorries.',
+  capacity: 'Millilitres suit small amounts such as a spoonful, and litres suit large amounts such as a bucketful.',
+};
+const VALUE_HINTS = {
+  'height of a classroom door': 'A door is a little taller than an adult, and most adults are under 2 m tall.',
+  'mass of an apple': 'An apple fits in your hand and is much lighter than a 1 kg bag of sugar.',
+  'capacity of a mug': 'A mug holds one drink, which is much less than a 1 litre carton of juice.',
+  'length of a new pencil': 'A new pencil is a little shorter than a 30 cm ruler.',
+  'mass of an adult': 'An adult is far heavier than a 1 kg bag of sugar, but far lighter than a 1 tonne car.',
+  'capacity of a bath': 'A bucket holds about 10 litres, and a bath holds many bucketfuls.',
+  'length of a family car': 'A family car is about as long as two adults lying end to end.',
+  'thickness of a pound coin': 'A coin is very thin, so its thickness is only a few millimetres.',
+  'mass of a large bag of flour': 'A large bag of flour is a little heavier than a 1 kg bag of sugar.',
+  'height of a two-storey house': 'Each storey is roughly 3 m high, and the roof adds a little more.',
+  'capacity of a teaspoon': 'A teaspoon holds only a tiny sip, so think of a few millilitres.',
+  'distance walked in an hour': 'A brisk walk covers about 1 km every 12 minutes.',
+};
+
+const parityWord = (value) => (value % 2 === 0 ? 'even' : 'odd');
+const parityWhy = (text, domain) => {
+  if (text === 'n² + n' || text === 'n(n + 1)') return [`${text === 'n² + n' ? 'n² + n is the same as n(n + 1). ' : ''}n and n + 1 are next to each other, so one of them is even.`, `Any number × an even number is even, so ${text} is always even.`];
+  if (text === 'n² + n + 1') return ['n² + n is the same as n(n + 1), and one of n and n + 1 is even, so n² + n is even.', 'Even + 1 is odd, so n² + n + 1 is always odd.'];
+  if (text === 'n(n + 3)') return ['n and n + 3 differ by 3, so one of them is odd and the other is even.', `Any number × an even number is even, so ${text} is always even.`];
+  if (text === 'n²') return [`n² is n × n, and ${domain} × ${domain} is ${domain}.`, `So ${text} is always ${domain}.`];
+  if (text === 'n² + 1') { const result = domain === 'odd' ? 'even' : 'odd'; return [`n² is n × n, and ${domain} × ${domain} is ${domain}.`, `${cap(domain)} + 1 is ${result}, so ${text} is always ${result}.`]; }
+  const [, coefficient, sign, constant] = text.match(/^(\d*)n(?: ([+−]) (\d+))?$/), c = Number(coefficient || 1), part = c % 2 === 0 ? 'even' : domain;
+  const first = c === 1 ? `n is ${domain}.` : c % 2 === 0 ? `${c}n is ${c} × n, and ${c} is even, so ${c}n is always even.` : `${c}n is odd × ${domain}, which is ${part}.`;
+  if (!constant) return [first, `So ${text} is always ${part}.`];
+  const k = Number(constant), result = parityWord((part === 'even' ? 0 : 1) + k);
+  return [first, `${cap(part)} ${sign} ${parityWord(k)} is ${result}, so ${text} is always ${result}.`];
+};
+
+const nthRuleSteps = (step, first, answer) => [
+  `It goes up by ${step} each time, so the rule starts with ${step}n.`,
+  first === step ? `When n = 1, ${step}n is ${step}, which matches term 1.` : `When n = 1, ${step}n is ${step}, but term 1 is ${first}, so ${first > step ? `add ${first - step}` : `take away ${step - first}`}.`,
+  `The rule is ${answer}.`,
+];
+
+const cycleSteps = (position, many, answer) => {
+  const rest = position % 5, full = Math.floor(position / 5), opening = `The pattern repeats every 5 ${many}.`;
+  return rest
+    ? [opening, `${full} full repeats use ${full * 5} ${many}, leaving ${rest}.`, `Colour number ${rest} in the pattern is ${answer}.`]
+    : [opening, `${position} is exactly ${full} repeats, so it is the last colour in the pattern.`, `The last colour is ${answer}.`];
+};
+
+const packSteps = ({ bigPacks, smallPacks, singles, got }, { large, small, single, largePrice, smallPrice, needed, product, best }) => {
+  const parts = [
+    [bigPacks, largePrice, `pack${bigPacks === 1 ? '' : 's'} of ${large}`],
+    [smallPacks, smallPrice, `pack${smallPacks === 1 ? '' : 's'} of ${small}`],
+    [singles, single, singles === 1 ? 'single' : 'singles'],
+  ].filter(([count]) => count);
+  const names = parts.map(([count, , label]) => `${count} ${label}`), mix = names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names.at(-1)}` : names[0];
+  const opening = `${bigPacks ? 'Bigger packs cost less per item, so start with them.' : `Here smaller packs fit ${needed} better than a pack of ${large}.`} The cheapest mix is ${mix}, giving ${got} ${product}${got > needed ? ` (${got - needed} extra)` : ''}.`;
+  if (parts.length === 1) return [opening, moneyTimes(parts[0][0], parts[0][1], 'Cost: ')];
+  const costs = parts.map(([count, price]) => count * price), lines = parts.filter(([count]) => count > 1).map(([count, price]) => moneyTimes(count, price));
+  if (costs.length === 2) return [opening, ...lines, moneySum(costs[0], '+', costs[1], 'Total: ')];
+  const text = `Total: ${costs.map((cost) => pounds(cost)).join(' + ')} = ${pounds(best)}`;
+  return [opening, ...lines, costs.some((cost) => cost % 50) ? { text, working: addWork(...costs.map(twoPlaces)) } : text];
+};
+
+const clockAngleSteps = (hour, minute, hourAngle, minuteAngle, answer) => {
+  const gaps = 'The clock face is 360° split into 12 equal gaps, so each gap is 30°.', next = (hour % 12) + 1;
+  if (minute === 0) return [gaps, `At ${hour} o'clock the hands are ${plural(answer / 30, 'gap')} apart: ${answer / 30} × 30° = ${answer}°.`];
+  if (minute === 30) {
+    const whole = (answer - 15) / 30;
+    return [gaps, `At half past ${hour} the minute hand points at 6, and the hour hand is halfway between ${hour} and ${next}.`, whole ? `That is ${plural(whole, 'whole gap')} and a half: ${whole} × 30° + 15° = ${answer}°.` : `That is half a gap, which is ${answer}°.`];
+  }
+  const base = (hour % 12) * 30, extra = hourAngle - base, share = minute === 15 ? 'a quarter' : 'three quarters', high = Math.max(hourAngle, minuteAngle), low = Math.min(hourAngle, minuteAngle), gap = high - low;
+  return [
+    `The clock shows ${hour}:${minute}. Measure clockwise from 12: the minute hand points at ${minute === 15 ? 3 : 9}, which is ${minuteAngle}°.`,
+    `The hour hand is ${share} of the way from ${hour} to ${next}. ${cap(share)} of 30° is ${display(extra)}°, so it is at ${base}° + ${display(extra)}° = ${display(hourAngle)}°.`,
+    `The difference is ${display(high)}° − ${display(low)}° = ${display(gap)}°.`,
+    gap > 180 ? `That is the larger angle, so the smaller one is 360° − ${display(gap)}° = ${display(answer)}°.` : `That is less than 180°, so it is the smaller angle: ${display(answer)}°.`,
+  ];
 };
 
 // ---------------------------------------------------------------------------
@@ -162,43 +317,43 @@ export const generators = {
     let chosen;
     if (d === 'easy') {
       chosen = pick(r, [
-        { prompt: ask(`n + ${b} = ${v + b}`), answer: v, wrong: [v + 2 * b, b, v + b], how: `Take ${b} from both sides, so n = ${v}.` },
-        { prompt: ask(`n − ${b} = ${v}`), answer: v + b, wrong: [v, b, v + 2 * b], how: `Add ${b} to both sides, so n = ${v + b}.` },
-        { prompt: ask(`${k}n = ${k * v}`), answer: v, wrong: [k * v - k, k * v, k + v], how: `Divide both sides by ${k}, so n = ${v}.` },
-        { prompt: ask(`n ÷ ${k} = ${v}`), answer: k * v, wrong: [v, k + v, k * v + k], how: `Multiply both sides by ${k}, so n = ${k * v}.` },
+        { prompt: ask(`n + ${b} = ${v + b}`), answer: v, wrong: [v + 2 * b, b, v + b], how: `Take ${b} from both sides, so n = ${v}.`, steps: [`The opposite of adding ${b} is taking away ${b}, so do that to both sides.`, `n = ${v + b} − ${b} = ${v}`] },
+        { prompt: ask(`n − ${b} = ${v}`), answer: v + b, wrong: [v, b, v + 2 * b], how: `Add ${b} to both sides, so n = ${v + b}.`, steps: [`The opposite of taking away ${b} is adding ${b}, so do that to both sides.`, `n = ${v} + ${b} = ${v + b}`] },
+        { prompt: ask(`${k}n = ${k * v}`), answer: v, wrong: [k * v - k, k * v, k + v], how: `Divide both sides by ${k}, so n = ${v}.`, steps: [`${k}n means ${k} × n. The opposite of multiplying by ${k} is dividing by ${k}.`, calc(k * v, '÷', k, { intro: 'n = ' })] },
+        { prompt: ask(`n ÷ ${k} = ${v}`), answer: k * v, wrong: [v, k + v, k * v + k], how: `Multiply both sides by ${k}, so n = ${k * v}.`, steps: [`The opposite of dividing by ${k} is multiplying by ${k}.`, calc(v, '×', k, { intro: 'n = ' })] },
       ]);
     } else if (d === 'medium') {
       const up = v + b, plus = k * v + b, minus = k * up - b;
       chosen = pick(r, [
-        { prompt: ask(`${k}n + ${b} = ${plus}`), answer: v, wrong: [plus - b, (plus + b) / k, plus / k, v + b], how: `Take away ${b} to get ${k * v}, then divide by ${k}: n = ${v}.` },
-        { prompt: ask(`${k}n − ${b} = ${minus}`), answer: up, wrong: [minus + b, (minus - b) / k, minus / k, up + b], how: `Add ${b} to get ${k * up}, then divide by ${k}: n = ${up}.` },
-        { prompt: pick(r, [`My secret number is multiplied by ${k}, then ${b} is added. This gives ${plus}. What is my secret number?`, `A number is multiplied by ${k}, then ${b} is added. The result is ${plus}. What was the number?`]), answer: v, wrong: [plus - b, (plus + b) / k, plus / k, v + b], how: `Work backwards: ${plus} − ${b} = ${k * v}, then ${k * v} ÷ ${k} = ${v}.` },
+        { prompt: ask(`${k}n + ${b} = ${plus}`), answer: v, wrong: [plus - b, (plus + b) / k, plus / k, v + b], how: `Take away ${b} to get ${k * v}, then divide by ${k}: n = ${v}.`, steps: [`Undo the operations in reverse order. First take ${b} from both sides.`, `${k}n = ${plus} − ${b} = ${k * v}`, calc(k * v, '÷', k, { intro: `Then divide both sides by ${k}: n = ` })] },
+        { prompt: ask(`${k}n − ${b} = ${minus}`), answer: up, wrong: [minus + b, (minus - b) / k, minus / k, up + b], how: `Add ${b} to get ${k * up}, then divide by ${k}: n = ${up}.`, steps: [`Undo the operations in reverse order. First add ${b} to both sides.`, `${k}n = ${minus} + ${b} = ${k * up}`, calc(k * up, '÷', k, { intro: `Then divide both sides by ${k}: n = ` })] },
+        { prompt: pick(r, [`My secret number is multiplied by ${k}, then ${b} is added. This gives ${plus}. What is my secret number?`, `A number is multiplied by ${k}, then ${b} is added. The result is ${plus}. What was the number?`]), answer: v, wrong: [plus - b, (plus + b) / k, plus / k, v + b], how: `Work backwards: ${plus} − ${b} = ${k * v}, then ${k * v} ÷ ${k} = ${v}.`, steps: [`Work backwards, undoing each step in reverse order.`, `Undo “add ${b}” by taking away ${b}: ${plus} − ${b} = ${k * v}`, calc(k * v, '÷', k, { intro: `Undo “multiply by ${k}” by dividing: ` })] },
       ]);
     } else {
       const a = k + integer(r, 1, 4), e = (a - k) * v + b, inside = k * (v + b);
       chosen = pick(r, [
-        { prompt: ask(`${a}n + ${b} = ${k}n + ${e}`), answer: v, wrong: [e - b, (e + b) / (a - k), (e - b) / (a + k), v + a], how: `Take ${k}n and ${b} from both sides: ${a - k}n = ${e - b}, so n = ${v}.` },
-        { prompt: ask(`${k}(n + ${b}) = ${inside}`), answer: v, wrong: [v + b, inside - b, v + 2 * b, inside / k + k], how: `Divide by ${k} to get n + ${b} = ${v + b}, so n = ${v}.` },
-        { prompt: ask(`${k}(n − ${b}) = ${k * v}`), answer: v + b, wrong: [v, v + 2 * b, k * v + b, k * v - b], how: `Divide by ${k} to get n − ${b} = ${v}, so n = ${v + b}.` },
+        { prompt: ask(`${a}n + ${b} = ${k}n + ${e}`), answer: v, wrong: [e - b, (e + b) / (a - k), (e - b) / (a + k), v + a], how: `Take ${k}n and ${b} from both sides: ${a - k}n = ${e - b}, so n = ${v}.`, steps: [`Get the n terms together: take ${k}n from both sides to get ${linear(a - k, b, 'n')} = ${e}.`, `Take ${b} from both sides: ${linear(a - k, 0, 'n')} = ${e} − ${b} = ${e - b}`, ...(a - k === 1 ? [] : [calc(e - b, '÷', a - k, { intro: `Divide both sides by ${a - k}: n = ` })])] },
+        { prompt: ask(`${k}(n + ${b}) = ${inside}`), answer: v, wrong: [v + b, inside - b, v + 2 * b, inside / k + k], how: `Divide by ${k} to get n + ${b} = ${v + b}, so n = ${v}.`, steps: [`Undo the bracket first: divide both sides by ${k}.`, calc(inside, '÷', k, { intro: `n + ${b} = ` }), `Take ${b} from both sides: n = ${v + b} − ${b} = ${v}`] },
+        { prompt: ask(`${k}(n − ${b}) = ${k * v}`), answer: v + b, wrong: [v, v + 2 * b, k * v + b, k * v - b], how: `Divide by ${k} to get n − ${b} = ${v}, so n = ${v + b}.`, steps: [`Undo the bracket first: divide both sides by ${k}.`, calc(k * v, '÷', k, { intro: `n − ${b} = ` }), `Add ${b} to both sides: n = ${v} + ${b} = ${v + b}`] },
       ]);
     }
-    return { prompt: chosen.prompt, answer: chosen.answer, distractors: wholes(...chosen.wrong, chosen.answer + 1, chosen.answer + 2, chosen.answer - 1), explanation: chosen.how };
+    return { prompt: chosen.prompt, answer: chosen.answer, distractors: wholes(...chosen.wrong, chosen.answer + 1, chosen.answer + 2, chosen.answer - 1), explanation: chosen.how, solution: chosen.steps };
   }),
 
   solve_formula_variable: gen('solve_formula_variable', 'alg_equations_formulas', (r, d) => {
     const chosen = pick(r, size(d, [
-      () => { const w = integer(r, 2, 9), l = integer(r, 3, 12), A = w * l; return { f: 'A = l × w', given: `A = ${A} and w = ${w}`, find: 'l', answer: l, wrong: [A - w, A + w, A, w + 1], how: `${A} ÷ ${w} = ${l}.` }; },
-      () => { const s = integer(r, 2, 9), t = integer(r, 3, 10), D = s * t; return { f: 'D = s × t', given: `D = ${D} and s = ${s}`, find: 't', answer: t, wrong: [D - s, D + s, D, s + 1], how: `${D} ÷ ${s} = ${t}.` }; },
-      () => { const n = integer(r, 3, 12), b = integer(r, 2, 9), T = n + b; return { f: `T = n + ${b}`, given: `T = ${T}`, find: 'n', answer: n, wrong: [T + b, T, b, n + 1], how: `${T} − ${b} = ${n}.` }; },
+      () => { const w = integer(r, 2, 9), l = integer(r, 3, 12), A = w * l; return { f: 'A = l × w', given: `A = ${A} and w = ${w}`, find: 'l', answer: l, wrong: [A - w, A + w, A, w + 1], how: `${A} ÷ ${w} = ${l}.`, steps: [`Put in what you know: ${A} = l × ${w}.`, calc(A, '÷', w, { intro: `Undo × ${w} by dividing: l = ` })] }; },
+      () => { const s = integer(r, 2, 9), t = integer(r, 3, 10), D = s * t; return { f: 'D = s × t', given: `D = ${D} and s = ${s}`, find: 't', answer: t, wrong: [D - s, D + s, D, s + 1], how: `${D} ÷ ${s} = ${t}.`, steps: [`Put in what you know: ${D} = ${s} × t.`, calc(D, '÷', s, { intro: `Undo × ${s} by dividing: t = ` })] }; },
+      () => { const n = integer(r, 3, 12), b = integer(r, 2, 9), T = n + b; return { f: `T = n + ${b}`, given: `T = ${T}`, find: 'n', answer: n, wrong: [T + b, T, b, n + 1], how: `${T} − ${b} = ${n}.`, steps: [`Put in what you know: ${T} = n + ${b}.`, `Undo + ${b} by taking away ${b}: n = ${T} − ${b} = ${n}`] }; },
     ], [
-      () => { const w = integer(r, 3, 12), h = integer(r, 3, 25), P = 2 * (w + h); return { f: 'P = 2(l + w)', given: `P = ${P} and w = ${w}`, find: 'l', answer: h, wrong: [P / 2, P - w, P / 2 + w, h + 2], how: `${P} ÷ 2 = ${w + h}, then ${w + h} − ${w} = ${h}.` }; },
-      () => { const a = integer(r, 2, 8), b = integer(r, 2, 12), n = integer(r, 3, 12), C = a * n + b; return { f: `C = ${a}n + ${b}`, given: `C = ${C}`, find: 'n', answer: n, wrong: [C - b, (C + b) / a, C / a, n + b], how: `${C} − ${b} = ${a * n}, then ${a * n} ÷ ${a} = ${n}.` }; },
-      () => { const a = pick(r, [5, 10, 20]), b = pick(r, [10, 20, 30]), k = integer(r, 2, 9), T = b + a * k; return { f: `T = ${b} + ${a}k`, given: `T = ${T}`, find: 'k', answer: k, wrong: [T - b, T / a, (T + b) / a, k + 2], how: `${T} − ${b} = ${a * k}, then ${a * k} ÷ ${a} = ${k}.` }; },
+      () => { const w = integer(r, 3, 12), h = integer(r, 3, 25), P = 2 * (w + h); return { f: 'P = 2(l + w)', given: `P = ${P} and w = ${w}`, find: 'l', answer: h, wrong: [P / 2, P - w, P / 2 + w, h + 2], how: `${P} ÷ 2 = ${w + h}, then ${w + h} − ${w} = ${h}.`, steps: [`Put in what you know: ${P} = 2(l + ${w}).`, `Undo × 2 by halving ${P}: l + ${w} = ${w + h}.`, `Undo + ${w} by taking away ${w}: l = ${w + h} − ${w} = ${h}`] }; },
+      () => { const a = integer(r, 2, 8), b = integer(r, 2, 12), n = integer(r, 3, 12), C = a * n + b; return { f: `C = ${a}n + ${b}`, given: `C = ${C}`, find: 'n', answer: n, wrong: [C - b, (C + b) / a, C / a, n + b], how: `${C} − ${b} = ${a * n}, then ${a * n} ÷ ${a} = ${n}.`, steps: [`Put in what you know: ${C} = ${a}n + ${b}.`, `Undo + ${b} by taking away ${b}: ${a}n = ${C} − ${b} = ${a * n}`, calc(a * n, '÷', a, { intro: `Undo × ${a} by dividing: n = ` })] }; },
+      () => { const a = pick(r, [5, 10, 20]), b = pick(r, [10, 20, 30]), k = integer(r, 2, 9), T = b + a * k; return { f: `T = ${b} + ${a}k`, given: `T = ${T}`, find: 'k', answer: k, wrong: [T - b, T / a, (T + b) / a, k + 2], how: `${T} − ${b} = ${a * k}, then ${a * k} ÷ ${a} = ${k}.`, steps: [`Put in what you know: ${T} = ${b} + ${a}k.`, `Undo + ${b} by taking away ${b}: ${a}k = ${T} − ${b} = ${a * k}`, calc(a * k, '÷', a, { intro: `Undo × ${a} by dividing: k = ` })] }; },
     ], [
-      () => { const c = pick(r, [5, 10, 15, 20, 25]), F = 2 * c + 30; return { f: 'F = 2C + 30', given: `F = ${F}`, find: 'C', answer: c, wrong: [F - 30, F / 2, (F + 30) / 2, F / 2 - 30 > 0 ? F / 2 - 30 : c + 10], how: `${F} − 30 = ${2 * c}, then ${2 * c} ÷ 2 = ${c}.` }; },
-      () => { const l = integer(r, 3, 8), w = integer(r, 2, 6), h = integer(r, 2, 9), V = l * w * h; return { f: 'V = l × w × h', given: `V = ${V}, l = ${l} and w = ${w}`, find: 'h', answer: h, wrong: [V - l - w, V / l, V / w, h + 1], how: `${l} × ${w} = ${l * w}, then ${V} ÷ ${l * w} = ${h}.` }; },
-      () => { const b = 2 * integer(r, 2, 8), h = integer(r, 3, 12), A = b * h / 2; return { f: 'A = ½ × b × h', given: `A = ${A} and b = ${b}`, find: 'h', answer: h, wrong: [A / b, A - b, 2 * A, h * 2], how: `${A} × 2 = ${2 * A}, then ${2 * A} ÷ ${b} = ${h}.` }; },
-      () => { const a = integer(r, 3, 6), b = integer(r, 2, 9), n = integer(r, 4, 12), C = a * n - b; return { f: `C = ${a}n − ${b}`, given: `C = ${C}`, find: 'n', answer: n, wrong: [C + b, (C - b) / a, C / a, n + b], how: `${C} + ${b} = ${a * n}, then ${a * n} ÷ ${a} = ${n}.` }; },
+      () => { const c = pick(r, [5, 10, 15, 20, 25]), F = 2 * c + 30; return { f: 'F = 2C + 30', given: `F = ${F}`, find: 'C', answer: c, wrong: [F - 30, F / 2, (F + 30) / 2, F / 2 - 30 > 0 ? F / 2 - 30 : c + 10], how: `${F} − 30 = ${2 * c}, then ${2 * c} ÷ 2 = ${c}.`, steps: [`Put in what you know: ${F} = 2C + 30.`, `Undo + 30 by taking away 30: 2C = ${F} − 30 = ${2 * c}`, `Undo × 2 by halving ${2 * c}: C = ${c}`] }; },
+      () => { const l = integer(r, 3, 8), w = integer(r, 2, 6), h = integer(r, 2, 9), V = l * w * h; return { f: 'V = l × w × h', given: `V = ${V}, l = ${l} and w = ${w}`, find: 'h', answer: h, wrong: [V - l - w, V / l, V / w, h + 1], how: `${l} × ${w} = ${l * w}, then ${V} ÷ ${l * w} = ${h}.`, steps: [`Multiply the two lengths you know: ${l} × ${w} = ${l * w}.`, `So ${V} = ${l * w} × h.`, calc(V, '÷', l * w, { intro: `Undo × ${l * w} by dividing: h = ` })] }; },
+      () => { const b = 2 * integer(r, 2, 8), h = integer(r, 3, 12), A = b * h / 2; return { f: 'A = ½ × b × h', given: `A = ${A} and b = ${b}`, find: 'h', answer: h, wrong: [A / b, A - b, 2 * A, h * 2], how: `${A} × 2 = ${2 * A}, then ${2 * A} ÷ ${b} = ${h}.`, steps: [`Put in what you know: ${A} = ½ × ${b} × h.`, calc(A, '×', 2, { intro: 'Undo the half by doubling: ' }), calc(2 * A, '÷', b, { intro: `So ${b} × h = ${2 * A}. Undo × ${b} by dividing: h = ` })] }; },
+      () => { const a = integer(r, 3, 6), b = integer(r, 2, 9), n = integer(r, 4, 12), C = a * n - b; return { f: `C = ${a}n − ${b}`, given: `C = ${C}`, find: 'n', answer: n, wrong: [C + b, (C - b) / a, C / a, n + b], how: `${C} + ${b} = ${a * n}, then ${a * n} ÷ ${a} = ${n}.`, steps: [`Put in what you know: ${C} = ${a}n − ${b}.`, `Undo − ${b} by adding ${b}: ${a}n = ${C} + ${b} = ${a * n}`, calc(a * n, '÷', a, { intro: `Undo × ${a} by dividing: n = ` })] }; },
     ]))();
     const prompt = pick(r, [
       `The formula is ${chosen.f}. If ${chosen.given}, what is ${chosen.find}?`,
@@ -207,27 +362,27 @@ export const generators = {
       `A rule says ${chosen.f}. Work out ${chosen.find} if ${chosen.given}.`,
       `Here is a formula: ${chosen.f}. What is ${chosen.find} when ${chosen.given}?`,
     ]);
-    return { prompt, answer: chosen.answer, distractors: wholes(...chosen.wrong, chosen.answer + 1, chosen.answer + 3, chosen.answer - 1), explanation: chosen.how };
+    return { prompt, answer: chosen.answer, distractors: wholes(...chosen.wrong, chosen.answer + 1, chosen.answer + 3, chosen.answer - 1), explanation: chosen.how, solution: chosen.steps };
   }),
 
   algebra_equivalent_rearrangement: gen('algebra_equivalent_rearrangement', 'alg_equivalent_forms', (r, d) => {
     const a = integer(r, 2, 9), b = integer(r, 2, 12), c = integer(r, 2, 6);
-    const rearrange = (equation, answer, wrong, how) => ({ prompt: pick(r, [`If ${equation}, which formula gives x?`, `Rearrange ${equation} to make x the subject.`, `Which of these is the same as ${equation}?`, `Here is a formula: ${equation}. Which of these tells you x?`, `You know that ${equation}. How would you work out x from y?`]), answer, wrong, how });
-    const same = (expression, answer, wrong, how) => ({ prompt: pick(r, [`Which expression is the same as ${expression}?`, `Multiply out ${expression}.`, `Which of these is equal to ${expression} for every value of x?`, `Write ${expression} without brackets.`]), answer, wrong, how });
+    const rearrange = (equation, answer, wrong, how, steps) => ({ prompt: pick(r, [`If ${equation}, which formula gives x?`, `Rearrange ${equation} to make x the subject.`, `Which of these is the same as ${equation}?`, `Here is a formula: ${equation}. Which of these tells you x?`, `You know that ${equation}. How would you work out x from y?`]), answer, wrong, how, steps });
+    const same = (expression, answer, wrong, how, steps) => ({ prompt: pick(r, [`Which expression is the same as ${expression}?`, `Multiply out ${expression}.`, `Which of these is equal to ${expression} for every value of x?`, `Write ${expression} without brackets.`]), answer, wrong, how, steps });
     const chosen = pick(r, size(d, [
-      rearrange(`y = x + ${b}`, `x = y − ${b}`, [`x = y + ${b}`, `x = ${b} − y`, `x = y × ${b}`, `x = y ÷ ${b}`], `Subtract ${b} from both sides.`),
-      rearrange(`y = ${a}x`, `x = y ÷ ${a}`, [`x = ${a} ÷ y`, `x = ${a}y`, `x = y − ${a}`, `x = y + ${a}`], `Divide both sides by ${a}.`),
-      rearrange(`y = x − ${b}`, `x = y + ${b}`, [`x = y − ${b}`, `x = ${b} − y`, `x = ${b}y`, `x = y ÷ ${b}`], `Add ${b} to both sides.`),
+      rearrange(`y = x + ${b}`, `x = y − ${b}`, [`x = y + ${b}`, `x = ${b} − y`, `x = y × ${b}`, `x = y ÷ ${b}`], `Subtract ${b} from both sides.`, [`x has ${b} added to it. Undo that by taking ${b} from both sides.`, `y − ${b} = x, so x = y − ${b}`]),
+      rearrange(`y = ${a}x`, `x = y ÷ ${a}`, [`x = ${a} ÷ y`, `x = ${a}y`, `x = y − ${a}`, `x = y + ${a}`], `Divide both sides by ${a}.`, [`${a}x means ${a} × x. Undo that by dividing both sides by ${a}.`, `y ÷ ${a} = x, so x = y ÷ ${a}`]),
+      rearrange(`y = x − ${b}`, `x = y + ${b}`, [`x = y − ${b}`, `x = ${b} − y`, `x = ${b}y`, `x = y ÷ ${b}`], `Add ${b} to both sides.`, [`x has ${b} taken away. Undo that by adding ${b} to both sides.`, `y + ${b} = x, so x = y + ${b}`]),
     ], [
-      rearrange(`y = ${a}x + ${b}`, `x = (y − ${b}) ÷ ${a}`, [`x = (y + ${b}) ÷ ${a}`, `x = y ÷ ${a} − ${b}`, `x = ${a}(y − ${b})`, `x = y − ${b} ÷ ${a}`], `Subtract ${b} from both sides, then divide by ${a}.`),
-      rearrange(`y = ${a}x − ${b}`, `x = (y + ${b}) ÷ ${a}`, [`x = (y − ${b}) ÷ ${a}`, `x = y ÷ ${a} + ${b}`, `x = ${a}(y + ${b})`, `x = y + ${b} ÷ ${a}`], `Add ${b} to both sides, then divide by ${a}.`),
-      same(`${a}(x + ${b})`, `${a}x + ${a * b}`, [`${a}x + ${b}`, `x + ${a * b}`, `${a}x + ${a + b + 1}`, `${a + b}x`, `${a * b}x + ${a}`], `Multiply both terms in the bracket by ${a}.`),
+      rearrange(`y = ${a}x + ${b}`, `x = (y − ${b}) ÷ ${a}`, [`x = (y + ${b}) ÷ ${a}`, `x = y ÷ ${a} − ${b}`, `x = ${a}(y − ${b})`, `x = y − ${b} ÷ ${a}`], `Subtract ${b} from both sides, then divide by ${a}.`, [`Undo the operations in reverse order. First take ${b} from both sides.`, `y − ${b} = ${a}x`, `Then divide both sides by ${a}: x = (y − ${b}) ÷ ${a}`]),
+      rearrange(`y = ${a}x − ${b}`, `x = (y + ${b}) ÷ ${a}`, [`x = (y − ${b}) ÷ ${a}`, `x = y ÷ ${a} + ${b}`, `x = ${a}(y + ${b})`, `x = y + ${b} ÷ ${a}`], `Add ${b} to both sides, then divide by ${a}.`, [`Undo the operations in reverse order. First add ${b} to both sides.`, `y + ${b} = ${a}x`, `Then divide both sides by ${a}: x = (y + ${b}) ÷ ${a}`]),
+      same(`${a}(x + ${b})`, `${a}x + ${a * b}`, [`${a}x + ${b}`, `x + ${a * b}`, `${a}x + ${a + b + 1}`, `${a + b}x`, `${a * b}x + ${a}`], `Multiply both terms in the bracket by ${a}.`, [`Multiply each term in the bracket by ${a}.`, `${a} × x = ${a}x and ${a} × ${b} = ${a * b}`, `So ${a}(x + ${b}) = ${a}x + ${a * b}`]),
     ], [
-      rearrange(`y = ${a}(x + ${b})`, `x = y ÷ ${a} − ${b}`, [`x = (y − ${b}) ÷ ${a}`, `x = y ÷ ${a} + ${b}`, `x = ${a}(y − ${b})`, `x = ${a}y − ${b}`], `Divide both sides by ${a}, then subtract ${b}.`),
-      rearrange(`y = x ÷ ${a} + ${b}`, `x = ${a}(y − ${b})`, [`x = ${a}y − ${b}`, `x = (y − ${b}) ÷ ${a}`, `x = ${a}(y + ${b})`, `x = y ÷ ${a} − ${b}`], `Subtract ${b} from both sides, then multiply by ${a}.`),
-      same(`${a}(x + ${b}) + ${c}x`, `${a + c}x + ${a * b}`, [`${a}x + ${a * b + c}`, `${a + c}x + ${b}`, `${a + c + 1}x + ${a * b}`, `${a + c}x + ${a * b + 1}`, `${a}x + ${b + c}`], `${a}(x + ${b}) = ${a}x + ${a * b}. Adding ${c}x gives ${a + c}x + ${a * b}.`),
+      rearrange(`y = ${a}(x + ${b})`, `x = y ÷ ${a} − ${b}`, [`x = (y − ${b}) ÷ ${a}`, `x = y ÷ ${a} + ${b}`, `x = ${a}(y − ${b})`, `x = ${a}y − ${b}`], `Divide both sides by ${a}, then subtract ${b}.`, [`Undo the bracket first: divide both sides by ${a}.`, `y ÷ ${a} = x + ${b}`, `Take ${b} from both sides: x = y ÷ ${a} − ${b}`]),
+      rearrange(`y = x ÷ ${a} + ${b}`, `x = ${a}(y − ${b})`, [`x = ${a}y − ${b}`, `x = (y − ${b}) ÷ ${a}`, `x = ${a}(y + ${b})`, `x = y ÷ ${a} − ${b}`], `Subtract ${b} from both sides, then multiply by ${a}.`, [`Undo the operations in reverse order. First take ${b} from both sides.`, `y − ${b} = x ÷ ${a}`, `Then multiply both sides by ${a}: x = ${a}(y − ${b})`]),
+      same(`${a}(x + ${b}) + ${c}x`, `${a + c}x + ${a * b}`, [`${a}x + ${a * b + c}`, `${a + c}x + ${b}`, `${a + c + 1}x + ${a * b}`, `${a + c}x + ${a * b + 1}`, `${a}x + ${b + c}`], `${a}(x + ${b}) = ${a}x + ${a * b}. Adding ${c}x gives ${a + c}x + ${a * b}.`, [`Multiply out the bracket: ${a}(x + ${b}) = ${a}x + ${a * b}.`, `Collect the x terms: ${a}x + ${c}x = ${a + c}x.`, `So the expression is ${a + c}x + ${a * b}`]),
     ]));
-    return { prompt: chosen.prompt, answer: chosen.answer, distractors: chosen.wrong, explanation: chosen.how };
+    return { prompt: chosen.prompt, answer: chosen.answer, distractors: chosen.wrong, explanation: chosen.how, solution: chosen.steps };
   }),
 
   expression_from_repeated_group: gen('expression_from_repeated_group', 'alg_expressions_from_words', (r, d) => {
@@ -239,7 +394,7 @@ export const generators = {
         `${n} ${s.groups} hold x ${s.first} each. Which expression gives the total?`,
         `A ${s.group} has x ${s.first}. What is the number of ${s.first} in ${n} of these ${s.groups}?`,
       ]);
-      return { prompt, answer: `${n}x`, distractors: [`x + ${n}`, `x ÷ ${n}`, `${n + 1}x`, `${n - 1}x`], explanation: `${n} lots of x is ${n}x.` };
+      return { prompt, answer: `${n}x`, distractors: [`x + ${n}`, `x ÷ ${n}`, `${n + 1}x`, `${n - 1}x`], explanation: `${n} lots of x is ${n}x.`, solution: [`Each ${s.group} has x ${s.first}, so ${n} ${s.groups} have ${n} lots of x.`, `${n} lots of x is written ${n}x.`] };
     }
     const base = `${n}(x + ${f})`;
     if (d === 'medium') {
@@ -249,7 +404,7 @@ export const generators = {
         `${n} ${s.groups} are filled the same way, with x ${s.first} and ${f} ${s.second} in each. Which expression shows the number of ${s.all}?`,
         `A ${s.group} has x ${s.first} and ${f} ${s.second}. Which expression gives the number of ${s.all} in ${n} of these ${s.groups}?`,
       ]);
-      return { prompt, answer: base, distractors: distinctLinear([n, n * f], [[`${n}x + ${f}`, n, f], [`x + ${n * f}`, 1, n * f], [`x + ${n + f}`, 1, n + f], [`${f}x + ${n}`, f, n], [`${n + f}x`, n + f, 0], [`${n + 1}(x + ${f})`, n + 1, (n + 1) * f]]), explanation: `Each ${s.group} has x + ${f} ${s.all}, and there are ${n} ${s.groups}: ${base}.` };
+      return { prompt, answer: base, distractors: distinctLinear([n, n * f], [[`${n}x + ${f}`, n, f], [`x + ${n * f}`, 1, n * f], [`x + ${n + f}`, 1, n + f], [`${f}x + ${n}`, f, n], [`${n + f}x`, n + f, 0], [`${n + 1}(x + ${f})`, n + 1, (n + 1) * f]]), explanation: `Each ${s.group} has x + ${f} ${s.all}, and there are ${n} ${s.groups}: ${base}.`, solution: [`One ${s.group} has x + ${f} ${s.all}.`, `There are ${n} ${s.groups}, so multiply all of x + ${f} by ${n}.`, `Use a bracket to keep it together: ${base}`] };
     }
     const prompt = pick(r, [
       `Each of ${n} ${s.groups} has x ${s.first} and ${f} ${s.second}. Another ${k} ${s.all} are added. Which expression gives the total?`,
@@ -257,27 +412,27 @@ export const generators = {
       `${k} ${s.all} are left over after filling ${n} ${s.groups} with x ${s.first} and ${f} ${s.second} each. Which expression shows how many ${s.all} there were to start with?`,
       `A ${s.group} has x ${s.first} and ${f} ${s.second}. Which expression gives the number of ${s.all} in ${n} of these ${s.groups} plus ${k} more?`,
     ]);
-    return { prompt, answer: `${base} + ${k}`, distractors: distinctLinear([n, n * f + k], [[`${n}x + ${f + k}`, n, f + k], [`${n}(x + ${f + k})`, n, n * (f + k)], [`${n}x + ${f * k}`, n, f * k], [`x + ${n * f + k}`, 1, n * f + k], [`${n + k}(x + ${f})`, n + k, (n + k) * f], [`${n}x + ${n * f}`, n, n * f]]), explanation: `The ${s.groups} hold ${base}, and the extra ${k} are added on.` };
+    return { prompt, answer: `${base} + ${k}`, distractors: distinctLinear([n, n * f + k], [[`${n}x + ${f + k}`, n, f + k], [`${n}(x + ${f + k})`, n, n * (f + k)], [`${n}x + ${f * k}`, n, f * k], [`x + ${n * f + k}`, 1, n * f + k], [`${n + k}(x + ${f})`, n + k, (n + k) * f], [`${n}x + ${n * f}`, n, n * f]]), explanation: `The ${s.groups} hold ${base}, and the extra ${k} are added on.`, solution: [`One ${s.group} has x + ${f} ${s.all}.`, `${n} ${s.groups} hold ${n} lots of that: ${base}.`, `Add the ${k} extra ${s.all}: ${base} + ${k}`] };
   }),
 
   inequality_age_order: gen('inequality_age_order', 'alg_inequalities_order', (r, d) => {
     const trait = pick(r, TRAITS), big = d === 'hard' && r() < 0.5, order = pickNames(r, big ? 5 : size(d, 3, 3, 4));
     const clues = order.slice(0, -1).map((name, i) => pick(r, [`${name} is ${trait.up} than ${order[i + 1]}`, `${order[i + 1]} is ${trait.down} than ${name}`]));
-    const facts = `${(d === 'easy' ? clues : shuffle(r, clues)).join('. ')}.`;
+    const facts = `${(d === 'easy' ? clues : shuffle(r, clues)).join('. ')}.`, linking = clues.some((clue) => clue.includes(trait.down)) ? [`Turn any “${trait.down} than” clue round, so every clue says who is ${trait.up}.`] : [];
     if (big) {
       const place = integer(r, 1, 3), label = ['', 'second', 'third', 'fourth'][place];
       const prompt = pick(r, [`${facts} Who is the ${label} ${trait.top}?`, `${facts} Which person is ${label} ${trait.top}?`, `Look at these facts. ${facts} Who comes ${label} if they line up from ${trait.top} to ${trait.bottom}?`, `${facts} Who is ${label} in order from ${trait.top} to ${trait.bottom}?`]);
-      return { prompt, answer: order[place], distractors: order.filter((_, i) => i !== place), explanation: `From ${trait.top} to ${trait.bottom} the order is ${order.join(', ')}, so the answer is ${order[place]}.` };
+      return { prompt, answer: order[place], distractors: order.filter((_, i) => i !== place), explanation: `From ${trait.top} to ${trait.bottom} the order is ${order.join(', ')}, so the answer is ${order[place]}.`, solution: [...linking, `Link the clues into one chain, ${trait.top} first: ${order.join(', ')}.`, `The ${label} ${trait.top} is ${order[place]}.`] };
     }
     const style = pick(r, ['down', 'up', 'symbol']);
     if (style === 'symbol') {
       const join = (list) => list.join(' > ');
       const prompt = pick(r, [`${facts} Using > to mean “is ${trait.up} than”, which is correct?`, `${facts} If > means “is ${trait.up} than”, which statement is true?`]);
-      return { prompt, answer: join(order), distractors: wrongOrders(order, join), explanation: `Putting the facts together, ${join(order)}.` };
+      return { prompt, answer: join(order), distractors: wrongOrders(order, join), explanation: `Putting the facts together, ${join(order)}.`, solution: [...linking, `Each clue links two names, so join them into one chain.`, join(order)] };
     }
     const list = style === 'down' ? order : [...order].reverse(), from = style === 'down' ? trait.top : trait.bottom, to = style === 'down' ? trait.bottom : trait.top, join = (names) => names.join(', ');
     const prompt = pick(r, [`${facts} Which list goes from ${from} to ${to}?`, `${facts} What is the correct order, ${from} first?`, `${facts} Put them in order from ${from} to ${to}.`]);
-    return { prompt, answer: join(list), distractors: wrongOrders(list, join), explanation: `From ${from} to ${to} the order is ${join(list)}.` };
+    return { prompt, answer: join(list), distractors: wrongOrders(list, join), explanation: `From ${from} to ${to} the order is ${join(list)}.`, solution: style === 'down' ? [...linking, `Link the clues into one chain, ${trait.top} first: ${join(list)}.`] : [...linking, `Link the clues into one chain, ${trait.top} first: ${order.join(', ')}.`, `Reverse it to go from ${from} to ${to}: ${join(list)}.`] };
   }),
 
   algebra_parity_always: gen('algebra_parity_always', 'alg_parity_generalisation', (r, d) => {
@@ -291,7 +446,7 @@ export const generators = {
     const intro = domain === 'any' ? pick(r, ['The letter n stands for any whole number.', 'Pick any whole number and call it n.', 'Here, n can be any whole number.', 'Suppose n is a whole number.'])
       : pick(r, [`The letter n stands for any ${domain} number.`, `Suppose n is an ${domain} number.`, `Here, n can be any ${domain} number.`, `Pick any ${domain} number and call it n.`]);
     const prompt = `${intro} ${pick(r, [`Which of these is always ${target}?`, `Which expression must be ${target}?`, `Which of these will always give an ${target} number?`, `Which one is ${target} every time?`])}`;
-    return { prompt, answer: right[0], distractors: wrong, explanation: `${right[0]} is ${target} for every ${domain === 'any' ? 'whole' : domain} number n; each of the others fails for at least one value.` };
+    return { prompt, answer: right[0], distractors: wrong, explanation: `${right[0]} is ${target} for every ${domain === 'any' ? 'whole' : domain} number n; each of the others fails for at least one value.`, solution: parityWhy(right[0], domain) };
   }),
 
   algebra_relationship_two_variables: gen('algebra_relationship_two_variables', 'alg_relationship_word_problems', (r, d) => {
@@ -304,7 +459,7 @@ export const generators = {
         `${a} owns x ${stuff} and ${b} owns x + ${extra}. What is their total when x = ${x}?`,
         `The number of ${stuff} ${a} has is x. ${b} has ${extra} extra. Work out how many they have together if x = ${x}.`,
       ]);
-      return { prompt, answer, distractors: wholes(x + extra, 2 * x, answer + extra, answer - 1, answer + 1), explanation: `Together they have x + (x + ${extra}) = 2x + ${extra}. With x = ${x}, that is ${answer}.` };
+      return { prompt, answer, distractors: wholes(x + extra, 2 * x, answer + extra, answer - 1, answer + 1), explanation: `Together they have x + (x + ${extra}) = 2x + ${extra}. With x = ${x}, that is ${answer}.`, solution: [`${a} has ${x}, so ${b} has ${x} + ${extra} = ${x + extra}.`, `Together: ${x} + ${x + extra} = ${answer}`] };
     }
     if (d === 'medium') {
       const k = integer(r, 2, 5), small = integer(r, 4, 15), total = small * (k + 1);
@@ -314,7 +469,7 @@ export const generators = {
         `Between them, ${a} and ${b} have ${total} ${stuff}. ${a} has ${k} times as many as ${b}. How many has ${b} got?`,
         `${total} ${stuff} are split so that ${a} gets ${k} times as many as ${b}. How many does ${b} get?`,
       ]);
-      return { prompt, answer: small, distractors: wholes(small * k, total / k, total - k, small + k, small + 1, small - 1), explanation: `${b} has 1 part and ${a} has ${k} parts, so ${total} ÷ ${k + 1} = ${small}.` };
+      return { prompt, answer: small, distractors: wholes(small * k, total / k, total - k, small + k, small + 1, small - 1), explanation: `${b} has 1 part and ${a} has ${k} parts, so ${total} ÷ ${k + 1} = ${small}.`, solution: [`Think in parts: ${b} has 1 part and ${a} has ${k}, making ${k + 1} parts.`, calc(total, '÷', k + 1, { intro: `${b}'s 1 part: ` })] };
     }
     const small = integer(r, 4, 12), extra = integer(r, 2, 9), total = small + 2 * small + (2 * small + extra);
     const prompt = pick(r, [
@@ -323,7 +478,7 @@ export const generators = {
       `${total} ${stuff} are shared by ${a}, ${b} and ${c}. ${a} gets twice as many as ${b}, and ${c} gets ${extra} more than ${a}. How many does ${b} get?`,
       `${b} has some ${stuff}. ${a} has twice as many, and ${c} has ${extra} more than ${a}. If they have ${total} in total, how many has ${b} got?`,
     ]);
-    return { prompt, answer: small, distractors: wholes(2 * small, 2 * small + extra, total / 5, small + extra, small + 1, small - 1).filter((value) => value !== small), explanation: `The total is 5 lots of ${b}'s amount plus ${extra}: (${total} − ${extra}) ÷ 5 = ${small}.` };
+    return { prompt, answer: small, distractors: wholes(2 * small, 2 * small + extra, total / 5, small + extra, small + 1, small - 1).filter((value) => value !== small), explanation: `The total is 5 lots of ${b}'s amount plus ${extra}: (${total} − ${extra}) ÷ 5 = ${small}.`, solution: [`Call ${b}'s amount 1 part. ${a} has 2 parts and ${c} has 2 parts + ${extra}.`, `Altogether that is 5 parts + ${extra}, so 5 parts = ${total} − ${extra} = ${total - extra}.`, calc(total - extra, '÷', 5, { intro: `${b}'s 1 part: ` })] };
   }),
 
   calendar_weekday_offset: gen('calendar_weekday_offset', 'meas_calendar_timetable_timezone', (r, d) => {
@@ -339,14 +494,14 @@ export const generators = {
         `If ${ordinal(first)} ${month} falls on a ${DAYS[start]}, which day is ${ordinal(second)} ${next}?`,
         `A school trip is on ${DAYS[start]} ${ordinal(first)} ${month}. The next trip is on ${ordinal(second)} ${next}. Which day of the week is that?`,
       ]);
-      return { prompt, answer: DAYS[index], distractors: near(index), explanation: `${month} has ${length} days, so the gap is ${offset} days. ${cap(count(offset))}, giving ${DAYS[index]}.` };
+      return { prompt, answer: DAYS[index], distractors: near(index), explanation: `${month} has ${length} days, so the gap is ${offset} days. ${cap(count(offset))}, giving ${DAYS[index]}.`, solution: [`${month} has ${length} days, so ${length - first} days remain after the ${ordinal(first)}.`, `Add ${plural(second, 'day')} into ${next}: ${length - first} + ${second} = ${offset} days.`, ...weekSteps(start, offset)] };
     }
     if (d === 'easy') {
       const offset = integer(r, 2, 6), back = r() < 0.4, index = (start + (back ? -offset : offset) + 7) % 7;
       const prompt = back
         ? pick(r, [`Today is ${DAYS[start]}. What day was it ${offset} days ago?`, `It is ${DAYS[start]} today. Which day was it ${offset} days ago?`, `${name} went swimming ${offset} days ago. Today is ${DAYS[start]}. What day was the swim?`, `A parcel arrived ${offset} days before ${DAYS[start]}. On which day did it arrive?`])
         : pick(r, [`Today is ${DAYS[start]}. What day will it be in ${offset} days?`, `It is ${DAYS[start]}. Which day is it ${offset} days from now?`, `${name} has a test in ${offset} days. Today is ${DAYS[start]}. What day is the test?`, `A parcel is sent on ${DAYS[start]} and takes ${offset} days to arrive. On which day does it arrive?`]);
-      return { prompt, answer: DAYS[index], distractors: near(index), explanation: `Count ${back ? 'back' : 'on'} ${offset} days from ${DAYS[start]} to reach ${DAYS[index]}.` };
+      return { prompt, answer: DAYS[index], distractors: near(index), explanation: `Count ${back ? 'back' : 'on'} ${offset} days from ${DAYS[start]} to reach ${DAYS[index]}.`, solution: [`Count ${back ? 'back' : 'on'} ${offset} days from ${DAYS[start]}: ${walkDays(start, offset, back)}.`] };
     }
     const weeks = integer(r, 1, 4), extra = integer(r, 1, 6), offset = 7 * weeks + extra, index = (start + offset) % 7;
     const prompt = pick(r, [
@@ -356,7 +511,7 @@ export const generators = {
       `A library book is borrowed on ${DAYS[start]} and is due back ${offset} days later. On which day is it due?`,
       `Today is ${DAYS[start]}. What day will it be in ${plural(weeks, 'week')} and ${plural(extra, 'day')}?`,
     ]);
-    return { prompt, answer: DAYS[index], distractors: near(index), explanation: `${cap(count(offset))}, so count on ${plural(extra, 'day')} from ${DAYS[start]} to reach ${DAYS[index]}.` };
+    return { prompt, answer: DAYS[index], distractors: near(index), explanation: `${cap(count(offset))}, so count on ${plural(extra, 'day')} from ${DAYS[start]} to reach ${DAYS[index]}.`, solution: weekSteps(start, offset) };
   }),
 
   capacity_remaining_after_pouring: gen('capacity_remaining_after_pouring', 'meas_capacity', (r, d) => {
@@ -364,12 +519,12 @@ export const generators = {
     if (d === 'easy') {
       const capacity = pick(r, [500, 750, 1000, 1500, 2000]), used = 50 * integer(r, 2, Math.floor(capacity / 50) - 2), answer = capacity - used;
       const prompt = pick(r, [
-        `${A} holds ${display(capacity)} ml of ${s.liquid}. ${name} pours out ${used} ml. How much is left?`,
+        `${A} holds ${display(capacity)} ml of ${s.liquid}. ${name} pours out ${display(used)} ml. How much is left?`,
         `${display(used)} ml of ${s.liquid} is poured from a full ${display(capacity)} ml ${s.vessel}. How much is still in the ${s.vessel}?`,
         `There is ${display(capacity)} ml of ${s.liquid} in ${a}. After ${display(used)} ml is poured into ${s.into}, how much remains?`,
         `${name} fills ${a} with ${display(capacity)} ml of ${s.liquid} and uses ${display(used)} ml. How much ${s.liquid} is left?`,
       ]);
-      return { prompt, answer, distractors: [capacity + used, used, answer + 100, answer + 50, answer - 50, answer - 100], formatter: withUnit('ml'), explanation: `${display(capacity)} − ${display(used)} = ${display(answer)} ml.` };
+      return { prompt, answer, distractors: [capacity + used, used, answer + 100, answer + 50, answer - 50, answer - 100], formatter: withUnit('ml'), explanation: `${display(capacity)} − ${display(used)} = ${display(answer)} ml.`, solution: [`Take the amount poured out from the amount at the start.`, `${display(capacity)} − ${display(used)} = ${display(answer)} ml`] };
     }
     const full = pick(r, d === 'medium' ? [1, 1.5, 2, 2.5, 3] : [2, 2.5, 3, 4, 5]), ml = full * 1000, each = pick(r, [100, 150, 200, 250, 300]), cups = integer(r, 2, Math.min(6, Math.floor((ml - 100) / each))), poured = cups * each, rest = ml - poured;
     const volumeText = `${display(full)} ${full === 1 ? 'litre' : 'litres'}`;
@@ -381,7 +536,7 @@ export const generators = {
         `${name} starts with ${volumeText} of ${s.liquid} in ${a} and pours out ${cups} lots of ${each} ml. How many ml are left?`,
         `From ${a} containing ${volumeText} of ${s.liquid}, ${cups} ${s.into} are filled. Each takes ${each} ml. How much is left in millilitres?`,
       ]);
-      return { prompt, answer: rest, distractors: wholes(ml - each, poured, ml + poured, rest + each, rest + 100, rest - 100, rest + 50), formatter: withUnit('ml'), explanation: `${volumeText} is ${display(ml)} ml. ${cups} × ${each} = ${display(poured)} ml, so ${display(ml)} − ${display(poured)} = ${display(rest)} ml.` };
+      return { prompt, answer: rest, distractors: wholes(ml - each, poured, ml + poured, rest + each, rest + 100, rest - 100, rest + 50), formatter: withUnit('ml'), explanation: `${volumeText} is ${display(ml)} ml. ${cups} × ${each} = ${display(poured)} ml, so ${display(ml)} − ${display(poured)} = ${display(rest)} ml.`, solution: [`Change to millilitres: ${volumeText} is ${display(ml)} ml.`, say(calc(cups, '×', each, { intro: `Poured into ${cups} ${s.into}: ` }), ' ml'), `Left: ${display(ml)} − ${display(poured)} = ${display(rest)} ml`] };
     }
     const safeRest = rest % 100 === 0 ? rest : rest - (rest % 100), used = ml - safeRest, half = safeRest / 2, answer = tidy(half / 1000);
     const prompt = pick(r, [
@@ -390,7 +545,7 @@ export const generators = {
       `There is ${volumeText} of ${s.liquid} in ${a}. After ${display(used)} ml goes into ${s.into}, half of the remainder is poured away. How many litres are left?`,
       `${name} uses ${display(used)} ml from ${a} of ${volumeText}, then uses half of what remains. What is left in litres?`,
     ]);
-    return { prompt, answer, distractors: neat(safeRest / 1000, used / 1000, full / 2, answer + 0.1, answer + 0.05, answer + 0.2, answer > 0.1 ? answer - 0.05 : answer + 0.3), formatter: litres, explanation: `${display(ml)} − ${display(used)} = ${display(safeRest)} ml. Half of that is ${display(half)} ml, which is ${litres(answer)}.` };
+    return { prompt, answer, distractors: neat(safeRest / 1000, used / 1000, full / 2, answer + 0.1, answer + 0.05, answer + 0.2, answer > 0.1 ? answer - 0.05 : answer + 0.3), formatter: litres, explanation: `${display(ml)} − ${display(used)} = ${display(safeRest)} ml. Half of that is ${display(half)} ml, which is ${litres(answer)}.`, solution: [`Change to millilitres: ${volumeText} is ${display(ml)} ml.`, `After the first pour: ${display(ml)} − ${display(used)} = ${display(safeRest)} ml.`, `Half of ${display(safeRest)} ml is ${display(half)} ml.`, `Divide by 1,000 to get litres: ${display(half)} ml is ${litres(answer)}.`] };
   }),
 
   drain_fill_rate_time: gen('drain_fill_rate_time', 'meas_capacity_rate', (r, d) => {
@@ -403,7 +558,7 @@ export const generators = {
         `Working at ${rate} litres a minute, how long does ${device} take to fill ${target} that holds ${volume} litres?`,
         `${cap(target)} holds ${volume} litres. ${Device} fills it at ${rate} litres per minute. How long does it take?`,
       ]);
-      return { prompt, answer: minutes, distractors: wholes(volume - rate, volume + rate, minutes + 2, minutes + 1, minutes - 1, rate), formatter: minutesLabel, explanation: `${volume} ÷ ${rate} = ${plural(minutes, 'minute')}.` };
+      return { prompt, answer: minutes, distractors: wholes(volume - rate, volume + rate, minutes + 2, minutes + 1, minutes - 1, rate), formatter: minutesLabel, explanation: `${volume} ÷ ${rate} = ${plural(minutes, 'minute')}.`, solution: [`Each minute adds ${rate} litres, so divide the total by ${rate}.`, say(calc(volume, '÷', rate), ' minutes')] };
     }
     if (d === 'medium') {
       const rate = integer(r, 2, 12), minutes = integer(r, 4, 15), toAdd = rate * minutes, already = 5 * integer(r, 2, 8), capacity = toAdd + already;
@@ -414,7 +569,7 @@ export const generators = {
         `It takes ${capacity} litres to fill ${target}, and ${already} litres are in it now. How many more minutes are needed if ${device} adds ${rate} litres a minute?`,
         `${cap(target)} has ${already} litres in it. Its capacity is ${capacity} litres. ${Device} runs at ${rate} litres a minute. How long will filling it take?`,
       ]);
-      return { prompt, answer: minutes, distractors: wholes(Math.ceil(capacity / rate), Math.ceil(capacity / rate) + 1, toAdd, minutes + already, minutes + 2, minutes + 1, minutes - 1).filter((value) => value !== minutes), formatter: minutesLabel, explanation: `${capacity} − ${already} = ${toAdd} litres to add. ${toAdd} ÷ ${rate} = ${plural(minutes, 'minute')}.` };
+      return { prompt, answer: minutes, distractors: wholes(Math.ceil(capacity / rate), Math.ceil(capacity / rate) + 1, toAdd, minutes + already, minutes + 2, minutes + 1, minutes - 1).filter((value) => value !== minutes), formatter: minutesLabel, explanation: `${capacity} − ${already} = ${toAdd} litres to add. ${toAdd} ÷ ${rate} = ${plural(minutes, 'minute')}.`, solution: [`First find how much more is needed: ${capacity} − ${already} = ${toAdd} litres.`, say(calc(toAdd, '÷', rate, { intro: `At ${rate} litres a minute: ` }), ' minutes')] };
     }
     if (r() < 0.5) {
       const inRate = integer(r, 6, 12), leak = integer(r, 1, inRate - 3), net = inRate - leak, minutes = integer(r, 5, 20), volume = net * minutes;
@@ -424,7 +579,7 @@ export const generators = {
         `${cap(s.liquid)} goes into ${target} at ${inRate} litres a minute and leaks out at ${litres(leak)} a minute. It starts empty. How long does it take to collect ${volume} litres?`,
         `${Device} running at ${inRate} litres per minute fills an empty ${s.target}, which has a leak of ${litres(leak)} per minute. How long until it holds ${volume} litres?`,
       ]);
-      return { prompt, answer: minutes, distractors: wholes(volume / inRate, volume / (inRate + leak), volume / leak, minutes + leak, minutes + 1, minutes + 2, minutes - 1).filter((value) => value !== minutes), formatter: minutesLabel, explanation: `The level rises by ${inRate} − ${leak} = ${net} litres a minute, and ${volume} ÷ ${net} = ${plural(minutes, 'minute')}.` };
+      return { prompt, answer: minutes, distractors: wholes(volume / inRate, volume / (inRate + leak), volume / leak, minutes + leak, minutes + 1, minutes + 2, minutes - 1).filter((value) => value !== minutes), formatter: minutesLabel, explanation: `The level rises by ${inRate} − ${leak} = ${net} litres a minute, and ${volume} ÷ ${net} = ${plural(minutes, 'minute')}.`, solution: [`Each minute ${inRate} litres go in and ${litres(leak)} ${leak === 1 ? 'leaks' : 'leak'} out, so the level rises by ${inRate} − ${leak} = ${net} litres.`, say(calc(volume, '÷', net, { intro: `Time to reach ${volume} litres: ` }), ' minutes')] };
     }
     const flow = pick(r, [200, 250, 400, 500]), minutes = pick(r, [10, 12, 15, 20, 24, 30, 40]), volume = flow * minutes / 1000;
     const prompt = pick(r, [
@@ -433,7 +588,7 @@ export const generators = {
       `At ${flow} ml per minute, how long will ${device} take to supply ${display(volume)} litres?`,
       `${display(volume)} litres must go into ${target}. The flow from ${device} is ${flow} ml each minute. How long will it take?`,
     ]);
-    return { prompt, answer: minutes, distractors: wholes(minutes * 10, minutes * 2, minutes + 5, minutes + 10, minutes - 5, minutes - 2).filter((value) => value !== minutes), formatter: minutesLabel, explanation: `${display(volume)} litres is ${display(volume * 1000)} ml, and ${display(volume * 1000)} ÷ ${flow} = ${minutes} minutes.` };
+    return { prompt, answer: minutes, distractors: wholes(minutes * 10, minutes * 2, minutes + 5, minutes + 10, minutes - 5, minutes - 2).filter((value) => value !== minutes), formatter: minutesLabel, explanation: `${display(volume)} litres is ${display(volume * 1000)} ml, and ${display(volume * 1000)} ÷ ${flow} = ${minutes} minutes.`, solution: [`Change to millilitres: ${display(volume)} litres is ${display(flow * minutes)} ml.`, say(cancelDivide(flow * minutes, flow, `Divide by the ${flow} ml each minute: `), ' minutes')] };
   }),
 
   mass_container_difference: gen('mass_container_difference', 'meas_mass_weight', (r, d) => {
@@ -446,7 +601,7 @@ export const generators = {
         `${name} weighs ${a} of ${s.stuff} and gets ${display(full)} g. The ${s.box} alone is ${empty} g. How much do the contents weigh?`,
         `The scales show ${display(full)} g for a full ${s.box} and ${empty} g for an empty one. What mass of ${s.stuff} is inside?`,
       ]);
-      return { prompt, answer: contents, distractors: wholes(full + empty, empty, contents + 100, contents - 50, contents + 50, full), formatter: withUnit('g'), explanation: `${display(full)} − ${empty} = ${display(contents)} g.` };
+      return { prompt, answer: contents, distractors: wholes(full + empty, empty, contents + 100, contents - 50, contents + 50, full), formatter: withUnit('g'), explanation: `${display(full)} − ${empty} = ${display(contents)} g.`, solution: [`The full ${s.box} is the ${s.box} plus its contents, so subtract the empty ${s.box}.`, `${display(full)} − ${empty} = ${display(contents)} g`] };
     }
     if (d === 'medium') {
       const empty = 50 * integer(r, 3, 12), contents = 100 * integer(r, 6, 30), full = empty + contents, fullKg = tidy(full / 1000);
@@ -456,7 +611,7 @@ export const generators = {
         `${name} puts ${s.stuff} in ${a} weighing ${empty} g. The total is now ${display(fullKg)} kg. How many grams were added?`,
         `With ${s.stuff} inside, ${a} weighs ${display(fullKg)} kg. Without, it weighs ${empty} g. What do the contents weigh, in g?`,
       ]);
-      return { prompt, answer: contents, distractors: wholes(full + empty, full, empty, contents + 100, contents - 100, contents + 50), formatter: withUnit('g'), explanation: `${display(fullKg)} kg is ${display(full)} g, and ${display(full)} − ${empty} = ${display(contents)} g.` };
+      return { prompt, answer: contents, distractors: wholes(full + empty, full, empty, contents + 100, contents - 100, contents + 50), formatter: withUnit('g'), explanation: `${display(fullKg)} kg is ${display(full)} g, and ${display(full)} − ${empty} = ${display(contents)} g.`, solution: [`Use the same units: ${display(fullKg)} kg is ${display(full)} g.`, `Take off the ${s.box}: ${display(full)} − ${empty} = ${display(contents)} g`] };
     }
     if (r() < 0.5) {
       const empty = 100 * integer(r, 2, 9), contents = 200 * integer(r, 3, 14), full = empty + contents, half = empty + contents / 2;
@@ -466,7 +621,7 @@ export const generators = {
         `${name} weighs ${a} when full (${display(full)} g) and again when half full (${display(half)} g). How heavy is the empty ${s.box}?`,
         `Half of the ${s.stuff} is taken out of a full ${s.box}. Its mass drops from ${display(full)} g to ${display(half)} g. What is the mass of the empty ${s.box}?`,
       ]);
-      return { prompt, answer: empty, distractors: wholes(full - half, half, 2 * half, empty + 100, empty + 200, empty + (full - half)).filter((value) => value !== empty), formatter: withUnit('g'), explanation: `Half the contents weigh ${display(full)} − ${display(half)} = ${display(full - half)} g, so the ${s.box} weighs ${display(half)} − ${display(full - half)} = ${display(empty)} g.` };
+      return { prompt, answer: empty, distractors: wholes(full - half, half, 2 * half, empty + 100, empty + 200, empty + (full - half)).filter((value) => value !== empty), formatter: withUnit('g'), explanation: `Half the contents weigh ${display(full)} − ${display(half)} = ${display(full - half)} g, so the ${s.box} weighs ${display(half)} − ${display(full - half)} = ${display(empty)} g.`, solution: [`Going from full to half full removes half of the contents.`, `So half the contents weigh ${display(full)} − ${display(half)} = ${display(full - half)} g.`, `Take that from the half-full ${s.box}: ${display(half)} − ${display(full - half)} = ${display(empty)} g`] };
     }
     const count = integer(r, 3, 8), each = 50 * integer(r, 2, 8), box = 100 * integer(r, 2, 6), total = count * each + box, totalKg = tidy(total / 1000), item = pick(r, ['tins', 'books', 'jars', 'bricks']);
     const prompt = pick(r, [
@@ -475,7 +630,7 @@ export const generators = {
       `${name} packs ${count} matching ${item} into a box weighing ${box} g. Together they weigh ${display(totalKg)} kg. What does one weigh in grams?`,
       `The total mass of a box and ${count} identical ${item} is ${display(totalKg)} kg. If the box is ${box} g, how heavy is one?`,
     ]);
-    return { prompt, answer: each, distractors: wholes(total - box, total / count, each + box, each + 50, each + 100, each - 50).filter((value) => value !== each && value % 5 === 0), formatter: withUnit('g'), explanation: `${display(total)} − ${box} = ${display(count * each)} g, and ${display(count * each)} ÷ ${count} = ${each} g.` };
+    return { prompt, answer: each, distractors: wholes(total - box, total / count, each + box, each + 50, each + 100, each - 50).filter((value) => value !== each && value % 5 === 0), formatter: withUnit('g'), explanation: `${display(total)} − ${box} = ${display(count * each)} g, and ${display(count * each)} ÷ ${count} = ${each} g.`, solution: [`Use the same units: ${display(totalKg)} kg is ${display(total)} g.`, `Take off the box: ${display(total)} − ${box} = ${display(count * each)} g.`, say(calc(count * each, '÷', count, { intro: `Share between the ${count} ${item}: ` }), ' g')] };
   }),
 
   coins_value_count: gen('coins_value_count', 'meas_money_coins', (r, d) => {
@@ -488,7 +643,7 @@ export const generators = {
         `What is the total value of ${count} × ${coin}p coins?`,
         `${name} finds ${count} of the same coin in a ${place}. Each is worth ${coin}p. How much money is that?`,
       ]);
-      return { prompt, answer, distractors: wholes(coin + count, answer + coin, answer - coin, count, answer + 10), formatter: coinValue, explanation: `${count} × ${coin}p = ${coinValue(answer)}.` };
+      return { prompt, answer, distractors: wholes(coin + count, answer + coin, answer - coin, count, answer + 10), formatter: coinValue, explanation: `${count} × ${coin}p = ${coinValue(answer)}.`, solution: answer < 100 ? [`${count} × ${coin}p = ${answer}p`] : [`${count} × ${coin}p = ${answer}p`, `100p makes £1, so ${answer}p is ${pounds(answer)}.`] };
     }
     if (d === 'medium') {
       const coin = pick(r, [5, 10, 20, 50]), count = coin === 5 ? 4 * integer(r, 2, 10) : integer(r, 4, 30), amount = coin * count, text = coinValue(amount);
@@ -499,7 +654,7 @@ export const generators = {
         `${text} is paid using only ${coin}p coins. How many are needed?`,
         `${name} saves ${coin}p coins until there is ${text} in a ${place}. How many coins have been saved?`,
       ]);
-      return { prompt, answer: count, distractors: wholes(amount, amount / 10, count * 2, count + 2, count + 1, count - 1).filter((value) => value !== count), explanation: `${text} is ${amount}p, and ${amount} ÷ ${coin} = ${count}.` };
+      return { prompt, answer: count, distractors: wholes(amount, amount / 10, count * 2, count + 2, count + 1, count - 1).filter((value) => value !== count), explanation: `${text} is ${amount}p, and ${amount} ÷ ${coin} = ${count}.`, solution: [...(amount < 100 ? [] : [`Change to pence: ${text} is ${amount}p.`]), say(cancelDivide(amount, coin, 'Divide by the value of one coin: '), ' coins')] };
     }
     const [a, b] = pick(r, [[5, 10], [10, 20], [20, 50], [10, 50], [2, 5], [5, 20]]), count = integer(r, 5, 24), total = count * (a + b), text = coinValue(total);
     const prompt = pick(r, [
@@ -508,7 +663,7 @@ export const generators = {
       `There are as many ${a}p coins as ${b}p coins in a ${place}. Together they make ${text}. How many of each are there?`,
       `${text} is made using equal numbers of ${a}p and ${b}p coins. How many ${b}p coins are used?`,
     ]);
-    return { prompt, answer: count, distractors: wholes(total / a, total / b, 2 * count, count + 1, count + 2, count - 1).filter((value) => value !== count), explanation: `One of each is worth ${a + b}p, and ${total} ÷ ${a + b} = ${count}.` };
+    return { prompt, answer: count, distractors: wholes(total / a, total / b, 2 * count, count + 1, count + 2, count - 1).filter((value) => value !== count), explanation: `One of each is worth ${a + b}p, and ${total} ÷ ${a + b} = ${count}.`, solution: [`Pair the coins up: one ${a}p and one ${b}p are worth ${a + b}p.`, ...(total < 100 ? [] : [`Change to pence: ${text} is ${total}p.`]), cancelDivide(total, a + b, 'Number of pairs: '), `So there are ${count} of each coin.`] };
   }),
 
   shopping_offer_bundle: gen('shopping_offer_bundle', 'meas_money_offers_packages', (r, d) => {
@@ -521,7 +676,7 @@ export const generators = {
         `${name} needs ${q} ${s.items}. They are ${price} each, or ${dealText} for ${group}. What is the cheapest total?`,
         `At ${s.shop}, one of the ${s.items} is ${price} and ${group} are ${dealText}. Work out the lowest cost of ${q}.`,
       ]);
-      return { prompt, answer, distractors: wholes(q * single, (lots + 1) * deal, lots * deal, answer + single, answer + 50, answer + 100, answer - 50).filter((value) => value !== answer), formatter: pounds, explanation: `${q} is ${plural(lots, 'deal')} of ${group} and ${plural(extra, 'single item')}: ${lots} × ${dealText} + ${extra} × ${price} = ${pounds(answer)}.` };
+      return { prompt, answer, distractors: wholes(q * single, (lots + 1) * deal, lots * deal, answer + single, answer + 50, answer + 100, answer - 50).filter((value) => value !== answer), formatter: pounds, explanation: `${q} is ${plural(lots, 'deal')} of ${group} and ${plural(extra, 'single item')}: ${lots} × ${dealText} + ${extra} × ${price} = ${pounds(answer)}.`, solution: [`Use as many deals as you can: ${q} is ${plural(lots, 'deal')} of ${group} and ${plural(extra, 'single item')}.`, moneyTimes(lots, deal, 'Deals: '), moneyTimes(extra, single, 'Singles: '), moneySum(lots * deal, '+', extra * single, 'Total: ')] };
     }
     const buy = d === 'easy' ? 1 : 2, price = pick(r, d === 'easy' ? [100, 150, 200, 250, 300, 400] : [120, 150, 180, 200, 250, 300, 350, 450]), q = integer(r, buy + 2, d === 'easy' ? 8 : 11), free = Math.floor(q / (buy + 1)), paid = q - free, answer = paid * price, each = pounds(price);
     const offer = buy === 1 ? pick(r, ['buy one, get one free', 'two for the price of one']) : pick(r, ['buy two, get one free', 'three for the price of two']);
@@ -532,7 +687,7 @@ export const generators = {
       `The offer on ${s.items} at ${s.shop} is “${offer}”. They are ${each} each. What is the cost of ${q}?`,
       `With “${offer}”, how much do ${q} ${s.items} cost at ${each} each?`,
     ]);
-    return { prompt, answer, distractors: wholes(q * price, (q - 1) * price, answer + price, answer - price, free * price, answer + 2 * price, answer + 50, answer + 100).filter((value) => value !== answer), formatter: pounds, explanation: `${cap(plural(free, 'item'))} free leaves ${paid} to pay for: ${paid} × ${each} = ${pounds(answer)}.` };
+    return { prompt, answer, distractors: wholes(q * price, (q - 1) * price, answer + price, answer - price, free * price, answer + 2 * price, answer + 50, answer + 100).filter((value) => value !== answer), formatter: pounds, explanation: `${cap(plural(free, 'item'))} free leaves ${paid} to pay for: ${paid} × ${each} = ${pounds(answer)}.`, solution: [`In every ${buy + 1} you pay for ${buy} and get 1 free.`, `${q} contains ${plural(free, `group of ${buy + 1}`, `groups of ${buy + 1}`)}, so ${free} ${free === 1 ? 'is' : 'are'} free and you pay for ${paid}.`, moneyTimes(paid, price, 'Cost: ')] };
   }),
 
   time_duration_start_end: gen('time_duration_start_end', 'meas_time_duration', (r, d) => {
@@ -541,15 +696,15 @@ export const generators = {
     const kind = pick(r, size(d, ['end', 'length'], ['end', 'start', 'length'], ['start', 'length', 'parts']));
     if (kind === 'end') {
       const prompt = pick(r, [`${an} starts at ${show(start)} and lasts ${text}. What time does it finish?`, `${name} goes to a ${event} that begins at ${show(start)}. It runs for ${text}. When does it end?`, `The ${event} begins at ${show(start)} and takes ${text}. At what time is it over?`, `A ${event} lasting ${text} starts at ${show(start)}. What time does it end?`, `${name}'s ${event} starts at ${show(start)}. If it lasts ${text}, what time will it finish?`]);
-      return { prompt, answer: end, distractors: [end + 60, end - 60, end + 10, end - 10, end + 5, end - 5], formatter: show, explanation: `${show(start)} plus ${text} is ${show(end)}.` };
+      return { prompt, answer: end, distractors: [end + 60, end - 60, end + 10, end - 10, end + 5, end - 5], formatter: show, explanation: `${show(start)} plus ${text} is ${show(end)}.`, solution: countOn(start, length, show) };
     }
     if (kind === 'start') {
       const prompt = pick(r, [`${an} finishes at ${show(end)}. It lasted ${text}. What time did it start?`, `${name}'s ${event} ends at ${show(end)} and takes ${text}. When did it begin?`, `The ${event} lasted ${text} and was over by ${show(end)}. At what time did it start?`, `To finish at ${show(end)}, a ${event} lasting ${text} must start at what time?`, `A ${event} runs for ${text} and ends at ${show(end)}. What was the start time?`]);
-      return { prompt, answer: start, distractors: [end + length, start + 60, start - 60, start + 10, start - 10, start + 5], formatter: show, explanation: `Count back ${text} from ${show(end)} to get ${show(start)}.` };
+      return { prompt, answer: start, distractors: [end + length, start + 60, start - 60, start + 10, start - 10, start + 5], formatter: show, explanation: `Count back ${text} from ${show(end)} to get ${show(start)}.`, solution: countBack(end, length, show) };
     }
     if (kind === 'length') {
       const prompt = pick(r, [`${an} starts at ${show(start)} and finishes at ${show(end)}. How long does it last?`, `${name}'s ${event} runs from ${show(start)} to ${show(end)}. How long is that?`, `The ${event} begins at ${show(start)} and is over at ${show(end)}. How long did it take?`, `From ${show(start)} to ${show(end)}, ${name} is at a ${event}. How much time is that?`, `How much time passes between ${show(start)} and ${show(end)}?`]);
-      return { prompt, answer: length, distractors: wholes(length + 60, length - 60, length + 10, length - 10, length + 5, length + 40), formatter: hoursMinutes, explanation: `From ${show(start)} to ${show(end)} is ${text}.` };
+      return { prompt, answer: length, distractors: wholes(length + 60, length - 60, length + 10, length - 10, length + 5, length + 40), formatter: hoursMinutes, explanation: `From ${show(start)} to ${show(end)} is ${text}.`, solution: howLong(start, end, show) };
     }
     const first = 5 * integer(r, 7, 12), pause = pick(r, [10, 15, 20]), second = 5 * integer(r, 6, 11), finish = start + first + pause + second;
     const prompt = pick(r, [
@@ -558,7 +713,7 @@ export const generators = {
       `A quiz night starts at ${show(start)}. Round one takes ${hoursMinutes(first)}, there is a ${pause}-minute break, and round two takes ${hoursMinutes(second)}. At what time does it end?`,
       `A workshop begins at ${show(start)}. After ${hoursMinutes(first)} there is a ${pause}-minute break, followed by another ${hoursMinutes(second)}. When is it over?`,
     ]);
-    return { prompt, answer: finish, distractors: [finish - pause, finish + pause, finish - 60, finish + 60, start + first + second + 5, finish + 5], formatter: show, explanation: `Altogether that is ${hoursMinutes(first + pause + second)}, so it ends at ${show(finish)}.` };
+    return { prompt, answer: finish, distractors: [finish - pause, finish + pause, finish - 60, finish + 60, start + first + second + 5, finish + 5], formatter: show, explanation: `Altogether that is ${hoursMinutes(first + pause + second)}, so it ends at ${show(finish)}.`, solution: [`Add all the parts: ${first} + ${pause} + ${second} = ${first + pause + second} minutes, which is ${hoursMinutes(first + pause + second)}.`, ...countOn(start, first + pause + second, show)] };
   }),
 
   metric_conversion_length_capacity_mass: gen('metric_conversion_length_capacity_mass', 'meas_unit_conversion', (r, d) => {
@@ -572,30 +727,30 @@ export const generators = {
       const whole = integer(r, 2, 9), part = p.factor === 10 ? integer(r, 1, 9) : (p.factor / 20) * integer(r, 1, 19), inSmall = whole * p.factor + part;
       if (r() < 0.5) {
         const prompt = pick(r, [`Write ${whole} ${p.big} ${display(part)} ${p.small} in ${p.smallName}.`, `What is ${whole} ${p.big} and ${display(part)} ${p.small} in ${p.smallName}?`, `How many ${p.smallName} are there in ${whole} ${p.big} ${display(part)} ${p.small}?`, `Change ${whole} ${p.big} ${display(part)} ${p.small} into ${p.smallName}.`, `${whole} ${p.big} ${display(part)} ${p.small} is the same as how many ${p.smallName}?`]);
-        return { prompt, answer: inSmall, distractors: neat(whole + part, whole * p.factor, whole * 10 + part, whole * p.factor * 10 + part, whole * p.factor + part * 10, inSmall + p.factor), formatter: withUnit(p.small), explanation: `${whole} ${p.big} = ${display(whole * p.factor)} ${p.small}, plus ${display(part)} ${p.small} makes ${display(inSmall)} ${p.small}.` };
+        return { prompt, answer: inSmall, distractors: neat(whole + part, whole * p.factor, whole * 10 + part, whole * p.factor * 10 + part, whole * p.factor + part * 10, inSmall + p.factor), formatter: withUnit(p.small), explanation: `${whole} ${p.big} = ${display(whole * p.factor)} ${p.small}, plus ${display(part)} ${p.small} makes ${display(inSmall)} ${p.small}.`, solution: [`1 ${oneUnit(p.big)} = ${display(p.factor)} ${p.small}, so ${whole} ${p.big} = ${display(whole * p.factor)} ${p.small}.`, `Add the ${display(part)} ${p.small}: ${display(whole * p.factor)} + ${display(part)} = ${display(inSmall)} ${p.small}`] };
       }
       const portion = pick(r, p.factor === 10 ? [2, 5] : p.factor === 100 ? [20, 25, 50] : [100, 200, 250, 500]), count = integer(r, 2, 9) * (p.factor / portion >= 1 ? Math.round(p.factor / portion) : 1), total = tidy(count * portion / p.factor);
       const prompt = pick(r, [`How many ${portion} ${p.small} ${p.small === 'ml' ? 'cups' : p.small === 'g' ? 'portions' : 'pieces'} can you get from ${display(total)} ${p.big}?`, `${display(total)} ${p.big} is split into lots of ${portion} ${p.small}. How many lots are there?`, `How many lots of ${portion} ${p.small} make ${display(total)} ${p.big}?`, `Each portion is ${portion} ${p.small}. How many portions are there in ${display(total)} ${p.big}?`]);
-      return { prompt, answer: count, distractors: wholes(count * 10, count + 10, Math.round(total * portion), count / 2, count + 1, count + 2, count - 1).filter((value) => value !== count), explanation: `${display(total)} ${p.big} = ${display(count * portion)} ${p.small}, and ${display(count * portion)} ÷ ${portion} = ${count}.` };
+      return { prompt, answer: count, distractors: wholes(count * 10, count + 10, Math.round(total * portion), count / 2, count + 1, count + 2, count - 1).filter((value) => value !== count), explanation: `${display(total)} ${p.big} = ${display(count * portion)} ${p.small}, and ${display(count * portion)} ÷ ${portion} = ${count}.`, solution: [`Change to ${p.smallName}: ${display(total)} ${p.big} = ${display(count * portion)} ${p.small}.`, cancelDivide(count * portion, portion, `Lots of ${portion} ${p.small}: `)] };
     }
     const up = r() < 0.6, big = d === 'easy' ? integer(r, 2, 20) : tidy(integer(r, 11, 95) / 10), small = tidy(big * p.factor);
     const from = up ? big : small, fromUnit = up ? p.big : p.small, toUnit = up ? p.small : p.big, toName = up ? p.smallName : p.bigName, answer = up ? small : big;
     const prompt = pick(r, [`Convert ${display(from)} ${fromUnit} to ${toName}.`, `What is ${display(from)} ${fromUnit} in ${toName}?`, `How many ${toName} are there in ${display(from)} ${fromUnit}?`, `Write ${display(from)} ${fromUnit} in ${toName}.`, `${display(from)} ${fromUnit} is the same as how many ${toName}?`, `Change ${display(from)} ${fromUnit} into ${toName}.`]);
     const step = up ? [answer / 10, answer * 10, from * 10 === answer ? from * 100 : from * 10, answer / 100, answer * 100, from + p.factor] : [answer * 10, answer / 10, answer * 100, from * 10, answer + 1, answer + 0.5];
-    return { prompt, answer, distractors: neat(...step).filter((value) => value !== from || !up), formatter: toUnit === 'litres' ? litres : withUnit(toUnit), explanation: `1 ${p.big.replace('litres', 'litre')} = ${display(p.factor)} ${p.small}, so ${up ? 'multiply' : 'divide'} by ${display(p.factor)}: ${toUnit === 'litres' ? litres(answer) : `${display(answer)} ${toUnit}`}.` };
+    return { prompt, answer, distractors: neat(...step).filter((value) => value !== from || !up), formatter: toUnit === 'litres' ? litres : withUnit(toUnit), explanation: `1 ${p.big.replace('litres', 'litre')} = ${display(p.factor)} ${p.small}, so ${up ? 'multiply' : 'divide'} by ${display(p.factor)}: ${toUnit === 'litres' ? litres(answer) : `${display(answer)} ${toUnit}`}.`, solution: [`1 ${oneUnit(p.big)} = ${display(p.factor)} ${p.small}, so ${up ? 'multiply' : 'divide'} by ${display(p.factor)}.`, `Move each digit ${placeWord(p.factor)} to the ${up ? 'left' : 'right'}: ${display(from)} ${fromUnit} becomes ${toUnit === 'litres' ? litres(answer) : `${display(answer)} ${toUnit}`}.`] };
   }),
 
   plausible_measure_unit: gen('plausible_measure_unit', 'meas_unit_selection', (r, d) => {
     if (d !== 'easy' && (d === 'hard' || r() < 0.5)) {
       const [item, answer, wrong] = pick(r, VALUE_CASES);
       const prompt = pick(r, [`Which is most likely to be the ${item}?`, `What is a sensible estimate for the ${item}?`, `Which of these is closest to the real ${item}?`, `Which measurement could be the ${item}?`, `Estimate the ${item}. Which answer is the most sensible?`]);
-      return { prompt, answer, distractors: wrong, explanation: `Only ${answer} is a realistic ${item}.` };
+      return { prompt, answer, distractors: wrong, explanation: `Only ${answer} is a realistic ${item}.`, solution: [VALUE_HINTS[item], `The most sensible answer is ${answer}.`] };
     }
     const [item, answer, family, avoid] = pick(r, UNIT_CASES);
     const same = UNIT_FAMILIES[family].filter((unit) => unit !== answer && !avoid.includes(unit));
     const others = shuffle(r, Object.entries(UNIT_FAMILIES).filter(([name]) => name !== family).flatMap(([, units]) => units));
     const prompt = pick(r, [`Which is the most sensible unit for measuring ${item}?`, `Which unit would you use to measure ${item}?`, `What is the best unit for ${item}?`, `You want to measure ${item}. Which unit should you choose?`, `Which of these units is most suitable for ${item}?`]);
-    return { prompt, answer, distractors: [...same, ...others].slice(0, 4), explanation: `${cap(answer)} are the most suitable unit for ${item}.` };
+    return { prompt, answer, distractors: [...same, ...others].slice(0, 4), explanation: `${cap(answer)} are the most suitable unit for ${item}.`, solution: [UNIT_GUIDE[family], `So ${item} is best measured in ${answer}.`] };
   }),
 
   sequence_recurrence_rule: gen('sequence_recurrence_rule', 'seq_recurrence', (r, d) => {
@@ -608,7 +763,7 @@ export const generators = {
         `The rule for a sequence is “${rule}”. Term 5 is ${fifth}. Work back to find term 3.`,
         `Each number in a list comes from the one before: ${rule}. The fifth number is ${fifth}. What is the third number?`,
       ]);
-      return { prompt, answer: third, distractors: wholes(fourth, (fifth - c) / (times * times), fifth - 2 * c, Math.floor(fifth / (times * times)), third + 1, third + c).filter((value) => value !== third), explanation: `Undo the rule twice: (${fifth} − ${c}) ÷ ${times} = ${fourth}, then (${fourth} − ${c}) ÷ ${times} = ${third}.` };
+      return { prompt, answer: third, distractors: wholes(fourth, (fifth - c) / (times * times), fifth - 2 * c, Math.floor(fifth / (times * times)), third + 1, third + c).filter((value) => value !== third), explanation: `Undo the rule twice: (${fifth} − ${c}) ÷ ${times} = ${fourth}, then (${fourth} − ${c}) ÷ ${times} = ${third}.`, solution: [`The rule is “${rule}”. To go backwards, undo it: take away ${c}, then divide by ${times}.`, calc(fourth * times, '÷', times, { intro: `Term 4: ${fifth} − ${c} = ${fourth * times}, then ` }), calc(third * times, '÷', times, { intro: `Term 3: ${fourth} − ${c} = ${third * times}, then ` })] };
     }
     const times = d === 'easy' ? 1 : 2, values = [start];
     for (let i = 0; i < 4; i += 1) values.push(values.at(-1) * times + c);
@@ -621,7 +776,7 @@ export const generators = {
       `Using the rule “${rule}” and a first term of ${start}, work out the 5th term.`,
     ]);
     const wrongOrder = times === 2 ? (values[3] + c) * 2 : answer + c;
-    return { prompt, answer, distractors: wholes(values[3], wrongOrder, answer - c, answer + c, start * 5, answer + 1), explanation: `The terms are ${values.join(', ')}, so the 5th term is ${answer}.` };
+    return { prompt, answer, distractors: wholes(values[3], wrongOrder, answer - c, answer + c, start * 5, answer + 1), explanation: `The terms are ${values.join(', ')}, so the 5th term is ${answer}.`, solution: times === 1 ? [`The rule is “add ${c}”. Start at ${start} and add ${c} four times to reach term 5.`, `The terms are ${values.join(', ')}, so the 5th term is ${answer}.`] : [`The rule is “${rule}”.`, `Term 2: ${start} × 2 + ${c} = ${values[1]}.`, `Keep going: ${values.slice(1).join(', ')}.`, `The 5th term is ${answer}.`] };
   }),
 
   repeating_pattern_fraction: gen('repeating_pattern_fraction', 'seq_repeating_patterns', (r, d) => {
@@ -636,7 +791,7 @@ export const generators = {
         `${cap(thing.many)} are put in a line in the order ${list(cycle)}, over and over. Which colour is in position ${position}?`,
         `This colour pattern repeats: ${list(cycle)}. What is the colour of the ${ordinal(position)} ${thing.word}?`,
       ]);
-      return { prompt, answer, distractors: cycle.filter((colour) => colour !== answer), explanation: `The pattern has 5 colours. ${position} ÷ 5 leaves remainder ${position % 5}, so it is colour ${((position - 1) % 5) + 1} in the cycle: ${answer}.` };
+      return { prompt, answer, distractors: cycle.filter((colour) => colour !== answer), explanation: `The pattern has 5 colours. ${position} ÷ 5 leaves remainder ${position % 5}, so it is colour ${((position - 1) % 5) + 1} in the cycle: ${answer}.`, solution: cycleSteps(position, thing.many, answer) };
     }
     const cycle = pick(r, cycles), target = pick(r, [...new Set(cycle)]), per = cycle.filter((colour) => colour === target).length, len = cycle.length, repeats = integer(r, 3, size(d, 8, 12, 12)), total = len * repeats;
     if (d === 'medium' && r() < 0.5) {
@@ -647,7 +802,7 @@ export const generators = {
         `${total} ${thing.many} are put in a line using the pattern ${list(cycle)} again and again. How many ${target} ones are there?`,
         `This pattern repeats until there are ${total} ${thing.many}: ${list(cycle)}. How many are ${target}?`,
       ]);
-      return { prompt, answer, distractors: wholes(repeats, total - answer, answer + repeats, answer + per, answer + 1, answer - 1).filter((value) => value !== answer), explanation: `There are ${repeats} full repeats with ${per} ${target} in each: ${repeats} × ${per} = ${answer}.` };
+      return { prompt, answer, distractors: wholes(repeats, total - answer, answer + repeats, answer + per, answer + 1, answer - 1).filter((value) => value !== answer), explanation: `There are ${repeats} full repeats with ${per} ${target} in each: ${repeats} × ${per} = ${answer}.`, solution: [calc(total, '÷', len, { intro: `Each repeat has ${len} ${thing.many}, so the number of repeats is ` }), `Each repeat has ${per} ${target}.`, calc(repeats, '×', per, { intro: `${cap(target)} ${thing.many}: ` })] };
     }
     const answer = fractionLabel(per, len), value = per / len, candidates = [[len - per, len], [1, len], [per, len + 1], [per, total], [per + 1, len + 1], [1, per + 1], [len - 1, len + 1], [1, len + 2], [2, len + 3]];
     const seen = new Set([value.toFixed(6)]), wrong = [];
@@ -662,7 +817,7 @@ export const generators = {
       `${total} ${thing.many} follow the pattern ${list(cycle)} over and over. What fraction of them are ${target}?`,
       `${cap(thing.many)} are set out in the order ${list(cycle)}, and so on. What fraction of them are ${target}?`,
     ]);
-    return { prompt, answer, distractors: wrong, explanation: `Each repeat has ${per} ${target} out of ${len}, which is ${answer} of the ${thing.many}.` };
+    return { prompt, answer, distractors: wrong, explanation: `Each repeat has ${per} ${target} out of ${len}, which is ${answer} of the ${thing.many}.`, solution: [`The whole row has the same fraction as one repeat.`, `${per} of the ${len} ${thing.many} in each repeat ${per === 1 ? 'is' : 'are'} ${target}, so the fraction is ${per}/${len}${answer === `${per}/${len}` ? '' : `, which simplifies to ${answer}`}.`] };
   }),
 
   expression_money_or_units: gen('expression_money_or_units', 'alg_expressions_from_words', (r, d) => {
@@ -674,23 +829,23 @@ export const generators = {
         `${n} ${s.many} at £x each are ordered, and £${fee} postage is added. Which expression shows the bill?`,
         `${name} buys ${n} ${s.many} at £x each and a bag for £${fee}. How much is that in pounds?`,
       ]);
-      return { prompt, answer: linear(n, fee), distractors: [`${n}(x + ${fee})`, linear(1, n + fee), `${fee}x + ${n}`, linear(n + fee, 0), linear(n, -fee)], explanation: `${n} ${s.many} cost ${n}x pounds, and £${fee} is added: ${linear(n, fee)}.` };
+      return { prompt, answer: linear(n, fee), distractors: [`${n}(x + ${fee})`, linear(1, n + fee), `${fee}x + ${n}`, linear(n + fee, 0), linear(n, -fee)], explanation: `${n} ${s.many} cost ${n}x pounds, and £${fee} is added: ${linear(n, fee)}.`, solution: [`${n} ${s.many} at £x each cost ${n}x pounds.`, `Add the £${fee}: ${linear(n, fee)}`] };
     }
     if (d === 'medium') {
       const kind = pick(r, ['pence', 'metres', 'change']);
       if (kind === 'pence') {
         const answer = `${n}x ÷ 100`;
         const prompt = pick(r, [`One ${s.one} costs x pence. What is the cost of ${n} ${s.many} in pounds?`, `${s.many[0].toUpperCase()}${s.many.slice(1)} are x pence each. Which expression gives the price of ${n} in pounds?`, `${name} buys ${n} ${s.many} at x pence each. How many pounds is that?`, `Which expression shows, in pounds, the cost of ${n} ${s.many} at x pence each?`]);
-        return { prompt, answer, distractors: [`${n}x`, `${100 * n}x`, `x ÷ ${100 * n}`, `${n} + x ÷ 100`], explanation: `${n} cost ${n}x pence. Divide by 100 to get pounds: ${answer}.` };
+        return { prompt, answer, distractors: [`${n}x`, `${100 * n}x`, `x ÷ ${100 * n}`, `${n} + x ÷ 100`], explanation: `${n} cost ${n}x pence. Divide by 100 to get pounds: ${answer}.`, solution: [`${n} ${s.many} at x pence each cost ${n}x pence.`, `There are 100p in £1, so divide by 100: ${answer}`] };
       }
       if (kind === 'metres') {
         const cut = 10 * integer(r, 2, 9), answer = `100x − ${cut}`;
         const prompt = pick(r, [`A ribbon is x metres long. ${name} cuts off ${cut} cm. How many centimetres are left?`, `A plank measures x metres. ${cap(article(String(cut)))} cm piece is sawn off. Which expression gives the length left in cm?`, `${name} has x metres of string and uses ${cut} cm. How much is left in centimetres?`, `A rope is x m long. After ${cut} cm is removed, what is its length in cm?`]);
-        return { prompt, answer, distractors: [`x − ${cut}`, `100(x − ${cut})`, `x − ${100 * cut}`, `100x + ${cut}`], explanation: `x metres is 100x cm, and ${cut} cm is taken away: ${answer}.` };
+        return { prompt, answer, distractors: [`x − ${cut}`, `100(x − ${cut})`, `x − ${100 * cut}`, `100x + ${cut}`], explanation: `x metres is 100x cm, and ${cut} cm is taken away: ${answer}.`, solution: [`Use the same units. 1 m = 100 cm, so x metres is 100x cm.`, `Take away the ${cut} cm: ${answer}`] };
       }
       const note = pick(r, [20, 50]), answer = `${note} − ${n}x`;
       const prompt = pick(r, [`${name} buys ${n} ${s.many} at £x each and pays with a £${note} note. How much change is given?`, `${n} ${s.many} cost £x each. Which expression shows the change from £${note}?`, `A customer pays £${note} for ${n} ${s.many} priced at £x each. What is the change in pounds?`, `Which expression gives the change from a £${note} note after buying ${n} ${s.many} at £x each?`]);
-      return { prompt, answer, distractors: [`${n}x − ${note}`, `${note} − x`, `${note} + ${n}x`, `${n}(${note} − x)`], explanation: `The ${s.many} cost ${n}x pounds, so the change is ${answer}.` };
+      return { prompt, answer, distractors: [`${n}x − ${note}`, `${note} − x`, `${note} + ${n}x`, `${n}(${note} − x)`], explanation: `The ${s.many} cost ${n}x pounds, so the change is ${answer}.`, solution: [`${n} ${s.many} at £x each cost ${n}x pounds.`, `Change is the money paid minus the cost: ${answer}`] };
     }
     const percent = pick(r, [10, 20, 25, 30, 40]), keep = (100 - percent) / 100, off = percent / 100, item = pick(r, ['coat', 'bike', 'pair of trainers', 'game', 'tent', 'watch']);
     const prompt = pick(r, [
@@ -699,7 +854,7 @@ export const generators = {
       `${name} buys a ${item} priced at £x with a ${percent}% discount. Which expression shows what ${name} pays?`,
       `A shop takes ${percent}% off a ${item} that was £x. Which expression gives the price now?`,
     ]);
-    return { prompt, answer: `${keep}x`, distractors: [`${off}x`, `x − ${percent}`, `${tidy(1 + off)}x`, `x − ${off}`], explanation: `Taking off ${percent}% leaves ${100 - percent}% of the price, which is ${keep}x.` };
+    return { prompt, answer: `${keep}x`, distractors: [`${off}x`, `x − ${percent}`, `${tidy(1 + off)}x`, `x − ${off}`], explanation: `Taking off ${percent}% leaves ${100 - percent}% of the price, which is ${keep}x.`, solution: [`${percent}% off means you pay 100% − ${percent}% = ${100 - percent}%.`, `${100 - percent}% as a decimal is ${keep}, so the price is ${keep}x`] };
   }),
 
   expression_remaining_after_repeated_subtraction: gen('expression_remaining_after_repeated_subtraction', 'alg_expressions_from_words', (r, d) => {
@@ -711,7 +866,7 @@ export const generators = {
         `${s.place} starts with x ${s.items} and ${s.verb} y of them ${per}. Which expression gives the number left after ${units}?`,
         `Out of x ${s.items}, y are ${s.done} ${per}. How many remain after ${units}?`,
       ]);
-      return { prompt, answer: `x − ${n}y`, distractors: [`x − ${n} − y`, `${n}y − x`, `${n}(x − y)`, `x + ${n}y`], explanation: `${n} lots of y are removed, which is ${n}y, leaving x − ${n}y.` };
+      return { prompt, answer: `x − ${n}y`, distractors: [`x − ${n} − y`, `${n}y − x`, `${n}(x − y)`, `x + ${n}y`], explanation: `${n} lots of y are removed, which is ${n}y, leaving x − ${n}y.`, solution: [`Each ${s.unit}, y ${s.items} go. Over ${units} that is ${n} lots of y, or ${n}y.`, `Take that from the starting amount: x − ${n}y`] };
     }
     const taken = n * each, total = d === 'medium' ? taken + extra : taken, answer = `x − ${total}`;
     const prompt = d === 'easy' ? pick(r, [
@@ -728,7 +883,7 @@ export const generators = {
     const wrong = distinctLinear([1, -total], d === 'easy'
       ? [[`x − ${n} − ${each}`, 1, -n - each], [`${total} − x`, -1, total], [`x + ${total}`, 1, total], [`${n}(x − ${each})`, n, -total], [`x − ${total + each}`, 1, -total - each]]
       : [[`x − ${taken}`, 1, -taken], [`x − ${n} − ${each} − ${extra}`, 1, -n - each - extra], [`${total} − x`, -1, total], [`${n}(x − ${each}) − ${extra}`, n, -taken - extra], [`x + ${total}`, 1, total]]);
-    return { prompt, answer, distractors: wrong, explanation: d === 'easy' ? `${n} × ${each} = ${total} are removed, leaving ${answer}.` : `${n} × ${each} = ${taken}, plus ${extra} makes ${total} removed, leaving ${answer}.` };
+    return { prompt, answer, distractors: wrong, explanation: d === 'easy' ? `${n} × ${each} = ${total} are removed, leaving ${answer}.` : `${n} × ${each} = ${taken}, plus ${extra} makes ${total} removed, leaving ${answer}.`, solution: d === 'easy' ? [say(calc(n, '×', each, { intro: `Over ${units}: ` }), ` ${s.items} ${s.done}`), `Take them from the starting amount: ${answer}`] : [say(calc(n, '×', each, { intro: `Over ${units}: ` }), ` ${s.items} ${s.done}`), `Add the extra ${extra}: ${taken} + ${extra} = ${total}.`, `Take them all from the starting amount: ${answer}`] };
   }),
 
   simultaneous_costs_simple: gen('simultaneous_costs_simple', 'alg_relationship_word_problems', (r, d) => {
@@ -742,7 +897,7 @@ export const generators = {
         `${name} buys ${n} ${s.many} for ${pounds(price)} each, plus a ${s.other}. The total is ${pounds(total)}. How much was the ${s.other}?`,
         `A ${s.other} and ${n} ${s.many} come to ${pounds(total)}. The ${s.many} are ${pounds(price)} each. What does the ${s.other} cost?`,
       ]);
-      return { prompt, answer: other, distractors: wholes(total - price, n * price, other + price, total, other + 100, Math.abs(other - 100), other + 200, other + 300), formatter: pounds, explanation: `The ${s.many} cost ${n} × ${pounds(price)} = ${pounds(n * price)}, so the ${s.other} is ${pounds(total)} − ${pounds(n * price)} = ${pounds(other)}.` };
+      return { prompt, answer: other, distractors: wholes(total - price, n * price, other + price, total, other + 100, Math.abs(other - 100), other + 200, other + 300), formatter: pounds, explanation: `The ${s.many} cost ${n} × ${pounds(price)} = ${pounds(n * price)}, so the ${s.other} is ${pounds(total)} − ${pounds(n * price)} = ${pounds(other)}.`, solution: [moneyTimes(n, price, `The ${s.many} cost: `), moneySum(total, '−', n * price, `The ${s.other} is the rest: `)] };
     }
     if (d === 'medium') {
       const more = n + integer(r, 1, 3), small = n * price + other, big = more * price + other, gap = more - n;
@@ -752,7 +907,7 @@ export const generators = {
         `One ${s.other} with ${n} ${s.many} comes to ${pounds(small)}. One ${s.other} with ${more} ${s.many} comes to ${pounds(big)}. Find the price of one ${s.one}.`,
         `Basket A has ${n} ${s.many} and a ${s.other}, costing ${pounds(small)}. Basket B has ${more} ${s.many} and a ${s.other}, costing ${pounds(big)}. How much is one ${s.one}?`,
       ]);
-      return { prompt, answer: price, distractors: wholes(big - small === price ? price + 50 : big - small, other, Math.round(small / n / 50) * 50, price + 50, price + 100, price > 50 ? price - 50 : price + 150, price + 200, price + 250).filter((value) => value !== price), formatter: pounds, explanation: `${gap === 1 ? `The extra ${s.one} costs` : `The extra ${gap} ${s.many} cost`} ${pounds(big)} − ${pounds(small)} = ${pounds(big - small)}, so one costs ${pounds(price)}.` };
+      return { prompt, answer: price, distractors: wholes(big - small === price ? price + 50 : big - small, other, Math.round(small / n / 50) * 50, price + 50, price + 100, price > 50 ? price - 50 : price + 150, price + 200, price + 250).filter((value) => value !== price), formatter: pounds, explanation: `${gap === 1 ? `The extra ${s.one} costs` : `The extra ${gap} ${s.many} cost`} ${pounds(big)} − ${pounds(small)} = ${pounds(big - small)}, so one costs ${pounds(price)}.`, solution: [`Both baskets have one ${s.other}, so the difference is just the extra ${gap === 1 ? s.one : `${gap} ${s.many}`}.`, moneySum(big, '−', small, 'Difference: '), ...(gap === 1 ? [`So one ${s.one} costs ${pounds(price)}.`] : [moneyShare(big - small, gap, `One ${s.one}: `)])] };
     }
     const a = integer(r, 2, 4), more = a + integer(r, 1, 2), first = a * price + 2 * other, second = more * price + other, doubled = 2 * second - first, makes = 2 * more - a;
     const prompt = pick(r, [
@@ -761,7 +916,7 @@ export const generators = {
       `Basket A has ${a} ${s.many} and 2 ${s.others}, costing ${pounds(first)}. Basket B has ${more} ${s.many} and 1 ${s.other}, costing ${pounds(second)}. What is the price of one ${s.one}?`,
       `The total for ${more} ${s.many} and a ${s.other} is ${pounds(second)}. The total for ${a} ${s.many} and two ${s.others} is ${pounds(first)}. How much is one ${s.one}?`,
     ]);
-    return { prompt, answer: price, distractors: wholes(other, first - second > 0 ? first - second : other + 50, price + 50, price + 100, price > 50 ? price - 50 : price + 150, doubled, price + 200, price + 250).filter((value) => value !== price), formatter: pounds, explanation: `Double the second basket: ${2 * more} ${s.many} and 2 ${s.others} cost ${pounds(2 * second)}. Take away the first basket: ${makes} ${s.many} cost ${pounds(doubled)}, so one is ${pounds(price)}.` };
+    return { prompt, answer: price, distractors: wholes(other, first - second > 0 ? first - second : other + 50, price + 50, price + 100, price > 50 ? price - 50 : price + 150, doubled, price + 200, price + 250).filter((value) => value !== price), formatter: pounds, explanation: `Double the second basket: ${2 * more} ${s.many} and 2 ${s.others} cost ${pounds(2 * second)}. Take away the first basket: ${makes} ${s.many} cost ${pounds(doubled)}, so one is ${pounds(price)}.`, solution: [say(moneyTimes(2, second, `Double the second basket so both have 2 ${s.others}: `), ` for ${2 * more} ${s.many} and 2 ${s.others}`), moneySum(2 * second, '−', first, 'Take away the first basket: '), `The 2 ${s.others} cancel out, so ${makes} ${s.many} cost ${pounds(doubled)}.`, moneyShare(doubled, makes, `One ${s.one}: `)] };
   }),
 
   symbolic_age_expression: gen('symbolic_age_expression', 'alg_relationship_word_problems', (r, d) => {
@@ -772,7 +927,7 @@ export const generators = {
         ? pick(r, [`${a} is x years old. How old will ${a} be in ${years} years?`, `${a}'s age is x. Which expression shows ${a}'s age ${years} years from now?`, `If ${a} is x years old today, what age will ${a} be in ${years} years' time?`, `Today ${a} is x. Which expression gives ${a}'s age after ${years} more birthdays?`])
         : pick(r, [`${a} is x years old. How old was ${a} ${years} years ago?`, `${a}'s age is x. Which expression shows ${a}'s age ${years} years ago?`, `If ${a} is x years old today, what age was ${a} ${years} years ago?`, `Today ${a} is x. What was ${a}'s age ${years} years back?`]);
       const opposite = linear(1, future ? -years : years);
-      return { prompt, answer, distractors: [opposite, `${years}x`, future ? `${years} − x` : `x ÷ ${years}`, linear(1, future ? years + 1 : -(years + 1)), linear(2, future ? years : -years)], explanation: `${future ? 'Add' : 'Subtract'} ${years} years: ${answer}.` };
+      return { prompt, answer, distractors: [opposite, `${years}x`, future ? `${years} − x` : `x ÷ ${years}`, linear(1, future ? years + 1 : -(years + 1)), linear(2, future ? years : -years)], explanation: `${future ? 'Add' : 'Subtract'} ${years} years: ${answer}.`, solution: [`${future ? `Going forward ${years} years means adding ${years}` : `Going back ${years} years means subtracting ${years}`}: ${answer}`] };
     }
     if (d === 'medium') {
       const gap = older === years ? older + 1 : older, answer = linear(1, gap + years);
@@ -782,13 +937,13 @@ export const generators = {
         `${a}'s age is x and ${b} is ${gap} years older than ${a}. What will ${b}'s age be ${years} years from now?`,
         `If ${a} is x years old and ${b} is ${gap} years older, which expression shows ${b}'s age after another ${years} years?`,
       ]);
-      return { prompt, answer, distractors: [linear(1, gap), linear(1, years), linear(1, gap - years), `${gap}x + ${years}`, linear(2, gap + years)], explanation: `${b} is x + ${gap} now. In ${years} years that becomes ${answer}.` };
+      return { prompt, answer, distractors: [linear(1, gap), linear(1, years), linear(1, gap - years), `${gap}x + ${years}`, linear(2, gap + years)], explanation: `${b} is x + ${gap} now. In ${years} years that becomes ${answer}.`, solution: [`${b} is ${gap} years older than ${a}, so ${b} is x + ${gap} now.`, `In ${years} years, add another ${years}: x + ${gap} + ${years} = ${answer}`] };
     }
     const k = pick(r, [2, 3, 4]), word = { 2: 'twice', 3: 'three times', 4: 'four times' }[k], future = r() < 0.5, shift = future ? years : -years, answer = linear(k, shift);
     const prompt = future
       ? pick(r, [`${a} is x years old. ${b} is ${word} as old as ${a}. How old will ${b} be in ${years} years?`, `${b} is ${word} as old as ${a}, who is x. Which expression shows ${b}'s age ${years} years from now?`, `${a}'s age is x. ${b}'s age is ${word} that. What will ${b}'s age be in ${years} years?`, `If ${a} is x and ${b} is ${word} as old, how old will ${b} be after ${years} more years?`])
       : pick(r, [`${a} is x years old. ${b} is ${word} as old as ${a}. How old was ${b} ${years} years ago?`, `${b} is ${word} as old as ${a}, who is x. Which expression shows ${b}'s age ${years} years ago?`, `${a}'s age is x. ${b}'s age is ${word} that. What was ${b}'s age ${years} years ago?`, `If ${a} is x and ${b} is ${word} as old, how old was ${b} ${years} years earlier?`]);
-    return { prompt, answer, distractors: [linear(k, -shift), linear(1, shift), `${k}(x ${future ? '+' : '−'} ${years})`, linear(k + 1, shift), linear(k, 0)], explanation: `${b} is ${k}x now, so ${future ? `in ${years} years` : `${years} years ago`} ${b} ${future ? 'will be' : 'was'} ${answer}.` };
+    return { prompt, answer, distractors: [linear(k, -shift), linear(1, shift), `${k}(x ${future ? '+' : '−'} ${years})`, linear(k + 1, shift), linear(k, 0)], explanation: `${b} is ${k}x now, so ${future ? `in ${years} years` : `${years} years ago`} ${b} ${future ? 'will be' : 'was'} ${answer}.`, solution: [`${cap(word)} ${a}'s age is ${k} × x, so ${b} is ${k}x now.`, `${future ? `In ${years} years, add ${years}` : `${years} years ago, take away ${years}`}: ${answer}`] };
   }),
 
   formula_evaluate_context: gen('formula_evaluate_context', 'alg_substitution', (r, d) => {
@@ -809,7 +964,7 @@ export const generators = {
         `${context.intro} ${formula} (${L} is ${context.meaning}). By how much does ${S} go up if ${L} rises from ${v} to ${v2}?`,
         `Using ${formula}, where ${L} is ${context.meaning}, find ${S} for ${L} = ${v2} minus ${S} for ${L} = ${v}.`,
       ]);
-      return { prompt, answer, distractors: wholes(b + a * v2, a * v2, answer + b, v2 - v, answer + a, answer - a).filter((item) => item !== answer), formatter: show, explanation: `${S} goes up by ${a} for each extra ${L}, and ${v2} − ${v} = ${v2 - v}, so the difference is ${a} × ${v2 - v} = ${answer}.` };
+      return { prompt, answer, distractors: wholes(b + a * v2, a * v2, answer + b, v2 - v, answer + a, answer - a).filter((item) => item !== answer), formatter: show, explanation: `${S} goes up by ${a} for each extra ${L}, and ${v2} − ${v} = ${v2 - v}, so the difference is ${a} × ${v2 - v} = ${answer}.`, solution: [`${S} goes up by ${a} for each extra ${L}, because of the ${a}${L} in the formula.`, `${L} goes up by ${v2} − ${v} = ${v2 - v}.`, calc(a, '×', v2 - v, { intro: 'Multiply: ' }), `So ${S} is ${show(answer)} more.`] };
     }
     const prompt = pick(r, [
       `${context.intro} ${formula}, where ${L} is ${context.meaning}. Find ${S} when ${L} = ${v}.`,
@@ -818,7 +973,7 @@ export const generators = {
       `Using ${formula}, where ${L} is ${context.meaning}, what is the value of ${S} when ${L} is ${v}?`,
       `${L === 'm' ? 'For a taxi' : 'Here'}, ${formula} and ${L} is ${context.meaning}. What is ${S} when ${L} = ${v}?`,
     ]);
-    return { prompt, answer: value, distractors: wholes((b + a) * v, a * v, b + a + v, value + a, value - a, value + b).filter((item) => item !== value), formatter: show, explanation: `${a} × ${v} = ${a * v}, and ${b} + ${a * v} = ${value}.` };
+    return { prompt, answer: value, distractors: wholes((b + a) * v, a * v, b + a + v, value + a, value - a, value + b).filter((item) => item !== value), formatter: show, explanation: `${a} × ${v} = ${a * v}, and ${b} + ${a * v} = ${value}.`, solution: [`Replace ${L} with ${v}: ${S} = ${b} + ${a} × ${v}.`, calc(a, '×', v, { intro: 'Multiply first: ' }), `Then add: ${b} + ${a * v} = ${value}, so ${S} = ${show(value)}.`] };
   }),
 
   timezone_offset: gen('timezone_offset', 'meas_calendar_timetable_timezone', (r, d) => {
@@ -832,7 +987,7 @@ export const generators = {
         `London time is ${clockTime(london)}. What is the time in ${city}, which is ${gap} ${direction} London?`,
         `${name} phones ${city} from London at ${clockTime(london)}. ${city} is ${gap} ${direction} London. What time is it in ${city}?`,
       ]);
-      return { prompt, answer, distractors: [london - offset * 60 + 1440, london, answer + 60, answer + 1380, answer + 30], formatter: clockTime, explanation: `${offset > 0 ? 'Add' : 'Subtract'} ${gap}: ${clockTime(answer)}.` };
+      return { prompt, answer, distractors: [london - offset * 60 + 1440, london, answer + 60, answer + 1380, answer + 30], formatter: clockTime, explanation: `${offset > 0 ? 'Add' : 'Subtract'} ${gap}: ${clockTime(answer)}.`, solution: [`${city} is ${gap} ${direction} London, so ${offset > 0 ? 'add' : 'take away'} ${gap}.`, `${clockTime(london)} ${offset > 0 ? 'plus' : 'minus'} ${gap} is ${clockTime(answer)}.`] };
     }
     if (d === 'medium') {
       const local = integer(r, Math.max(1, offset + 1), Math.min(22, 22 + offset)) * 60 + minute, answer = local - offset * 60;
@@ -843,7 +998,7 @@ export const generators = {
         `A clock in ${city} shows ${clockTime(local)}. ${city} is ${gap} ${direction} London. What does a London clock show?`,
         `${name} calls home to London at ${clockTime(local)} ${city} time. ${city} is ${gap} ${direction} London. What time is it at home?`,
       ]);
-      return { prompt, answer, distractors: [local + offset * 60 + 1440, local, answer + 60, answer + 1380, answer + 30], formatter: clockTime, explanation: `London is ${gap} ${offset > 0 ? 'behind' : 'ahead of'} ${city}, so ${offset > 0 ? 'subtract' : 'add'} ${gap}: ${clockTime(answer)}.` };
+      return { prompt, answer, distractors: [local + offset * 60 + 1440, local, answer + 60, answer + 1380, answer + 30], formatter: clockTime, explanation: `London is ${gap} ${offset > 0 ? 'behind' : 'ahead of'} ${city}, so ${offset > 0 ? 'subtract' : 'add'} ${gap}: ${clockTime(answer)}.`, solution: [`${city} is ${gap} ${direction} London, so London is ${gap} ${offset > 0 ? 'behind' : 'ahead of'} ${city}.`, `To get London time, ${offset > 0 ? 'take away' : 'add'} ${gap}: ${clockTime(local)} ${offset > 0 ? 'minus' : 'plus'} ${gap} is ${clockTime(answer)}.`] };
     }
     const depart = integer(r, 6, 20) * 60 + minute, flightText = plural(flight, 'hour'), lands = depart + flight * 60, arrive = lands + offset * 60 + 1440;
     const prompt = pick(r, [
@@ -852,7 +1007,7 @@ export const generators = {
       `${city} is ${gap} ${direction} London. ${cap(article(`${flight}-hour`))} flight leaves London at ${clockTime(depart)}. What is the time in ${city} when it arrives?`,
       `A flight to ${city} takes ${flightText} and departs from London at ${clockTime(depart)}. The time in ${city} is ${gap} ${direction} London. At what local time does it land?`,
     ]);
-    return { prompt, answer: arrive, distractors: [lands, lands - offset * 60 + 1440, depart + offset * 60 + 1440, arrive + 60, arrive + 1380, arrive + 30], formatter: clockTime, explanation: `${clockTime(depart)} plus ${flightText} is ${clockTime(lands)} in London. ${offset > 0 ? 'Add' : 'Subtract'} ${gap} to get ${clockTime(arrive)}.` };
+    return { prompt, answer: arrive, distractors: [lands, lands - offset * 60 + 1440, depart + offset * 60 + 1440, arrive + 60, arrive + 1380, arrive + 30], formatter: clockTime, explanation: `${clockTime(depart)} plus ${flightText} is ${clockTime(lands)} in London. ${offset > 0 ? 'Add' : 'Subtract'} ${gap} to get ${clockTime(arrive)}.`, solution: [`Find the landing time in London first: ${clockTime(depart)} plus ${flightText} is ${clockTime(lands)}${lands >= 1440 ? ' the next day' : ''}.`, `${city} is ${gap} ${direction} London, so ${offset > 0 ? 'add' : 'take away'} ${gap}: ${clockTime(arrive)}.`] };
   }),
 
   mass_total_convert: gen('mass_total_convert', 'meas_mass_weight', (r, d) => {
@@ -865,7 +1020,7 @@ export const generators = {
         `${name} buys ${count} ${item.many} weighing ${grams} g each. What do they weigh altogether, in kg?`,
         `Each of ${count} ${item.many} has a mass of ${grams} g. What is the total in kg?`,
       ]);
-      return { prompt, answer, distractors: neat(total, total / 100, answer + grams / 1000, answer * 10, answer + 1, answer + 0.5), formatter: withUnit('kg'), explanation: `${count} × ${grams} = ${display(total)} g, and ${display(total)} ÷ 1000 = ${display(answer)} kg.` };
+      return { prompt, answer, distractors: neat(total, total / 100, answer + grams / 1000, answer * 10, answer + 1, answer + 0.5), formatter: withUnit('kg'), explanation: `${count} × ${grams} = ${display(total)} g, and ${display(total)} ÷ 1000 = ${display(answer)} kg.`, solution: [say(calc(count, '×', grams, { intro: 'Total mass: ' }), ' g'), `1,000 g = 1 kg, so ${display(total)} g is ${display(answer)} kg.`] };
     }
     if (d === 'medium') {
       const heavy = tidy(integer(r, 6, 45) / 5), grams = 50 * integer(r, 2, 18), total = Math.round(heavy * 1000) + grams;
@@ -875,7 +1030,7 @@ export const generators = {
         `Add ${display(heavy)} kg and ${grams} g. Give your answer in grams.`,
         `A bag of shopping weighs ${display(heavy)} kg. Another ${grams} g is put in it. What is the new mass in grams?`,
       ]);
-      return { prompt, answer: total, distractors: wholes(Math.round(heavy * 100) + grams, Math.round(heavy * 1000) - grams, Math.round(heavy * 10000) + grams, total + 100, total - 100, total + grams), formatter: withUnit('g'), explanation: `${display(heavy)} kg = ${display(Math.round(heavy * 1000))} g, and adding ${grams} g gives ${display(total)} g.` };
+      return { prompt, answer: total, distractors: wholes(Math.round(heavy * 100) + grams, Math.round(heavy * 1000) - grams, Math.round(heavy * 10000) + grams, total + 100, total - 100, total + grams), formatter: withUnit('g'), explanation: `${display(heavy)} kg = ${display(Math.round(heavy * 1000))} g, and adding ${grams} g gives ${display(total)} g.`, solution: [`Use the same units: ${display(heavy)} kg is ${display(Math.round(heavy * 1000))} g.`, `Add the ${grams} g: ${display(Math.round(heavy * 1000))} + ${grams} = ${display(total)} g`] };
     }
     const count = integer(r, 3, 9), grams = pick(r, [150, 200, 250, 300, 400, 500]), box = 50 * integer(r, 2, 10), total = count * grams + box, answer = tidy(total / 1000);
     const prompt = pick(r, [
@@ -884,7 +1039,7 @@ export const generators = {
       `${name} packs ${count} ${item.many}, each ${grams} g, into a box of mass ${box} g. What does it all weigh, in kg?`,
       `Each of ${count} ${item.many} is ${grams} g, and the box they go in is ${box} g. What is the total in kg?`,
     ]);
-    return { prompt, answer, distractors: neat((count * grams) / 1000, total / 100, (grams + box) / 1000, answer + grams / 1000, answer + box / 1000, answer + 1), formatter: withUnit('kg'), explanation: `${count} × ${grams} = ${display(count * grams)} g, plus ${box} g makes ${display(total)} g, which is ${display(answer)} kg.` };
+    return { prompt, answer, distractors: neat((count * grams) / 1000, total / 100, (grams + box) / 1000, answer + grams / 1000, answer + box / 1000, answer + 1), formatter: withUnit('kg'), explanation: `${count} × ${grams} = ${display(count * grams)} g, plus ${box} g makes ${display(total)} g, which is ${display(answer)} kg.`, solution: [say(calc(count, '×', grams, { intro: `${cap(item.many)}: ` }), ' g'), `Add the ${box} g box: ${display(count * grams)} + ${box} = ${display(total)} g.`, `1,000 g = 1 kg, so ${display(total)} g is ${display(answer)} kg.`] };
   }),
 
   film_time_fraction: gen('film_time_fraction', 'meas_time_duration', (r, d) => {
@@ -898,7 +1053,7 @@ export const generators = {
         `${name} sees ${frac} of a ${show} that lasts ${length} minutes. For how many minutes is that?`,
         `The ${show} is ${length} minutes long. How long is ${frac} of it?`,
       ]);
-      return { prompt, answer: done, distractors: wholes(part, left, done + part, length, done + 5, done + 10).filter((value) => value !== done), formatter: minutesLabel, explanation: `${length} ÷ ${bottom} = ${part}, and ${part} × ${top} = ${done} minutes.` };
+      return { prompt, answer: done, distractors: wholes(part, left, done + part, length, done + 5, done + 10).filter((value) => value !== done), formatter: minutesLabel, explanation: `${length} ÷ ${bottom} = ${part}, and ${part} × ${top} = ${done} minutes.`, solution: fractionOfSteps(length, top, bottom, frac) };
     }
     if (d === 'medium') {
       const prompt = pick(r, [
@@ -908,7 +1063,7 @@ export const generators = {
         `There is a break after ${frac} of ${article(`${length}-minute`)} ${show}. How many minutes remain after the break?`,
         `The ${show} runs for ${length} minutes. If ${frac} of it is over, how much time is still to go?`,
       ]);
-      return { prompt, answer: left, distractors: wholes(done, part, length, left + part, left + 5, left + 10).filter((value) => value !== left), formatter: minutesLabel, explanation: `${frac} of ${length} is ${done} minutes, so ${length} − ${done} = ${left} minutes are left.` };
+      return { prompt, answer: left, distractors: wholes(done, part, length, left + part, left + 5, left + 10).filter((value) => value !== left), formatter: minutesLabel, explanation: `${frac} of ${length} is ${done} minutes, so ${length} − ${done} = ${left} minutes are left.`, solution: [...fractionOfSteps(length, top, bottom, frac), `Take that from the whole: ${length} − ${done} = ${left} minutes`] };
     }
     const clock = pick(r, [clockTime, ampm]), start = integer(r, 9, 19) * 60 + 5 * integer(r, 0, 11), when = start + done;
     const prompt = pick(r, [
@@ -917,7 +1072,7 @@ export const generators = {
       `The ${show} is ${hoursMinutes(length)} long and starts at ${clock(start)}. At what time is it ${frac} of the way through?`,
       `Starting at ${clock(start)}, a ${show} lasts ${hoursMinutes(length)}. What is the time after ${frac} of it?`,
     ]);
-    return { prompt, answer: when, distractors: [start + length, start + left, start + part, when + 10, when + 1430, when + 60, when + 1380], formatter: clock, explanation: `${frac} of ${length} minutes is ${done} minutes, and ${clock(start)} plus ${hoursMinutes(done)} is ${clock(when)}.` };
+    return { prompt, answer: when, distractors: [start + length, start + left, start + part, when + 10, when + 1430, when + 60, when + 1380], formatter: clock, explanation: `${frac} of ${length} minutes is ${done} minutes, and ${clock(start)} plus ${hoursMinutes(done)} is ${clock(when)}.`, solution: [...fractionOfSteps(length, top, bottom, frac), ...countOn(start, done, clock)] };
   }),
 
   sequence_fibonacci_like: gen('sequence_fibonacci_like', 'seq_arithmetic_geometric', (r, d) => {
@@ -931,7 +1086,7 @@ export const generators = {
         `In the sequence ${shown}, every term after the second is the total of the previous two. What number is □?`,
         `Here is a sequence made by adding the last two numbers each time: ${shown}. Which number goes in the box?`,
       ]);
-      return { prompt, answer: second, distractors: wholes(values[2] + first, values[3] - first, values[2], first, second + 1, second + 2, second - 1).filter((value) => value !== second), explanation: `The third term is the first two added, so □ = ${values[2]} − ${first} = ${second}.` };
+      return { prompt, answer: second, distractors: wholes(values[2] + first, values[3] - first, values[2], first, second + 1, second + 2, second - 1).filter((value) => value !== second), explanation: `The third term is the first two added, so □ = ${values[2]} − ${first} = ${second}.`, solution: [`The rule: each term is the sum of the two before it.`, `So ${first} + □ = ${values[2]}.`, `□ = ${values[2]} − ${first} = ${second}`] };
     }
     const count = d === 'easy' ? 5 : 6, list = values.slice(0, count).join(', '), answer = values[count], last = values[count - 1], before = values[count - 2];
     const prompt = pick(r, [
@@ -941,7 +1096,7 @@ export const generators = {
       `The numbers ${list} follow a rule. What is the next one?`,
       `Continue the sequence: ${list}. What is the next term?`,
     ]);
-    return { prompt, answer, distractors: wholes(last + before + 1, last * 2, last + (last - before), last, answer + 2, answer - 1), explanation: `Each term is the sum of the previous two: ${before} + ${last} = ${answer}.` };
+    return { prompt, answer, distractors: wholes(last + before + 1, last * 2, last + (last - before), last, answer + 2, answer - 1), explanation: `Each term is the sum of the previous two: ${before} + ${last} = ${answer}.`, solution: [`The rule: each term is the sum of the two before it.`, calc(before, '+', last, { intro: `The last two terms are ${before} and ${last}: ` })] };
   }),
 
   sequence_geometric: gen('sequence_geometric', 'seq_arithmetic_geometric', (r, d) => {
@@ -949,21 +1104,21 @@ export const generators = {
     if (d === 'easy') {
       const list = values.slice(0, 4).join(', '), answer = values[4];
       const prompt = pick(r, [`What is the next number: ${list}?`, `Here is a sequence: ${list}. What comes next?`, `Find the next term of ${list}.`, `Each term is multiplied by the same number. What follows ${list}?`, `Continue this pattern: ${list}. What is the next number?`]);
-      return { prompt, answer, distractors: wholes(values[3] + ratio, values[3] * 2 === answer ? values[3] * 3 : values[3] * 2, values[3] + values[2], answer + ratio, answer - ratio), explanation: `Each term is multiplied by ${ratio}: ${values[3]} × ${ratio} = ${answer}.` };
+      return { prompt, answer, distractors: wholes(values[3] + ratio, values[3] * 2 === answer ? values[3] * 3 : values[3] * 2, values[3] + values[2], answer + ratio, answer - ratio), explanation: `Each term is multiplied by ${ratio}: ${values[3]} × ${ratio} = ${answer}.`, solution: [`The rule: multiply by ${ratio} each time.`, calc(values[3], '×', ratio)] };
     }
     if (d === 'medium') {
       if (r() < 0.5) {
         const down = [...values].reverse(), list = down.slice(0, 4).join(', '), answer = down[4];
         const prompt = pick(r, [`What is the next number: ${list}?`, `Here is a sequence: ${list}. What comes next?`, `The numbers ${list} keep being divided by the same amount. What is next?`, `Continue this pattern: ${list}. What is the next term?`]);
-        return { prompt, answer, distractors: wholes(down[3] - ratio, down[3] - (down[2] - down[3]) > 0 ? down[3] - (down[2] - down[3]) : answer + 1, down[3], answer + ratio, answer + 1, answer * ratio + 1).filter((value) => value !== answer), explanation: `Each term is divided by ${ratio}: ${down[3]} ÷ ${ratio} = ${answer}.` };
+        return { prompt, answer, distractors: wholes(down[3] - ratio, down[3] - (down[2] - down[3]) > 0 ? down[3] - (down[2] - down[3]) : answer + 1, down[3], answer + ratio, answer + 1, answer * ratio + 1).filter((value) => value !== answer), explanation: `Each term is divided by ${ratio}: ${down[3]} ÷ ${ratio} = ${answer}.`, solution: [`The rule: divide by ${ratio} each time.`, calc(down[3], '÷', ratio)] };
       }
       const list = `${values[0]}, ${values[1]}, □, ${values[3]}, ${values[4]}`, answer = values[2];
       const prompt = pick(r, [`What is the missing number in ${list}?`, `Find □ in the sequence ${list}.`, `Each term is multiplied by the same number: ${list}. What is □?`, `Which number goes in the box? ${list}.`]);
-      return { prompt, answer, distractors: wholes(values[1] + ratio, Math.round((values[1] + values[3]) / 2), values[1] * 2 === answer ? values[1] * 3 : values[1] * 2, answer + ratio, answer - 1, answer + 1).filter((value) => value !== answer), explanation: `Multiply by ${ratio} each time: ${values[1]} × ${ratio} = ${answer}.` };
+      return { prompt, answer, distractors: wholes(values[1] + ratio, Math.round((values[1] + values[3]) / 2), values[1] * 2 === answer ? values[1] * 3 : values[1] * 2, answer + ratio, answer - 1, answer + 1).filter((value) => value !== answer), explanation: `Multiply by ${ratio} each time: ${values[1]} × ${ratio} = ${answer}.`, solution: [`The rule: multiply by ${ratio} each time.`, calc(values[1], '×', ratio)] };
     }
     const position = pick(r, [6, 7]), answer = start * ratio ** (position - 1), list = values.slice(0, 4).join(', ');
     const prompt = pick(r, [`Here is a sequence: ${list}, … What is the ${ordinal(position)} term?`, `The sequence ${list} continues in the same way. What is term ${position}?`, `Keep multiplying to continue ${list}. What is the ${ordinal(position)} number?`, `What is the ${ordinal(position)} term of the sequence that begins ${list}?`]);
-    return { prompt, answer, distractors: wholes(answer / ratio, answer * ratio, values[3] + (position - 4) * (values[3] - values[2]), answer + ratio, answer - ratio, answer + 1).filter((value) => value !== answer), explanation: `Multiply by ${ratio} each time; the ${ordinal(position)} term is ${display(answer)}.` };
+    return { prompt, answer, distractors: wholes(answer / ratio, answer * ratio, values[3] + (position - 4) * (values[3] - values[2]), answer + ratio, answer - ratio, answer + 1).filter((value) => value !== answer), explanation: `Multiply by ${ratio} each time; the ${ordinal(position)} term is ${display(answer)}.`, solution: [`The rule: multiply by ${ratio} each time. Term 4 is ${display(values[3])}.`, ...Array.from({ length: position - 4 }, (_, i) => calc(start * ratio ** (3 + i), '×', ratio, { intro: `Term ${5 + i}: ` }))] };
   }),
 
   timetable_duration: gen('timetable_duration', 'meas_calendar_timetable_timezone', (r, d) => {
@@ -976,12 +1131,12 @@ export const generators = {
     if (d === 'easy') {
       const i = integer(r, 0, 4), answer = lengths[i];
       const prompt = pick(r, [`How long does ${labels[i]} take?`, `Use the timetable. How many minutes is the journey on ${labels[i]}?`, `${name} catches ${labels[i]}. How long is the journey?`, `What is the journey time of ${labels[i]}?`, `The timetable shows five journeys. How long does the one on ${labels[i]} last?`]);
-      return { prompt, answer, distractors: wholes(answer + 10, answer - 10, answer + 5, answer - 5, answer + 15, answer + 60), formatter: minutesLabel, visual, explanation: `From ${clockTime(departs[i])} to ${clockTime(arrives[i])} is ${answer} minutes.` };
+      return { prompt, answer, distractors: wholes(answer + 10, answer - 10, answer + 5, answer - 5, answer + 15, answer + 60), formatter: minutesLabel, visual, explanation: `From ${clockTime(departs[i])} to ${clockTime(arrives[i])} is ${answer} minutes.`, solution: [`${labels[i]} departs at ${clockTime(departs[i])} and arrives at ${clockTime(arrives[i])}.`, ...howLong(departs[i], arrives[i], clockTime)] };
     }
     if (d === 'medium') {
       const longest = r() < 0.5, target = longest ? Math.max(...lengths) : Math.min(...lengths), i = lengths.indexOf(target), word = longest ? 'longest' : 'shortest';
       const prompt = pick(r, [`Which ${lower} has the ${word} journey?`, `Use the timetable. Which journey takes the ${word} time?`, `${name} wants the ${longest ? 'longest' : 'quickest'} journey. Which ${lower} should ${name} catch?`, `Look at the times. Which ${lower} takes the ${word}?`]);
-      return { prompt, answer: labels[i], distractors: labels.filter((_, j) => j !== i), visual, explanation: `The journey times are ${lengths.join(', ')} minutes, so ${labels[i]} is the ${word} at ${target} minutes.` };
+      return { prompt, answer: labels[i], distractors: labels.filter((_, j) => j !== i), visual, explanation: `The journey times are ${lengths.join(', ')} minutes, so ${labels[i]} is the ${word} at ${target} minutes.`, solution: [`Count on from departure to arrival for each ${lower}.`, `Journey times in minutes: ${labels.map((label, j) => `${label}: ${lengths[j]}`).join(', ')}.`, `The ${word} is ${target} minutes, on ${labels[i]}.`] };
     }
     const i = integer(r, 1, 4), ready = departs[i] - 5, answer = arrives[i];
     const prompt = pick(r, [
@@ -990,7 +1145,7 @@ export const generators = {
       `${name} misses a ${lower} and waits from ${clockTime(ready)} for the next one. When will ${name} arrive?`,
       `If you are ready to leave at ${clockTime(ready)}, what time will you arrive on the next ${lower}?`,
     ]);
-    return { prompt, answer, distractors: [arrives[i - 1], arrives[(i + 1) % 5], ready + lengths[i], ready + lengths[i - 1], answer + 10, answer - 10, answer + 15], formatter: clockTime, visual, explanation: `The next ${lower} leaves at ${clockTime(departs[i])} and arrives at ${clockTime(answer)}.` };
+    return { prompt, answer, distractors: [arrives[i - 1], arrives[(i + 1) % 5], ready + lengths[i], ready + lengths[i - 1], answer + 10, answer - 10, answer + 15], formatter: clockTime, visual, explanation: `The next ${lower} leaves at ${clockTime(departs[i])} and arrives at ${clockTime(answer)}.`, solution: [`Find the first departure after ${clockTime(ready)}: ${labels[i]} at ${clockTime(departs[i])}.`, `Read across to its arrival time: ${clockTime(answer)}.`] };
   }),
 
   money_total_and_change: gen('money_total_and_change', 'meas_money_shopping', (r, d) => {
@@ -1001,7 +1156,7 @@ export const generators = {
     if (d === 'easy') {
       const answer = prices[a] + prices[b];
       const prompt = pick(r, [`How much do ${A} and ${B} cost altogether?`, `${name} buys ${A} and ${B}. What is the total?`, `Use the price list. What is the cost of ${A} and ${B}?`, `What would ${name} pay for ${A} and ${B}?`, `Add up the price of ${A} and ${B}.`]);
-      return { prompt, answer, distractors: wholes(answer + 10, answer - 10, answer + 100, answer - 100 > 0 ? answer - 100 : answer + 50, Math.abs(prices[a] - prices[b]), answer + 50), formatter: pounds, visual, explanation: `${pounds(prices[a])} + ${pounds(prices[b])} = ${pounds(answer)}.` };
+      return { prompt, answer, distractors: wholes(answer + 10, answer - 10, answer + 100, answer - 100 > 0 ? answer - 100 : answer + 50, Math.abs(prices[a] - prices[b]), answer + 50), formatter: pounds, visual, explanation: `${pounds(prices[a])} + ${pounds(prices[b])} = ${pounds(answer)}.`, solution: [`Read the prices: ${A} is ${pounds(prices[a])} and ${B} is ${pounds(prices[b])}.`, moneySum(prices[a], '+', prices[b], 'Add them: ')] };
     }
     const qa = d === 'hard' ? integer(r, 2, 4) : 1, qb = d === 'hard' ? integer(r, 2, 3) : 1, total = qa * prices[a] + qb * prices[b], note = [500, 1000, 2000, 5000].find((value) => value > total), answer = note - total;
     const buying = d === 'hard' ? `${qa} ${manyOf(items[a])} and ${qb} ${manyOf(items[b])}` : `${A} and ${B}`;
@@ -1012,7 +1167,7 @@ export const generators = {
       `${cap(buying)} are paid for with ${pounds(note)}. What change is due?`,
       `${name} hands over ${pounds(note)} for ${buying}. How much comes back?`,
     ]);
-    return { prompt, answer, distractors: wholes(total, note + total, answer + 100, answer + 10, answer - 10, note - prices[a], answer + 50).filter((value) => value !== answer), formatter: pounds, visual, explanation: `The total is ${pounds(total)}, and ${pounds(note)} − ${pounds(total)} = ${pounds(answer)}.` };
+    return { prompt, answer, distractors: wholes(total, note + total, answer + 100, answer + 10, answer - 10, note - prices[a], answer + 50).filter((value) => value !== answer), formatter: pounds, visual, explanation: `The total is ${pounds(total)}, and ${pounds(note)} − ${pounds(total)} = ${pounds(answer)}.`, solution: d === 'hard' ? [moneyTimes(qa, prices[a], `${qa} ${manyOf(items[a])}: `), moneyTimes(qb, prices[b], `${qb} ${manyOf(items[b])}: `), moneySum(qa * prices[a], '+', qb * prices[b], 'Total cost: '), moneySum(note, '−', total, 'Change: ')] : [`Read the prices: ${A} is ${pounds(prices[a])} and ${B} is ${pounds(prices[b])}.`, moneySum(prices[a], '+', prices[b], 'Total cost: '), moneySum(note, '−', total, 'Change: ')] };
   }),
 
   pack_purchase_least_cost: gen('pack_purchase_least_cost', 'meas_money_offers_packages', (r, d) => {
@@ -1020,10 +1175,11 @@ export const generators = {
     const [small, large] = pick(r, [[3, 8], [4, 10], [5, 12], [4, 9], [6, 10], [3, 10]]), single = pick(r, [30, 40, 50, 60, 80]);
     const smallPrice = Math.round(small * single * pick(r, [0.9, 0.85]) / 5) * 5, largePrice = Math.round(large * single * pick(r, [0.8, 0.75, 0.7]) / 5) * 5;
     const needed = integer(r, large + 1, size(d, large * 2, large * 3, large * 5));
-    let best = Infinity;
+    let best = Infinity, mix = null;
     for (let bigPacks = 0; bigPacks <= Math.ceil(needed / large); bigPacks += 1) for (let smallPacks = 0; smallPacks <= Math.ceil(needed / small); smallPacks += 1) {
       const singles = Math.max(0, needed - bigPacks * large - smallPacks * small);
-      best = Math.min(best, singles * single + smallPacks * smallPrice + bigPacks * largePrice);
+      const cost = singles * single + smallPacks * smallPrice + bigPacks * largePrice, got = bigPacks * large + smallPacks * small + singles;
+      if (cost < best || (cost === best && got < mix.got)) { best = cost; mix = { bigPacks, smallPacks, singles, got }; }
     }
     const prompt = pick(r, [
       `What is the least it can cost to buy at least ${needed} ${product}?`,
@@ -1033,7 +1189,7 @@ export const generators = {
       `How cheaply can you buy ${needed} or more ${product}?`,
     ]);
     const visual = { type: 'table', headers: ['Pack', 'Price'], rows: [['Single', `£${(single / 100).toFixed(2)}`], [`Pack of ${small}`, `£${(smallPrice / 100).toFixed(2)}`], [`Pack of ${large}`, `£${(largePrice / 100).toFixed(2)}`]] };
-    return { prompt, answer: best, distractors: wholes(needed * single, Math.ceil(needed / small) * smallPrice, Math.ceil(needed / large) * largePrice, best + single, best + 50, best + smallPrice, best + 100, best + 10, best + 20, best + 30).filter((value) => value > best), formatter: pounds, visual, explanation: `Comparing the combinations that give at least ${needed}, the cheapest costs ${pounds(best)}.` };
+    return { prompt, answer: best, distractors: wholes(needed * single, Math.ceil(needed / small) * smallPrice, Math.ceil(needed / large) * largePrice, best + single, best + 50, best + smallPrice, best + 100, best + 10, best + 20, best + 30).filter((value) => value > best), formatter: pounds, visual, explanation: `Comparing the combinations that give at least ${needed}, the cheapest costs ${pounds(best)}.`, solution: packSteps(mix, { large, small, single, largePrice, smallPrice, needed, product, best }) };
   }),
 
   clock_angle: gen('clock_angle', 'meas_clock_angles', (r, d) => {
@@ -1046,7 +1202,7 @@ export const generators = {
       'Work out the smaller angle made by the hour hand and the minute hand.',
       'The clock shows a time. What is the smaller angle between the hands?',
     ]);
-    return { prompt, answer, distractors: [roughSmall, 360 - answer, answer + 30, answer - 30, answer + 15, answer + 60].filter((value) => value > 0), formatter: (value) => `${display(value)}°`, visual: { type: 'clock', hour, minute }, explanation: `The hour hand is at ${display(hourAngle)}° and the minute hand at ${display(minuteAngle)}°, so the smaller angle is ${display(answer)}°.` };
+    return { prompt, answer, distractors: [roughSmall, 360 - answer, answer + 30, answer - 30, answer + 15, answer + 60].filter((value) => value > 0), formatter: (value) => `${display(value)}°`, visual: { type: 'clock', hour, minute }, explanation: `The hour hand is at ${display(hourAngle)}° and the minute hand at ${display(minuteAngle)}°, so the smaller angle is ${display(answer)}°.`, solution: clockAngleSteps(hour, minute, hourAngle, minuteAngle, answer) };
   }),
 
   visual_pattern_nth: gen('visual_pattern_nth', 'seq_visual_patterns', (r, d) => {
@@ -1057,27 +1213,27 @@ export const generators = {
         const answer = linear(step, start - step, 'n');
         const prompt = pick(r, [`The pattern keeps growing in the same way. Which expression gives the number of ${shapes} in term n?`, `Which rule gives the number of ${shapes} in term n of this pattern?`, `Look at how the pattern grows. How many ${shapes} are in term n?`, `Each term adds the same number of ${shapes}. Which expression works for term n?`]);
         const pool = [linear(step, start, 'n'), linear(step + 1, start - step - 1, 'n'), linear(step, start - step + 1, 'n'), linear(start, step, 'n'), linear(step, 0, 'n'), linear(step, start - step - 1, 'n'), linear(step + 1, start - step, 'n')].filter((text) => text !== answer);
-        return { prompt, answer, distractors: pool, visual, explanation: `It grows by ${step} each time, and term 1 has ${start}, so the rule is ${answer}.` };
+        return { prompt, answer, distractors: pool, visual, explanation: `It grows by ${step} each time, and term 1 has ${start}, so the rule is ${answer}.`, solution: nthRuleSteps(step, start, answer) };
       }
       const term = integer(r, 8, 25), count = at(term);
       const prompt = pick(r, [`The pattern keeps growing in the same way. Which term has ${count} ${shapes}?`, `One term of this pattern has ${count} ${shapes}. Which term is it?`, `If the pattern continues, which term will contain ${count} ${shapes}?`, `Which term number has exactly ${count} ${shapes}?`]);
-      return { prompt, answer: term, distractors: wholes(term + 1, term - 1, Math.floor(count / step), term + 2, term - 2, count - start).filter((value) => value !== term), visual, explanation: `(${count} − ${start}) ÷ ${step} = ${term - 1}, so it is term ${term}.` };
+      return { prompt, answer: term, distractors: wholes(term + 1, term - 1, Math.floor(count / step), term + 2, term - 2, count - start).filter((value) => value !== term), visual, explanation: `(${count} − ${start}) ÷ ${step} = ${term - 1}, so it is term ${term}.`, solution: [`Term 1 has ${start} ${shapes}, and each new term adds ${step}.`, `${cap(shapes)} added after term 1: ${count} − ${start} = ${count - start}.`, calc(count - start, '÷', step, { intro: 'Number of jumps: ' }), `Add 1 for term 1: ${term - 1} + 1 = ${term}`] };
     }
     const term = integer(r, d === 'easy' ? 4 : 7, d === 'easy' ? 6 : 20), answer = at(term);
     const prompt = pick(r, [`The pattern grows by the same amount each time. How many ${shapes} are in term ${term}?`, `If this pattern carries on, how many ${shapes} will term ${term} have?`, `Look at how the pattern grows. How many ${shapes} are needed for term ${term}?`, `Each term adds the same number of ${shapes}. How many are there in term ${term}?`, `Continue the pattern. What is the number of ${shapes} in term ${term}?`]);
-    return { prompt, answer, distractors: wholes(start + term * step, term * step, answer - step, answer + 1, answer - 1, counts[2] + step).filter((value) => value !== answer), visual, explanation: `The rule is ${start} + (term − 1) × ${step}, so term ${term} has ${answer} ${shapes}.` };
+    return { prompt, answer, distractors: wholes(start + term * step, term * step, answer - step, answer + 1, answer - 1, counts[2] + step).filter((value) => value !== answer), visual, explanation: `The rule is ${start} + (term − 1) × ${step}, so term ${term} has ${answer} ${shapes}.`, solution: [`Term 1 has ${start} ${shapes}, and each new term adds ${step}.`, `Term ${term} is ${term - 1} jumps after term 1.`, calc(term - 1, '×', step, { intro: 'Added in those jumps: ' }), `Total: ${start} + ${(term - 1) * step} = ${answer} ${shapes}`] };
   }),
 
   substitute_expression_values: gen('substitute_expression_values', 'alg_substitution', (r, d) => {
-    const x = integer(r, 2, size(d, 6, 9, 12)), y = integer(r, 1, size(d, 5, 8, 10)), a = integer(r, 2, size(d, 6, 7, 9)), b = integer(r, 1, size(d, 8, 9, 12));
+    const x = integer(r, 2, size(d, 6, 9, 12)), y = integer(r, 1, size(d, 5, 8, 10)), a = integer(r, 2, size(d, 6, 7, 9)), b = integer(r, 2, size(d, 8, 9, 12));
     const patterns = [
-      { expression: `${a}x + ${b}`, answer: a * x + b, wrong: [a + x + b, a * (x + b), Number(`${a}${x}`) + b, a * x], working: `${a} × ${x} + ${b}` },
-      { expression: `${a}x − ${b}`, answer: a * x - b, wrong: [a * x + b, a * (x - b), a + x - b, a * x], working: `${a} × ${x} − ${b}`, needs: a * x > b },
-      { expression: `${a}x + ${b}y`, answer: a * x + b * y, wrong: [(a + b) * (x + y), a + x + b + y, a * x + b + y, a * y + b * x], working: `${a} × ${x} + ${b} × ${y}` },
-      { expression: `${a}x − ${b}y`, answer: a * x - b * y, wrong: [(a * x - b) * y, a * x + b * y, a * x - b, a * y], working: `${a} × ${x} − ${b} × ${y}`, needs: a * x > b * y },
-      { expression: `${a}(x + y)`, answer: a * (x + y), wrong: [a * x + y, a + x + y, a * x * y, x + a * y], working: `${a} × (${x} + ${y})` },
-      { expression: `x² + ${b}y`, answer: x * x + b * y, wrong: [x * 2 + b * y, x * x + b + y, x * x * b * y, x * 2 + b + y], working: `${x}² + ${b} × ${y}` },
-      { expression: `xy + ${b}`, answer: x * y + b, wrong: [x + y + b, x * (y + b), x * y, Number(`${x}${y}`) + b], working: `${x} × ${y} + ${b}` },
+      { expression: `${a}x + ${b}`, answer: a * x + b, wrong: [a + x + b, a * (x + b), Number(`${a}${x}`) + b, a * x], working: `${a} × ${x} + ${b}`, steps: [`Put x = ${x} into the expression: ${a} × ${x} + ${b}.`, calc(a, '×', x, { intro: 'Multiply first: ' }), `Then add: ${a * x} + ${b} = ${a * x + b}`] },
+      { expression: `${a}x − ${b}`, answer: a * x - b, wrong: [a * x + b, a * (x - b), a + x - b, a * x], working: `${a} × ${x} − ${b}`, needs: a * x > b, steps: [`Put x = ${x} into the expression: ${a} × ${x} − ${b}.`, calc(a, '×', x, { intro: 'Multiply first: ' }), `Then subtract: ${a * x} − ${b} = ${a * x - b}`] },
+      { expression: `${a}x + ${b}y`, answer: a * x + b * y, wrong: [(a + b) * (x + y), a + x + b + y, a * x + b + y, a * y + b * x], working: `${a} × ${x} + ${b} × ${y}`, steps: [`Put in the values: ${a} × ${x} + ${b} × ${y}.`, `Multiply first: ${a} × ${x} = ${a * x} and ${b} × ${y} = ${b * y}.`, `Then add: ${a * x} + ${b * y} = ${a * x + b * y}`] },
+      { expression: `${a}x − ${b}y`, answer: a * x - b * y, wrong: [(a * x - b) * y, a * x + b * y, a * x - b, a * y], working: `${a} × ${x} − ${b} × ${y}`, needs: a * x > b * y, steps: [`Put in the values: ${a} × ${x} − ${b} × ${y}.`, `Multiply first: ${a} × ${x} = ${a * x} and ${b} × ${y} = ${b * y}.`, `Then subtract: ${a * x} − ${b * y} = ${a * x - b * y}`] },
+      { expression: `${a}(x + y)`, answer: a * (x + y), wrong: [a * x + y, a + x + y, a * x * y, x + a * y], working: `${a} × (${x} + ${y})`, steps: [`Put in the values: ${a} × (${x} + ${y}).`, `Brackets first: ${x} + ${y} = ${x + y}.`, calc(a, '×', x + y, { intro: 'Then multiply: ' })] },
+      { expression: `x² + ${b}y`, answer: x * x + b * y, wrong: [x * 2 + b * y, x * x + b + y, x * x * b * y, x * 2 + b + y], working: `${x}² + ${b} × ${y}`, steps: [`Put in the values: ${x}² + ${b} × ${y}.`, `${x}² means ${x} × ${x} = ${x * x}, and ${b} × ${y} = ${b * y}.`, `Then add: ${x * x} + ${b * y} = ${x * x + b * y}`] },
+      { expression: `xy + ${b}`, answer: x * y + b, wrong: [x + y + b, x * (y + b), x * y, Number(`${x}${y}`) + b], working: `${x} × ${y} + ${b}`, steps: [`xy means x × y: ${x} × ${y} = ${x * y}.`, `Then add ${b}: ${x * y} + ${b} = ${x * y + b}`] },
     ].filter((pattern) => pattern.needs !== false);
     const pattern = pick(r, patterns.slice(0, size(d, 2, 5, patterns.length)));
     const uses = /y/.test(pattern.expression), given = uses ? `x = ${x} and y = ${y}` : `x = ${x}`;
@@ -1089,7 +1245,7 @@ export const generators = {
       `Calculate ${pattern.expression} when ${given}.`,
       `Substitute ${given} into ${pattern.expression}. What do you get?`,
     ]);
-    return { prompt, answer: pattern.answer, distractors: wholes(...pattern.wrong, pattern.answer + x, pattern.answer + a, pattern.answer + 1).filter((value) => value !== pattern.answer), explanation: `Substitute the values: ${pattern.working} = ${pattern.answer}.` };
+    return { prompt, answer: pattern.answer, distractors: wholes(...pattern.wrong, pattern.answer + x, pattern.answer + a, pattern.answer + 1).filter((value) => value !== pattern.answer), explanation: `Substitute the values: ${pattern.working} = ${pattern.answer}.`, solution: pattern.steps };
   }),
 
   sequence_next_additive: gen('sequence_next_additive', 'seq_arithmetic_geometric', (r, d) => {
@@ -1099,37 +1255,37 @@ export const generators = {
       const step = integer(r, 2, 9), first = integer(r, 1, 12), list = Array.from({ length: 4 }, (_, i) => first + i * step).join(', '), answer = linear(step, first - step, 'n');
       const prompt = pick(r, [`Which expression gives the nth term of ${list}, …?`, `Here is a sequence: ${list}. What is its nth term?`, `A sequence begins ${list}. Which rule gives term n?`, `Find the rule for the nth term of the sequence ${list}.`]);
       const pool = [linear(step, first, 'n'), linear(step + 1, first - step - 1, 'n'), linear(first, step, 'n'), linear(step, first - step + 1, 'n'), linear(step, first - step - 1, 'n'), linear(1, step, 'n'), linear(step + 1, first - step, 'n')].filter((text) => text !== answer);
-      return { prompt, answer, distractors: pool, explanation: `The sequence goes up by ${step}, and term 1 is ${first}, so the nth term is ${answer}.` };
+      return { prompt, answer, distractors: pool, explanation: `The sequence goes up by ${step}, and term 1 is ${first}, so the nth term is ${answer}.`, solution: nthRuleSteps(step, first, answer) };
     }
     if (kind === 'squares') {
       const root = integer(r, 1, 6), shift = integer(r, 0, 4), values = Array.from({ length: 6 }, (_, i) => (root + i) ** 2 + shift), answer = values[5], last = values[4], gap = last - values[3];
-      return { prompt: nextPrompt(values.slice(0, 5).join(', ')), answer, distractors: wholes(last + gap, last + gap + 1, last + gap + 4, answer + 2, answer - 1, answer + 1).filter((value) => value !== answer), explanation: `The differences go up by 2 each time (${gap}, then ${answer - last}), so the next number is ${last} + ${answer - last} = ${answer}.` };
+      return { prompt: nextPrompt(values.slice(0, 5).join(', ')), answer, distractors: wholes(last + gap, last + gap + 1, last + gap + 4, answer + 2, answer - 1, answer + 1).filter((value) => value !== answer), explanation: `The differences go up by 2 each time (${gap}, then ${answer - last}), so the next number is ${last} + ${answer - last} = ${answer}.`, solution: [`The rule: the gaps between terms go up by 2 each time (${values.slice(1, 5).map((value, i) => value - values[i]).join(', ')}).`, `So the next gap is ${gap} + 2 = ${answer - last}.`, `${last} + ${answer - last} = ${answer}`] };
     }
     if (kind === 'growing') {
       const firstGap = integer(r, 2, 6), values = [start];
       for (let i = 0; i < 5; i += 1) values.push(values.at(-1) + firstGap + i);
       const answer = values[5], last = values[4], gap = firstGap + 4;
-      return { prompt: nextPrompt(values.slice(0, 5).join(', ')), answer, distractors: wholes(last + gap - 1, last + gap + 1, last + 2 * gap, last, answer + 2), explanation: `The gaps are ${firstGap}, ${firstGap + 1}, ${firstGap + 2}, ${firstGap + 3}, so the next gap is ${gap}: ${last} + ${gap} = ${answer}.` };
+      return { prompt: nextPrompt(values.slice(0, 5).join(', ')), answer, distractors: wholes(last + gap - 1, last + gap + 1, last + 2 * gap, last, answer + 2), explanation: `The gaps are ${firstGap}, ${firstGap + 1}, ${firstGap + 2}, ${firstGap + 3}, so the next gap is ${gap}: ${last} + ${gap} = ${answer}.`, solution: [`The rule: the gaps grow by 1 each time (${firstGap}, ${firstGap + 1}, ${firstGap + 2}, ${firstGap + 3}).`, `So the next gap is ${gap}.`, `${last} + ${gap} = ${answer}`] };
     }
     if (kind === 'alternating') {
       const up = integer(r, 2, 7), other = up + integer(r, 3, 7), values = [start];
       for (let i = 0; i < 5; i += 1) values.push(values.at(-1) + (i % 2 === 0 ? up : other));
       const answer = values[5], last = values[4];
-      return { prompt: nextPrompt(values.slice(0, 5).join(', ')), answer, distractors: wholes(last + other, last + up + other, last + up + 1, last, answer + 2, answer - 1), explanation: `The sequence adds ${up}, then ${other}, in turn. The next step is +${up}: ${last} + ${up} = ${answer}.` };
+      return { prompt: nextPrompt(values.slice(0, 5).join(', ')), answer, distractors: wholes(last + other, last + up + other, last + up + 1, last, answer + 2, answer - 1), explanation: `The sequence adds ${up}, then ${other}, in turn. The next step is +${up}: ${last} + ${up} = ${answer}.`, solution: [`The rule: add ${up}, then add ${other}, and repeat.`, `The last jump was +${other}, so the next is +${up}.`, `${last} + ${up} = ${answer}`] };
     }
     const step = integer(r, 3, size(d, 9, 12, 12));
     if (kind === 'down') {
       const top = start + 6 * step, values = Array.from({ length: 5 }, (_, i) => top - i * step), answer = top - 5 * step;
-      return { prompt: nextPrompt(values.join(', ')), answer, distractors: wholes(answer + 2 * step, answer + step, answer - 1, answer + 1, answer + 2, answer - 2).filter((value) => value !== answer), explanation: `The sequence goes down by ${step} each time, so the next number is ${values[4]} − ${step} = ${answer}.` };
+      return { prompt: nextPrompt(values.join(', ')), answer, distractors: wholes(answer + 2 * step, answer + step, answer - 1, answer + 1, answer + 2, answer - 2).filter((value) => value !== answer), explanation: `The sequence goes down by ${step} each time, so the next number is ${values[4]} − ${step} = ${answer}.`, solution: [`The rule: subtract ${step} each time.`, `${values[4]} − ${step} = ${answer}`] };
     }
     const values = Array.from({ length: 5 }, (_, i) => start + i * step);
     if (kind === 'missing') {
       const gap = integer(r, 1, 3), answer = values[gap], shown = values.map((value, i) => (i === gap ? '□' : value)).join(', ');
       const prompt = pick(r, [`What is the missing number in ${shown}?`, `Find □ in the sequence ${shown}.`, `Which number goes in the box? ${shown}.`, `The sequence ${shown} goes up in equal steps. What is □?`]);
-      return { prompt, answer, distractors: wholes(answer + 1, answer - 1, answer + step, answer - step, answer + 2), explanation: `The sequence goes up by ${step} each time, so □ = ${answer}.` };
+      return { prompt, answer, distractors: wholes(answer + 1, answer - 1, answer + step, answer - step, answer + 2), explanation: `The sequence goes up by ${step} each time, so □ = ${answer}.`, solution: [`The rule: add ${step} each time.`, `□ = ${values[gap - 1]} + ${step} = ${answer}`] };
     }
     const answer = start + 5 * step;
-    return { prompt: nextPrompt(values.join(', ')), answer, distractors: wholes(answer + step, answer - step, answer + 1, answer - 1, answer + 2), explanation: `The sequence goes up by ${step} each time, so the next number is ${values[4]} + ${step} = ${answer}.` };
+    return { prompt: nextPrompt(values.join(', ')), answer, distractors: wholes(answer + step, answer - step, answer + 1, answer - 1, answer + 2), explanation: `The sequence goes up by ${step} each time, so the next number is ${values[4]} + ${step} = ${answer}.`, solution: [`The rule: add ${step} each time.`, `${values[4]} + ${step} = ${answer}`] };
   }),
 
   time_unit_conversion: gen('time_unit_conversion', 'meas_calendar_timetable_timezone', (r, d) => {
@@ -1138,7 +1294,7 @@ export const generators = {
     if (d === 'hard' && r() < 0.35) {
       const startIndex = integer(r, 0, MONTHS.length - 3), run = MONTHS.slice(startIndex, startIndex + 3), answer = run.reduce((sum, [, length]) => sum + length, 0), names = `${run[0][0]}, ${run[1][0]} and ${run[2][0]}`;
       const prompt = pick(r, [`How many days are there in ${names} altogether?`, `A club runs for the whole of ${names}. How many days is that?`, `What is the total number of days in ${names}?`, `Add up the days in ${names}. What do you get?`]);
-      return { prompt, answer, distractors: [90, 91, 92, 93, 84, 88].filter((value) => value !== answer), formatter: (value) => plural(value, 'day'), explanation: `${run.map(([, length]) => length).join(' + ')} = ${answer} days.` };
+      return { prompt, answer, distractors: [90, 91, 92, 93, 84, 88].filter((value) => value !== answer), formatter: (value) => plural(value, 'day'), explanation: `${run.map(([, length]) => length).join(' + ')} = ${answer} days.`, solution: [`${run[0][0]} has ${run[0][1]} days, ${run[1][0]} has ${run[1][1]} and ${run[2][0]} has ${run[2][1]}.`, `${run.map(([, length]) => length).join(' + ')} = ${answer} days`] };
     }
     const cases = size(d, [
       { from: 'weeks', to: 'days', factor: 7, slips: [5, 10, 6] }, { from: 'hours', to: 'minutes', factor: 60, slips: [100, 30, 24] }, { from: 'minutes', to: 'seconds', factor: 60, slips: [100, 30, 10] },
@@ -1153,10 +1309,10 @@ export const generators = {
     const c = pick(r, cases), amount = integer(r, 2, size(d, 9, 8, 5));
     if (d !== 'easy' && c.factor % 2 === 0 && r() < 0.3) {
       const answer = amount * c.factor + c.factor / 2, text = `${amount} and a half ${c.from}`;
-      return { prompt: ask(text, c.to), answer, distractors: wholes(amount * c.factor, (amount + 1) * c.factor, answer + c.factor, amount * c.slips[0] + c.slips[0] / 2, amount * c.factor + 5), formatter: withUnit(c.to), explanation: `${amount} × ${display(c.factor)} = ${display(amount * c.factor)}, and half of ${display(c.factor)} is ${display(c.factor / 2)}, making ${display(answer)} ${c.to}.` };
+      return { prompt: ask(text, c.to), answer, distractors: wholes(amount * c.factor, (amount + 1) * c.factor, answer + c.factor, amount * c.slips[0] + c.slips[0] / 2, amount * c.factor + 5), formatter: withUnit(c.to), explanation: `${amount} × ${display(c.factor)} = ${display(amount * c.factor)}, and half of ${display(c.factor)} is ${display(c.factor / 2)}, making ${display(answer)} ${c.to}.`, solution: [...factorSteps(c, single[c.from]), calc(amount, '×', c.factor, { intro: `${amount} whole ${c.from}: ` }), `Add half of ${display(c.factor)}, which is ${display(c.factor / 2)}: ${display(amount * c.factor)} + ${display(c.factor / 2)} = ${display(answer)} ${c.to}`] };
     }
     const answer = amount * c.factor;
-    return { prompt: ask(`${amount} ${c.from}`, c.to), answer, distractors: wholes(...c.slips.map((slip) => amount * slip), answer + c.factor, answer - c.factor).filter((value) => value !== answer), formatter: withUnit(c.to), explanation: `There are ${display(c.factor)} ${c.to} in a ${single[c.from]}, so ${amount} × ${display(c.factor)} = ${display(answer)} ${c.to}.` };
+    return { prompt: ask(`${amount} ${c.from}`, c.to), answer, distractors: wholes(...c.slips.map((slip) => amount * slip), answer + c.factor, answer - c.factor).filter((value) => value !== answer), formatter: withUnit(c.to), explanation: `There are ${display(c.factor)} ${c.to} in a ${single[c.from]}, so ${amount} × ${display(c.factor)} = ${display(answer)} ${c.to}.`, solution: [...factorSteps(c, single[c.from]), say(calc(amount, '×', c.factor), ` ${c.to}`)] };
   }),
 
   age_relationship_numeric: gen('age_relationship_numeric', 'alg_relationship_word_problems', (r, d) => {
@@ -1166,7 +1322,7 @@ export const generators = {
       const prompt = future
         ? pick(r, [`${a} is ${gap} years older than ${b}. ${b} is ${young}. How old will ${a} be in ${years} years?`, `${b} is ${young} years old, and ${a} is ${gap} years older. What age will ${a} be in ${years} years?`, `${b} is ${young}. ${a} is ${gap} years older than that. How old is ${a} ${years} years from now?`, `In ${years} years, how old will ${a} be if ${a} is ${gap} years older than ${b}, who is ${young}?`])
         : pick(r, [`${a} is ${gap} years older than ${b}. ${b} is ${young}. How old was ${a} ${years} years ago?`, `${b} is ${young} years old, and ${a} is ${gap} years older. What age was ${a} ${years} years ago?`, `${b} is ${young}. ${a} is ${gap} years older than that. How old was ${a} ${years} years back?`, `How old was ${a} ${years} years ago, if ${a} is ${gap} years older than ${b}, who is ${young}?`]);
-      return { prompt, answer, distractors: wholes(young + gap, young + years, young + gap + (future ? -years : years), answer + 1, answer - 1, young), explanation: `${a} is ${young} + ${gap} = ${young + gap} now, so ${future ? `in ${years} years ${a} will be` : `${years} years ago ${a} was`} ${answer}.` };
+      return { prompt, answer, distractors: wholes(young + gap, young + years, young + gap + (future ? -years : years), answer + 1, answer - 1, young), explanation: `${a} is ${young} + ${gap} = ${young + gap} now, so ${future ? `in ${years} years ${a} will be` : `${years} years ago ${a} was`} ${answer}.`, solution: [`${a} is ${young} + ${gap} = ${young + gap} now.`, `${future ? `In ${years} years, add ${years}` : `${years} years ago, take away ${years}`}: ${young + gap} ${future ? '+' : '−'} ${years} = ${answer}`] };
     }
     if (d === 'medium') {
       if (r() < 0.5) {
@@ -1174,26 +1330,26 @@ export const generators = {
         const prompt = future
           ? pick(r, [`${a} is ${word} as old as ${b}. ${b} is ${young}. How old will ${a} be in ${years} years?`, `${b} is ${young}, and ${a} is ${word} as old. What age will ${a} be ${years} years from now?`, `${a}'s age is ${word} ${b}'s age of ${young}. How old will ${a} be in ${years} years?`, `If ${b} is ${young} and ${a} is ${word} as old, what will ${a}'s age be after ${years} more years?`])
           : pick(r, [`${a} is ${word} as old as ${b}. ${b} is ${young}. How old was ${a} ${years} years ago?`, `${b} is ${young}, and ${a} is ${word} as old. What age was ${a} ${years} years ago?`, `${a}'s age is ${word} ${b}'s age of ${young}. How old was ${a} ${years} years ago?`, `If ${b} is ${young} and ${a} is ${word} as old, what was ${a}'s age ${years} years earlier?`]);
-        return { prompt, answer, distractors: wholes(k * young, young + years, k * (young + (future ? years : -years)), k * young + (future ? -years : years), answer + 1, answer - 1).filter((value) => value !== answer), explanation: `${a} is ${k} × ${young} = ${k * young} now, so the answer is ${answer}.` };
+        return { prompt, answer, distractors: wholes(k * young, young + years, k * (young + (future ? years : -years)), k * young + (future ? -years : years), answer + 1, answer - 1).filter((value) => value !== answer), explanation: `${a} is ${k} × ${young} = ${k * young} now, so the answer is ${answer}.`, solution: [`${a} is ${k} × ${young} = ${k * young} now.`, `${future ? `In ${years} years, add ${years}` : `${years} years ago, take away ${years}`}: ${k * young} ${future ? '+' : '−'} ${years} = ${answer}`] };
       }
       const now = 2 * integer(r, 8, 20) + integer(r, 0, 1), years = integer(r, 2, 8), answer = now + 2 * years;
       const prompt = pick(r, [`The ages of ${a} and ${b} add up to ${now}. What will their ages add up to in ${years} years?`, `Together, ${a} and ${b} are ${now} years old. What will their total age be in ${years} years?`, `${a} and ${b} have a combined age of ${now}. In ${years} years, what will the combined age be?`, `Add the ages of ${a} and ${b} and you get ${now}. What will you get ${years} years from now?`]);
-      return { prompt, answer, distractors: wholes(now + years, now, now + 3 * years, answer + 1, answer - 1, now - years), explanation: `Each person gets ${years} years older, so the total rises by 2 × ${years}: ${now} + ${2 * years} = ${answer}.` };
+      return { prompt, answer, distractors: wholes(now + years, now, now + 3 * years, answer + 1, answer - 1, now - years), explanation: `Each person gets ${years} years older, so the total rises by 2 × ${years}: ${now} + ${2 * years} = ${answer}.`, solution: [`Both people get ${years} years older, so the total rises by 2 × ${years} = ${2 * years}.`, `${now} + ${2 * years} = ${answer}`] };
     }
     const kind = pick(r, ['ratioShift', 'futureMultiple', 'sumDifference']);
     if (kind === 'ratioShift') {
       const young = integer(r, 4, 12), k = pick(r, [3, 4]), years = (k - 2) * young, old = k * young, word = k === 3 ? 'three times' : 'four times';
       const prompt = pick(r, [`${a} is ${word} as old as ${b}. In ${years} years, ${a} will be twice as old as ${b}. How old is ${a} now?`, `Today ${a}'s age is ${word} ${b}'s age. ${years} years from now, ${a} will be double ${b}'s age. What is ${a}'s age today?`, `${a} is ${word} as old as ${b} at the moment. After ${years} years, ${a} will be exactly twice as old as ${b}. How old is ${a}?`, `In ${years} years ${a} will be twice as old as ${b}. Right now ${a} is ${word} as old. How old is ${a} now?`]);
-      return { prompt, answer: old, distractors: wholes(young, old + years, young + years, 2 * young, old + 2, old - 2).filter((value) => value !== old), explanation: `${b} is ${young} and ${a} is ${old}. In ${years} years they will be ${young + years} and ${old + years}, and ${old + years} is twice ${young + years}.` };
+      return { prompt, answer: old, distractors: wholes(young, old + years, young + years, 2 * young, old + 2, old - 2).filter((value) => value !== old), explanation: `${b} is ${young} and ${a} is ${old}. In ${years} years they will be ${young + years} and ${old + years}, and ${old + years} is twice ${young + years}.`, solution: [`Call ${b}'s age n, so ${a} is ${k}n.`, `In ${years} years: ${k}n + ${years} = 2(n + ${years}) = 2n + ${2 * years}.`, `Take 2n from both sides: ${linear(k - 2, years, 'n')} = ${2 * years}.`, k === 3 ? `Take ${years} from both sides: n = ${young}.` : `Take ${years} from both sides: 2n = ${years}, so n = ${young}.`, `${a} is ${k} × ${young} = ${old}`] };
     }
     if (kind === 'futureMultiple') {
       const young = integer(r, 3, 12), years = integer(r, 2, 8), m = pick(r, [2, 3]), word = m === 2 ? 'twice' : 'three times', later = m * (young + years), answer = later - years;
       const prompt = pick(r, [`${b} is ${young}. In ${years} years, ${a} will be ${word} as old as ${b}. How old is ${a} now?`, `In ${years} years' time ${a} will be ${word} ${b}'s age. ${b} is ${young} today. What is ${a}'s age today?`, `${b} is ${young} years old. ${years} years from now, ${a} will be ${word} as old as ${b}. How old is ${a} at the moment?`, `When ${b}, now ${young}, is ${years} years older, ${a} will be ${word} as old. How old is ${a} now?`]);
-      return { prompt, answer, distractors: wholes(later, m * young, m * young + years, later + years, answer + 1, answer - 1).filter((value) => value !== answer), explanation: `In ${years} years ${b} will be ${young + years}, so ${a} will be ${m} × ${young + years} = ${later}. Now ${a} is ${later} − ${years} = ${answer}.` };
+      return { prompt, answer, distractors: wholes(later, m * young, m * young + years, later + years, answer + 1, answer - 1).filter((value) => value !== answer), explanation: `In ${years} years ${b} will be ${young + years}, so ${a} will be ${m} × ${young + years} = ${later}. Now ${a} is ${later} − ${years} = ${answer}.`, solution: [`In ${years} years, ${b} will be ${young} + ${years} = ${young + years}.`, calc(m, '×', young + years, { intro: `Then ${a} will be ` }), `${a} is ${years} years younger now: ${later} − ${years} = ${answer}`] };
     }
     const young = integer(r, 5, 14), gap = integer(r, 2, 10), old = young + gap, total = young + old;
     const prompt = pick(r, [`The ages of ${a} and ${b} add up to ${total}. ${a} is ${gap} years older than ${b}. How old is ${a}?`, `${a} is ${gap} years older than ${b}. Together they are ${total}. What is ${a}'s age?`, `Between them, ${a} and ${b} are ${total} years old, and ${a} is the elder by ${gap} years. How old is ${a}?`, `${b} is ${gap} years younger than ${a}. Their ages total ${total}. How old is ${a}?`]);
-    return { prompt, answer: old, distractors: wholes(young, total - gap, Math.floor(total / 2), old + gap, old + 1, old - 1).filter((value) => value !== old), explanation: `Take off the ${gap}-year gap: ${total} − ${gap} = ${total - gap}. Halve it to get ${young} for ${b}, so ${a} is ${old}.` };
+    return { prompt, answer: old, distractors: wholes(young, total - gap, Math.floor(total / 2), old + gap, old + 1, old - 1).filter((value) => value !== old), explanation: `Take off the ${gap}-year gap: ${total} − ${gap} = ${total - gap}. Halve it to get ${young} for ${b}, so ${a} is ${old}.`, solution: [`Take off the ${gap}-year gap, so both ages match: ${total} − ${gap} = ${total - gap}.`, `Halve it to find ${b}'s age: half of ${total - gap} is ${young}.`, `${a} is ${gap} years older: ${young} + ${gap} = ${old}`] };
   }),
 
   read_measuring_scale: gen('read_measuring_scale', 'meas_mass_weight', (r, d) => {
@@ -1205,24 +1361,25 @@ export const generators = {
     const visual = { type: 'dial_scale', max, majorStep: major, minorDivisions: divisions, value, unit };
     const inRange = (...values) => neat(...values).filter((item) => item <= max);
     const marksAway = (centre) => Array.from({ length: 12 }, (_, i) => [tidy(centre + (i + 1) * minor), tidy(centre - (i + 1) * minor)]).flat();
+    const readDial = (reading) => { const low = tidy(Math.floor(tidy(reading / major)) * major), marks = Math.round((reading - low) / minor); return [`Each numbered gap of ${format(major)} has ${plural(divisions, 'small space')}, so each mark is worth ${format(minor)}.`, marks ? `The needle is ${plural(marks, 'mark')} past ${format(low)}, so it reads ${format(reading)}.` : `The needle points exactly at ${format(reading)}.`]; };
     const misread = [tidy(value + minor), tidy(value - minor), tidy(value + 2 * minor), tidy(value - 2 * minor), tidy(below + after * major / 10), tidy(value + 3 * minor), tidy(value - 3 * minor)];
     if (d === 'easy') {
       const prompt = pick(r, [`The scales show the mass of some ${stuff}. What is the mass?`, `What mass of ${stuff} do these scales show?`, `${name} weighs some ${stuff}. What does the scale read?`, `Read the dial. What mass of ${stuff} is on the scales?`, `The needle shows the mass of some ${stuff}. What is it?`]);
-      return { prompt, answer: value, distractors: inRange(...misread, ...marksAway(value)), formatter: format, visual, explanation: `Each small mark is worth ${format(minor)}. The needle is ${plural(after, 'mark')} past ${format(below)}, so it reads ${format(value)}.` };
+      return { prompt, answer: value, distractors: inRange(...misread, ...marksAway(value)), formatter: format, visual, explanation: `Each small mark is worth ${format(minor)}. The needle is ${plural(after, 'mark')} past ${format(below)}, so it reads ${format(value)}.`, solution: readDial(value) };
     }
     if (d === 'medium') {
       const target = tidy(Math.ceil(tick / divisions) * major), answer = tidy(target - value);
       const prompt = pick(r, [`The scales show some ${stuff}. How much more is needed to make ${format(target)}?`, `${name} needs ${format(target)} of ${stuff}. The scales show what is there so far. How much more is needed?`, `${name} wants ${format(target)} of ${stuff}. How much must be added to the amount on the scales?`, `Look at the dial. What mass of ${stuff} must be added to reach ${format(target)}?`]);
-      return { prompt, answer, distractors: inRange(value, tidy(answer + minor), tidy(answer + 2 * minor), tidy(answer + major), tidy(target + value), tidy(answer + 3 * minor), ...marksAway(answer)).filter((item) => item !== answer), formatter: format, visual, explanation: `The scales read ${format(value)}, and ${format(target)} − ${format(value)} = ${format(answer)}.` };
+      return { prompt, answer, distractors: inRange(value, tidy(answer + minor), tidy(answer + 2 * minor), tidy(answer + major), tidy(target + value), tidy(answer + 3 * minor), ...marksAway(answer)).filter((item) => item !== answer), formatter: format, visual, explanation: `The scales read ${format(value)}, and ${format(target)} − ${format(value)} = ${format(answer)}.`, solution: [...readDial(value), `Amount still needed: ${format(target)} − ${format(value)} = ${format(answer)}`] };
     }
     const shares = [2, 3, 4, 5, 6].filter((n) => { const each = value / n; return unit === 'g' ? Number.isInteger(each) && each % 5 === 0 && each >= 20 : each >= 0.2 && Math.abs(each * 20 - Math.round(each * 20)) < 1e-6; });
     if (shares.length && r() < 0.6) {
       const n = pick(r, shares), answer = tidy(value / n), piece = pick(r, unit === 'g' ? ['tins', 'bars of soap', 'jars', 'packets'] : ['boxes', 'sacks', 'crates', 'bags']);
       const prompt = pick(r, [`The scales show ${n} identical ${piece}. What is the mass of one?`, `${name} puts ${n} matching ${piece} on the scales. How much does each one weigh?`, `These ${n} ${piece} all weigh the same. Use the dial to find the mass of one.`, `The dial shows the total mass of ${n} equal ${piece}. What does one of them weigh?`]);
-      return { prompt, answer, distractors: neat(value, tidy(answer + minor), tidy(answer * 2), tidy((value + minor) / n), tidy((value - minor) / n), tidy(answer + major / 10), tidy(answer + 2 * minor), tidy(answer + major), ...marksAway(answer)).filter((item) => item !== answer), formatter: format, visual, explanation: `The scales read ${format(value)}, and ${format(value)} ÷ ${n} = ${format(answer)}.` };
+      return { prompt, answer, distractors: neat(value, tidy(answer + minor), tidy(answer * 2), tidy((value + minor) / n), tidy((value - minor) / n), tidy(answer + major / 10), tidy(answer + 2 * minor), tidy(answer + major), ...marksAway(answer)).filter((item) => item !== answer), formatter: format, visual, explanation: `The scales read ${format(value)}, and ${format(value)} ÷ ${n} = ${format(answer)}.`, solution: [...readDial(value), worked(`Share between the ${n} ${piece}: ${format(value)} ÷ ${n} = ${format(answer)}`, value, '÷', n)] };
     }
     const safeTick = Math.max(tick, 2), reading = tidy(safeTick * minor), bowl = tidy(minor * integer(r, 1, safeTick - 1)), answer = tidy(reading - bowl), shownVisual = { ...visual, value: reading };
     const prompt = pick(r, [`The scales show a bowl of ${stuff}. The empty bowl weighs ${format(bowl)}. What is the mass of the ${stuff}?`, `${name} weighs some ${stuff} in a container of mass ${format(bowl)}. What is the mass of the ${stuff} alone?`, `A tub weighing ${format(bowl)} is filled with ${stuff} and put on the scales. What mass of ${stuff} is in the tub?`, `The dial shows some ${stuff} and its ${format(bowl)} bag together. What is the mass of the ${stuff} alone?`]);
-    return { prompt, answer, distractors: inRange(reading, tidy(reading + bowl), bowl, tidy(answer + minor), tidy(answer + 2 * minor), tidy(answer + major), ...marksAway(answer)).filter((item) => item !== answer), formatter: format, visual: shownVisual, explanation: `The scales read ${format(reading)}, and ${format(reading)} − ${format(bowl)} = ${format(answer)}.` };
+    return { prompt, answer, distractors: inRange(reading, tidy(reading + bowl), bowl, tidy(answer + minor), tidy(answer + 2 * minor), tidy(answer + major), ...marksAway(answer)).filter((item) => item !== answer), formatter: format, visual: shownVisual, explanation: `The scales read ${format(reading)}, and ${format(reading)} − ${format(bowl)} = ${format(answer)}.`, solution: [...readDial(reading), `Take off the container: ${format(reading)} − ${format(bowl)} = ${format(answer)}`] };
   }),
 };
