@@ -76,13 +76,13 @@ const pinwheel = (order) => {
 const OUTLINES = {
   rectangle: [[0, 0], [300, 0], [300, 190], [0, 190]],
   rhombus: [[175, 0], [350, 125], [175, 250], [0, 125]],
-  isosceles: [[0, 220], [300, 220], [150, 0]],
-  kite: [[145, 0], [290, 115], [145, 270], [0, 115]],
+  isosceles: [[0, 280], [160, 280], [80, 0]],
+  kite: [[120, 0], [240, 90], [120, 320], [0, 90]],
   trapezium: [[85, 0], [265, 0], [350, 205], [0, 205]],
-  scalene: [[0, 220], [95, 0], [325, 220]],
-  parallelogram: [[60, 0], [340, 0], [280, 180], [0, 180]],
-  lopsided: [[30, 0], [280, 0], [380, 205], [0, 205]],
-  pentagon: [[160, 0], [355, 70], [315, 240], [80, 255], [0, 90]],
+  scalene: [[0, 130], [110, 0], [360, 130]],
+  parallelogram: [[100, 0], [400, 0], [300, 160], [0, 160]],
+  lopsided: [[20, 0], [200, 0], [380, 205], [0, 205]],
+  pentagon: [[0, 110], [40, 0], [280, 80], [400, 170], [40, 190]],
   arrow: [[0, 60], [205, 60], [205, 0], [370, 105], [205, 210], [205, 150], [0, 150]],
   chevron: [[0, 0], [105, 0], [245, 85], [105, 170], [0, 170], [140, 85]],
   cross: [[70, 0], [180, 0], [180, 70], [250, 70], [250, 180], [180, 180], [180, 250], [70, 250], [70, 180], [0, 180], [0, 70], [70, 70]],
@@ -765,8 +765,8 @@ export const generators = {
     const triangleKinds = [
       { name: 'equilateral triangle', visual: { type: 'shape', kind: 'triangle', points: triangleFromAngles(60, 60), ticks: [{ edge: 0 }, { edge: 1 }, { edge: 2 }] }, why: 'All three sides are equal.', wrong: ['isosceles triangle', 'scalene triangle', 'right-angled triangle', 'square'] },
       { name: 'isosceles triangle', visual: { type: 'shape', kind: 'triangle', points: triangleFromAngles(70, 70), ticks: [{ edge: 1 }, { edge: 2 }] }, why: 'Exactly two sides are equal.', wrong: ['equilateral triangle', 'scalene triangle', 'right-angled triangle', 'rhombus'] },
-      { name: 'scalene triangle', visual: { type: 'shape', kind: 'triangle', points: triangleFromAngles(40, 75) }, why: 'All three sides are different lengths.', wrong: ['equilateral triangle', 'isosceles triangle', 'right-angled triangle', 'kite'] },
-      { name: 'right-angled triangle', visual: { type: 'shape', kind: 'right_triangle', points: fit([[0, 0], [0, 3], [4, 3]]), rightAngles: [1] }, why: 'One of its angles is a right angle.', wrong: ['equilateral triangle', 'isosceles triangle', 'obtuse triangle', 'rhombus'] },
+      { name: 'scalene triangle', visual: { type: 'shape', kind: 'triangle', points: triangleFromAngles(30, 50) }, why: 'All three sides are different lengths.', wrong: ['equilateral triangle', 'isosceles triangle', 'right-angled triangle', 'kite'] },
+      { name: 'right-angled triangle', visual: { type: 'shape', kind: 'right_triangle', points: fit([[0, 0], [0, 5], [9, 5]]), rightAngles: [1] }, why: 'One of its angles is a right angle.', wrong: ['equilateral triangle', 'isosceles triangle', 'obtuse triangle', 'rhombus'] },
     ];
     const solids = [
       { name: 'cube', visual: SOLIDS[0].visual, why: 'It has six equal square faces.', wrong: ['square-based pyramid', 'triangular prism', 'tetrahedron', 'cylinder'] },
