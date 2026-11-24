@@ -1,0 +1,75 @@
+{
+  "processing": "Leading silence trimmed at -50 dB, gain set from the sounding part's RMS to each sound's loudness target (peaks capped at -1 dBFS), 60 ms fade-out, mono 96 kbps MP3.",
+  "sounds": {
+    "correct": {
+      "prompt": "8-bit chiptune ba-ding: two quick ascending beeps, low then high, bright and happy, very short",
+      "duration": 0.6,
+      "influence": 0.9,
+      "loudness": -22,
+      "note": "Takes 0-11 came from earlier prompts that gave one long sweep or a single note; the accepted take is from this prompt.",
+      "accepted": {
+        "take": 12,
+        "raw_sha256": "58a95ccf1b9803ba2c933ac85f5d6486335a19ec0e75366c8406b83d6ce8caf4",
+        "sha256": "3abaa3b95e0614c41c70fa947182ffe718c66beec21ed5b796326558bb5d52e9",
+        "request": {
+          "text": "8-bit chiptune ba-ding: two quick ascending beeps, low then high, bright and happy, very short",
+          "duration_seconds": 0.6,
+          "prompt_influence": 0.9,
+          "model_id": "eleven_text_to_sound_v2"
+        }
+      }
+    },
+    "wrong": {
+      "prompt": "Two short soft staccato chiptune beeps, boop-boop, the second note lower than the first, mellow 8-bit triangle wave, gentle and friendly, no buzz",
+      "duration": 0.7,
+      "influence": 0.8,
+      "loudness": -24,
+      "note": "Takes 0-3 came from an earlier prompt and were dull thuds.",
+      "accepted": {
+        "take": 7,
+        "raw_sha256": "6b2e31f2099d07bf5d710d49bee827495ff419d1aad3abe0f7dcdea3dd2e1c54",
+        "sha256": "d780404ec03693269e1235f3d8b0e75f10b072f5fbbd99f524d2d1d293c2ca0d",
+        "request": {
+          "text": "Two short soft staccato chiptune beeps, boop-boop, the second note lower than the first, mellow 8-bit triangle wave, gentle and friendly, no buzz",
+          "duration_seconds": 0.7,
+          "prompt_influence": 0.8,
+          "model_id": "eleven_text_to_sound_v2"
+        }
+      }
+    },
+    "skill_complete": {
+      "prompt": "Short triumphant retro 8-bit chiptune victory fanfare, quick rising arpeggio ending on a bright held major chord",
+      "duration": 2,
+      "influence": 0.6,
+      "loudness": -19,
+      "accepted": {
+        "take": 0,
+        "raw_sha256": "43c44f83f2c7f0796b1a3651c425f38cb585f3ea5455a928d4d358ffaec7939d",
+        "sha256": "82490404b4940669539af74d2911f8bf5690e4d172886856941eb54f345d85ac",
+        "request": {
+          "text": "Short triumphant retro 8-bit chiptune victory fanfare, quick rising arpeggio ending on a bright held major chord",
+          "duration_seconds": 2,
+          "prompt_influence": 0.6,
+          "model_id": "eleven_text_to_sound_v2"
+        }
+      }
+    },
+    "achievement": {
+      "prompt": "Retro 8-bit chiptune magical item unlocked jingle, sparkling ascending arpeggio with a shimmering bell sparkle at the end",
+      "duration": 2.2,
+      "influence": 0.6,
+      "loudness": -19,
+      "accepted": {
+        "take": 3,
+        "raw_sha256": "e12fed16267c57b30b65118c9a6841df100e4e6630e2bba27ba02d3d175d896c",
+        "sha256": "47023e5aeea7b9b6290ce197767ad65a65bc817bf132c570bddf7f6ce46eccea",
+        "request": {
+          "text": "Retro 8-bit chiptune magical item unlocked jingle, sparkling ascending arpeggio with a shimmering bell sparkle at the end",
+          "duration_seconds": 2.2,
+          "prompt_influence": 0.6,
+          "model_id": "eleven_text_to_sound_v2"
+        }
+      }
+    }
+  }
+}

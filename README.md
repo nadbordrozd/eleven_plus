@@ -20,6 +20,8 @@ The **Achievements** page (`#achievements`, linked from the header) has 28 badge
 
 The badges are 64 px PixelLab pixel art in `assets/badges/`. Prompts, seeds and hashes are in `tools/badges/recipes.json`. `node tools/badges/badges.mjs generate <id> --takes 3` makes new takes outside the repository (needs `PIXELLAB_API_KEY`). `sheet` builds a contact sheet, `accept <id> <seed>` copies a take in, and `validate` checks the hashes.
 
+Short chiptune sound effects play for a right answer, a wrong answer, finishing a skill and unlocking an achievement. The speaker button in the header turns them off, and the choice is saved under `eleven_plus_sound`. The sounds were made with ElevenLabs text-to-sound and live in `assets/sfx/`. Prompts, chosen takes, loudness targets and hashes are in `tools/sfx/prompts.json`. `node tools/sfx/sfx.mjs generate <id> --takes 4` makes raw takes outside the repository (needs `ELEVENLABS_API_KEY`). `analyse` prints duration and loudness and draws spectrograms, `accept <id> <take>` trims, levels and encodes a take, and `validate` checks the hashes.
+
 Generator implementation standards are documented in `docs/GENERATOR_IMPLEMENTATION_GUIDELINES.md`.
 
 ## Repository structure
@@ -31,8 +33,8 @@ generators/ Question generators by topic, plus shared helpers in core.js
 visuals/    Diagram renderers added alongside visual-renderers.js
 src/types/  Shared TypeScript content-model definitions
 tests/      Coverage, correctness, and generator-diversity checks
-assets/     Achievement badges
-tools/      Badge generation pipeline
+assets/     Achievement badges and sound effects
+tools/      Badge and sound generation pipelines
 ```
 
 ## Validate generators

@@ -3,6 +3,7 @@ import { choose, formatNumber, generateSafely, seededRng } from './generators/co
 import { renderVisual } from './visual-renderers.js';
 import { renderSolution } from './visuals/working.js';
 import { evaluateAchievements } from './achievements.js';
+import { playSound, preloadSounds, setSoundEnabled, soundEnabled } from './sounds.js';
 
 const CONTENT_ROOT = './data';
 const STORAGE_KEY = 'eleven_plus_maths_state_v1';
@@ -458,6 +459,7 @@ function markAnswer(optionId, { skipped = false } = {}) {
   questionAnswered = true;
   const correct = optionId === currentQuestion.answer;
   const progress = progressFor(currentSkill.id);
+  const pointsBefore = progress.points;
   progress.attempts += 1;
   progress.correct += correct ? 1 : 0;
   progress.wrong += correct ? 0 : 1;
@@ -496,7 +498,10 @@ function markAnswer(optionId, { skipped = false } = {}) {
       : `Not quite. −${WRONG_POINTS} points. The answer is ${currentQuestion.answer}: ${correctText}.`;
   renderSolution(document.querySelector('#solution'), currentQuestion, { open: !correct });
   document.querySelector('#next-button').hidden = false;
-  if (newlyCompleted) syncAchievements({ announce: true });
+  const reachedFull = progress.status === 'done' && pointsBefore < COMPLETION_POINTS;
+  playSound(reachedFull ? 'skill_complete' : correct ? 'correct' : 'wrong');
+  // Let the skill fanfare finish before an achievement jingle starts.
+  if (newlyCompleted) syncAchievements({ announce: true, delay: 1700 });
   updatePracticePoints();
   renderSummary();
 }
@@ -598,6 +603,7 @@ function answerDiagnosticQuestion(optionId) {
   }
   const feedback = document.querySelector('#diagnostic-feedback');
   feedback.hidden = false; feedback.classList.add(correct ? 'correct' : 'wrong');
+  playSound(correct ? 'correct' : 'wrong');
   const outcome = session.needsConfirmation
     ? 'Let’s try one more question on this skill before updating your plan.'
     : `We have marked this skill ${correct ? 'Confident' : 'Needs practice'}; you can change that assessment above.`;
@@ -680,14 +686,16 @@ function backfillCompletions() {
 }
 
 // Earned achievements are kept for good, even if progress is later reset.
-function syncAchievements({ announce = false } = {}) {
+function syncAchievements({ announce = false, delay = 0 } = {}) {
   const fresh = achievementList().filter((item) => item.met && !state.achievements[item.id]);
   if (!fresh.length) return;
   const now = new Date().toISOString();
   fresh.forEach((item) => { state.achievements[item.id] = now; });
   saveState();
   updateAchievementCount();
-  if (announce) fresh.forEach((item, index) => setTimeout(() => showAchievementToast(item), index * 900));
+  if (!announce) return;
+  setTimeout(() => playSound('achievement'), delay);
+  fresh.forEach((item, index) => setTimeout(() => showAchievementToast(item), delay + index * 900));
 }
 
 function updateAchievementCount() {
@@ -808,6 +816,16 @@ async function initialise() {
 
 if (typeof document !== 'undefined' && document.querySelector('#topic-list')) {
   document.querySelector('#back-button').addEventListener('click', closePractice);
+  const soundToggle = document.querySelector('#sound-toggle');
+  const showSoundSetting = () => {
+    const on = soundEnabled();
+    soundToggle.setAttribute('aria-pressed', String(on));
+    soundToggle.setAttribute('aria-label', on ? 'Sound effects on. Turn sound off' : 'Sound effects off. Turn sound on');
+    soundToggle.title = on ? 'Sound on' : 'Sound off';
+  };
+  soundToggle.addEventListener('click', () => { setSoundEnabled(!soundEnabled()); showSoundSetting(); });
+  showSoundSetting();
+  preloadSounds();
   window.addEventListener('hashchange', showRoute);
   document.querySelector('#achievements-back').addEventListener('click', () => { location.hash = ''; });
   document.querySelector('#reset-all-button').addEventListener('click', resetAllProgress);
