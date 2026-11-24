@@ -15,6 +15,11 @@
       </a>
       <div class="header-actions">
         <a class="projects-link" href="https://nadbordrozd.github.io/projects/">&larr; All projects</a>
+        <a class="achievements-link" href="#achievements">
+          <img src="assets/badges/skills_all.png" alt="" width="32" height="32">
+          <span>Achievements</span>
+          <strong id="achievements-count"></strong>
+        </a>
         <div class="header-score" aria-label="Your overall score">
           <span id="header-correct">0</span> correct
         </div>
@@ -137,6 +142,38 @@
         </div>
       </section>
     </main>
+
+    <main id="achievements-view" hidden>
+      <button id="achievements-back" class="back-button" type="button">← All exercises</button>
+      <section class="trophy-hero">
+        <div>
+          <p class="eyebrow">Trophy hall</p>
+          <h1>Achievements</h1>
+          <p>Complete skills to collect relics. Complete a whole topic to tame its monster. Every badge here is hand-crafted, if your hands are made of pixels.</p>
+        </div>
+        <div class="trophy-tally" aria-label="Achievements unlocked">
+          <strong><span id="achievements-earned">0</span><small> / <span id="achievements-total">0</span></small></strong>
+          <span>unlocked</span>
+          <div class="trophy-track"><span id="achievements-progress-bar"></span></div>
+        </div>
+      </section>
+      <section class="achievement-section">
+        <div class="achievement-section-heading">
+          <h2>Monster manual</h2>
+          <p>Finish every skill in a topic to tame its beast.</p>
+        </div>
+        <div id="achievements-beasts" class="achievement-grid"></div>
+      </section>
+      <section class="achievement-section">
+        <div class="achievement-section-heading">
+          <h2>Relics &amp; feats</h2>
+          <p>Milestones for skills completed, and for how you completed them.</p>
+        </div>
+        <div id="achievements-relics" class="achievement-grid"></div>
+      </section>
+    </main>
+
+    <div id="toast-stack" class="toast-stack" aria-live="polite"></div>
 
     <dialog id="archetype-dialog" class="archetype-dialog" aria-labelledby="archetype-dialog-title">
       <div class="dialog-header">

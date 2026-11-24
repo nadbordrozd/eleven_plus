@@ -2,6 +2,7 @@ import { extraGenerators, extraSkillIds } from './extra-generators.js';
 import { choose, formatNumber, generateSafely, seededRng } from './generators/core.js';
 import { renderVisual } from './visual-renderers.js';
 import { renderSolution } from './visuals/working.js';
+import { evaluateAchievements } from './achievements.js';
 
 const CONTENT_ROOT = './data';
 const STORAGE_KEY = 'eleven_plus_maths_state_v1';
@@ -42,7 +43,7 @@ function difficultyForPoints(points) {
   return 'hard';
 }
 
-function parseYamlList(text) {
+export function parseYamlList(text) {
   const records = [];
   let current = null;
   let activeArray = null;
@@ -91,13 +92,18 @@ function defaultState() {
     todo_skills: [],
     known_skills: [],
     completed_tests: [],
+    completions: {},
+    achievements: {},
   };
 }
 
 function loadState() {
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
-    return saved?.schema_version === 1 ? { ...defaultState(), ...saved } : defaultState();
+    const loaded = saved?.schema_version === 1 ? { ...defaultState(), ...saved } : defaultState();
+    if (!loaded.completions || typeof loaded.completions !== 'object') loaded.completions = {};
+    if (!loaded.achievements || typeof loaded.achievements !== 'object') loaded.achievements = {};
+    return loaded;
   } catch {
     return defaultState();
   }
@@ -141,18 +147,21 @@ function resetSkillProgress(skill) {
   state.question_tally.correct=Math.max(0,state.question_tally.correct-progress.correct);
   state.question_tally.wrong=Math.max(0,state.question_tally.wrong-progress.wrong);
   delete state.skill_progress[skill.id];
+  delete state.completions[skill.id];
   saveState();
   renderCatalogue();
 }
 
 function resetAllProgress() {
   if(state.question_tally.attempted===0&&Object.keys(state.skill_progress).length===0) return;
-  if(!window.confirm('Reset progress for every skill? This cannot be undone.')) return;
+  if(!window.confirm('Reset progress for every skill? This cannot be undone. Achievements you have already earned are kept.')) return;
   const todos = [...todoSkillIds()];
   const known = [...knownSkillIds()];
+  const achievements = state.achievements;
   state=defaultState();
   state.todo_skills = todos;
   state.known_skills = known;
+  state.achievements = achievements;
   saveState();
   renderCatalogue();
 }
@@ -333,6 +342,7 @@ function renderSummary() {
   document.querySelector('#todo-count').textContent = todoCount;
   document.querySelector('#known-count').textContent = knownCount;
   document.querySelector('#unmarked-count').textContent = skills.length - todoCount - knownCount;
+  updateAchievementCount();
 }
 
 function setCatalogueFilter(filter) {
@@ -456,6 +466,8 @@ function markAnswer(optionId, { skipped = false } = {}) {
   progress.status = progress.points >= COMPLETION_POINTS ? 'done' : 'in_progress';
   state.skill_progress[currentSkill.id] = progress;
   if (progress.status === 'done') setSkillEvaluation(currentSkill.id, 'known', { persist: false });
+  const newlyCompleted = progress.status === 'done' && !state.completions[currentSkill.id];
+  if (newlyCompleted) state.completions[currentSkill.id] = { at: progress.last_practiced_at, wrong: progress.wrong };
   state.question_tally.attempted += 1;
   state.question_tally.correct += correct ? 1 : 0;
   state.question_tally.wrong += correct ? 0 : 1;
@@ -484,6 +496,7 @@ function markAnswer(optionId, { skipped = false } = {}) {
       : `Not quite. −${WRONG_POINTS} points. The answer is ${currentQuestion.answer}: ${correctText}.`;
   renderSolution(document.querySelector('#solution'), currentQuestion, { open: !correct });
   document.querySelector('#next-button').hidden = false;
+  if (newlyCompleted) syncAchievements({ announce: true });
   updatePracticePoints();
   renderSummary();
 }
@@ -653,6 +666,108 @@ function exitDiagnostic({ showTopic = false } = {}) {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
+function achievementList() {
+  return evaluateAchievements({ skills: skills.filter((skill) => ACTIVE_SKILLS.has(skill.id)), topics, completions: state.completions });
+}
+
+// Skills completed before achievements existed still count.
+function backfillCompletions() {
+  Object.entries(state.skill_progress).forEach(([skillId, progress]) => {
+    if (progress.points >= COMPLETION_POINTS && !state.completions[skillId]) {
+      state.completions[skillId] = { at: progress.last_practiced_at || new Date().toISOString(), wrong: progress.wrong || 0 };
+    }
+  });
+}
+
+// Earned achievements are kept for good, even if progress is later reset.
+function syncAchievements({ announce = false } = {}) {
+  const fresh = achievementList().filter((item) => item.met && !state.achievements[item.id]);
+  if (!fresh.length) return;
+  const now = new Date().toISOString();
+  fresh.forEach((item) => { state.achievements[item.id] = now; });
+  saveState();
+  updateAchievementCount();
+  if (announce) fresh.forEach((item, index) => setTimeout(() => showAchievementToast(item), index * 900));
+}
+
+function updateAchievementCount() {
+  const link = document.querySelector('#achievements-count');
+  if (!link || !skills.length) return;
+  const list = achievementList();
+  link.textContent = `${list.filter((item) => state.achievements[item.id]).length}/${list.length}`;
+}
+
+function showAchievementToast(item) {
+  const toast = document.createElement('button');
+  toast.type = 'button';
+  toast.className = 'achievement-toast';
+  toast.innerHTML = '<img alt="" width="64" height="64"><span><small>Achievement unlocked!</small><strong></strong></span>';
+  toast.querySelector('img').src = item.badge;
+  toast.querySelector('strong').textContent = item.title;
+  toast.addEventListener('click', () => { toast.remove(); location.hash = 'achievements'; });
+  document.querySelector('#toast-stack').append(toast);
+  setTimeout(() => toast.classList.add('leaving'), 6000);
+  setTimeout(() => toast.remove(), 6600);
+}
+
+function renderAchievements() {
+  const list = achievementList(), earned = list.filter((item) => state.achievements[item.id]).length;
+  document.querySelector('#achievements-earned').textContent = earned;
+  document.querySelector('#achievements-total').textContent = list.length;
+  document.querySelector('#achievements-progress-bar').style.width = `${earned / list.length * 100}%`;
+  const dateFormat = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+  ['beasts', 'relics'].forEach((group) => {
+    const grid = document.querySelector(`#achievements-${group}`);
+    grid.replaceChildren(...list.filter((item) => item.group === group).map((item) => {
+      const earnedAt = state.achievements[item.id];
+      const card = document.createElement('article');
+      card.className = `achievement-card ${earnedAt ? 'earned' : 'locked'}`;
+      card.innerHTML = `
+        <div class="achievement-plinth"><img alt="" width="128" height="128" loading="lazy"></div>
+        <div class="achievement-copy">
+          <h3></h3>
+          <p class="achievement-requirement"></p>
+          <p class="achievement-flavour"></p>
+          <div class="achievement-status"></div>
+        </div>`;
+      card.querySelector('img').src = item.badge;
+      card.querySelector('img').alt = earnedAt ? `${item.title} badge` : `Locked badge: ${item.title}`;
+      card.querySelector('h3').textContent = item.title;
+      card.querySelector('.achievement-requirement').textContent = item.requirement;
+      card.querySelector('.achievement-flavour').textContent = item.flavour;
+      const status = card.querySelector('.achievement-status');
+      if (earnedAt) status.textContent = `Unlocked ${dateFormat.format(new Date(earnedAt))}`;
+      else if (item.target > 1) {
+        status.innerHTML = '<div class="achievement-track"><span></span></div><span class="achievement-count"></span>';
+        status.querySelector('.achievement-track span').style.width = `${item.value / item.target * 100}%`;
+        status.querySelector('.achievement-count').textContent = `${item.value} / ${item.target}`;
+      } else status.textContent = 'Locked';
+      return card;
+    }));
+  });
+}
+
+function showRoute() {
+  if (!skills.length) return;
+  const wantAchievements = location.hash === '#achievements';
+  const achievementsView = document.querySelector('#achievements-view');
+  if (wantAchievements) {
+    if (diagnosticSession) exitDiagnostic();
+    document.querySelector('#practice-view').hidden = true;
+    currentSkill = null;
+    selectedArchetypeId = null;
+    document.querySelector('#catalogue-view').hidden = true;
+    achievementsView.hidden = false;
+    renderAchievements();
+    window.scrollTo({ top: 0 });
+  } else if (!achievementsView.hidden) {
+    achievementsView.hidden = true;
+    document.querySelector('#catalogue-view').hidden = false;
+    renderCatalogue();
+    window.scrollTo({ top: 0 });
+  }
+}
+
 export function chooseArchetypeId(seed, archetypeIds) {
   if (!archetypeIds.length) throw new Error('No implemented archetypes are available for this skill.');
   return choose(seededRng(seed ^ 0xA53A9E1D), archetypeIds);
@@ -678,7 +793,10 @@ async function initialise() {
       topicResponse.text(), skillResponse.text(), archetypeResponse.text(),
     ]).then((files) => files.map(parseYamlList));
     if (!topics.length || !skills.length || !archetypes.length) throw new Error('No exercise content was found.');
+    backfillCompletions();
+    syncAchievements();
     renderCatalogue();
+    showRoute();
   } catch (error) {
     const servingHint = /content files|content was found/i.test(error.message)
       ? ' Serve this folder through a local web server rather than opening index.html directly.'
@@ -690,6 +808,8 @@ async function initialise() {
 
 if (typeof document !== 'undefined' && document.querySelector('#topic-list')) {
   document.querySelector('#back-button').addEventListener('click', closePractice);
+  window.addEventListener('hashchange', showRoute);
+  document.querySelector('#achievements-back').addEventListener('click', () => { location.hash = ''; });
   document.querySelector('#reset-all-button').addEventListener('click', resetAllProgress);
   document.querySelector('#next-button').addEventListener('click', showNextQuestion);
   document.querySelector('#diagnostic-exit-button').addEventListener('click', () => exitDiagnostic());

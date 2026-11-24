@@ -260,3 +260,69 @@ h1, h2, p { margin-top: 0; }
 .written-work .work-carry td { height: 1.05em; color: var(--red); font-size: 12px; }
 .written-work .work-answer td:not(.work-side) { font-weight: 800; }
 .written-work p { margin: 7px 0 0; color: var(--muted); font-size: 12px; }
+
+/* Achievements: a dark "trophy hall" so the pixel-art badges glow. */
+.achievements-link { display: inline-flex; align-items: center; gap: 7px; padding: 4px 11px 4px 5px; border: 1px solid #2c2550; border-radius: 99px; color: #fff3c4; background: #1d1838; font-size: 13px; font-weight: 800; text-decoration: none; }
+.achievements-link:hover, .achievements-link:focus-visible { border-color: #f2c14e; box-shadow: 0 0 0 3px rgba(242, 193, 78, .25); }
+.achievements-link img { image-rendering: pixelated; }
+.achievements-link strong { padding: 1px 7px; border-radius: 99px; color: #1d1838; background: #f2c14e; font-size: 11px; }
+.achievements-link strong:empty { display: none; }
+
+#achievements-view { width: min(1160px, calc(100% - 40px)); margin: 0 auto; padding: 24px 0 70px; }
+.trophy-hero { display: grid; grid-template-columns: 1fr 260px; gap: 40px; align-items: center; margin: 14px 0 34px; padding: 34px 38px; border-radius: 22px; color: #e9e5ff;
+  background: radial-gradient(circle at 85% 20%, rgba(242, 193, 78, .22), transparent 42%), radial-gradient(circle at 10% 110%, rgba(120, 92, 255, .35), transparent 50%), #17122e;
+  box-shadow: 0 18px 40px rgba(23, 18, 46, .28); }
+.trophy-hero .eyebrow { color: #f2c14e; }
+.trophy-hero h1 { margin-bottom: 12px; color: white; font-size: clamp(34px, 5vw, 50px); letter-spacing: -.03em; }
+.trophy-hero p { max-width: 620px; margin-bottom: 0; color: #b9b2df; font-size: 17px; line-height: 1.55; }
+.trophy-tally { display: grid; gap: 4px; justify-items: start; }
+.trophy-tally strong { color: #f2c14e; font-size: 56px; line-height: 1; font-variant-numeric: tabular-nums; }
+.trophy-tally small { color: #8c84bd; font-size: 26px; }
+.trophy-tally > span { color: #b9b2df; font-weight: 750; text-transform: uppercase; letter-spacing: .1em; font-size: 12px; }
+.trophy-track, .achievement-track { width: 100%; height: 10px; overflow: hidden; border: 2px solid #3a3266; border-radius: 3px; background: #0f0b20; }
+.trophy-track { margin-top: 10px; }
+.trophy-track span, .achievement-track span { display: block; height: 100%; background: repeating-linear-gradient(90deg, #f2c14e 0 6px, #e0a92e 6px 8px); }
+
+.achievement-section { margin-bottom: 38px; }
+.achievement-section-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 20px; margin-bottom: 16px; }
+.achievement-section-heading h2 { margin: 0; font-size: 26px; letter-spacing: -.02em; }
+.achievement-section-heading p { margin: 0; color: var(--muted); }
+.achievement-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 14px; }
+
+.achievement-card { display: grid; grid-template-columns: 128px 1fr; gap: 16px; align-items: center; padding: 14px 16px 14px 14px; border: 2px solid #2c2550; border-radius: 16px; color: #e9e5ff; background: #1d1838; }
+.achievement-plinth { display: grid; place-items: center; width: 128px; height: 128px; border-radius: 12px; background: radial-gradient(circle at 50% 55%, #2d2656 0 40%, #1a1533 70%); }
+.achievement-plinth img { width: 128px; height: 128px; image-rendering: pixelated; }
+.achievement-copy h3 { margin: 0 0 6px; color: white; font-size: 17px; letter-spacing: -.01em; }
+.achievement-requirement { margin: 0 0 8px; color: #f2c14e; font-size: 13px; font-weight: 750; line-height: 1.4; }
+.achievement-flavour { margin: 0 0 10px; color: #b9b2df; font-size: 13px; font-style: italic; line-height: 1.45; }
+.achievement-status { display: flex; align-items: center; gap: 10px; color: #8c84bd; font-size: 12px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
+.achievement-status .achievement-track { flex: 1; height: 9px; }
+.achievement-count { white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+.achievement-card.earned { border-color: #f2c14e; background: linear-gradient(160deg, #2a2050, #1d1838 60%); box-shadow: 0 0 0 1px rgba(242, 193, 78, .25), 0 10px 26px rgba(242, 193, 78, .12); }
+.achievement-card.earned .achievement-plinth { background: radial-gradient(circle at 50% 55%, rgba(255, 214, 110, .55) 0 22%, rgba(242, 193, 78, .18) 45%, #1a1533 72%); }
+.achievement-card.earned .achievement-status { color: #7be0a6; }
+.achievement-card.earned:hover .achievement-plinth img { animation: badge-bob .9s steps(4) infinite alternate; }
+.achievement-card.locked .achievement-plinth img { filter: brightness(0); opacity: .55; }
+.achievement-card.locked h3 { color: #cfc9f0; }
+@keyframes badge-bob { from { transform: translateY(0); } to { transform: translateY(-6px); } }
+
+.toast-stack { position: fixed; right: 20px; bottom: 20px; z-index: 50; display: grid; gap: 10px; }
+.achievement-toast { display: flex; align-items: center; gap: 12px; padding: 8px 18px 8px 8px; border: 2px solid #f2c14e; border-radius: 14px; color: white; background: #1d1838; box-shadow: 0 14px 34px rgba(23, 18, 46, .4); text-align: left; cursor: pointer; animation: toast-in .35s ease-out; }
+.achievement-toast img { image-rendering: pixelated; border-radius: 9px; background: radial-gradient(circle, rgba(255, 214, 110, .5) 0 30%, #1a1533 72%); }
+.achievement-toast small { display: block; color: #f2c14e; font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.achievement-toast strong { font-size: 16px; }
+.achievement-toast.leaving { opacity: 0; transform: translateY(10px); transition: opacity .5s, transform .5s; }
+@keyframes toast-in { from { opacity: 0; transform: translateY(16px) scale(.96); } to { opacity: 1; transform: none; } }
+
+@media (max-width: 760px) {
+  .achievements-link span { display: none; }
+  .projects-link { display: none; }
+  .trophy-hero { grid-template-columns: 1fr; padding: 26px 22px; gap: 20px; }
+  .achievement-section-heading { display: block; }
+  .achievement-section-heading p { margin-top: 4px; }
+  .achievement-grid { grid-template-columns: 1fr; }
+  .achievement-card { grid-template-columns: 96px 1fr; }
+  .achievement-plinth, .achievement-plinth img { width: 96px; height: 96px; }
+}
+@media (prefers-reduced-motion: reduce) { .achievement-card.earned:hover .achievement-plinth img, .achievement-toast { animation: none; } }

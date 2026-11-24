@@ -16,6 +16,10 @@ Skills carry a separate, mutually exclusive assessment tag, displayed as **Needs
 
 After a wrong answer, a **How to solve it** panel shows the method step by step, including written column, short and long methods for harder calculations. After a correct answer, the same panel is available but collapsed.
 
+The **Achievements** page (`#achievements`, linked from the header) has 28 badges: a monster for completing every skill in each topic, and relics for skill-count milestones and feats such as finishing a skill with no wrong answers. Rules live in `achievements.js`. A skill counts the first time it reaches 100 points (`completions` in the saved state), and earned achievements are kept even if progress is reset. A toast announces each new unlock.
+
+The badges are 64 px PixelLab pixel art in `assets/badges/`. Prompts, seeds and hashes are in `tools/badges/recipes.json`. `node tools/badges/badges.mjs generate <id> --takes 3` makes new takes outside the repository (needs `PIXELLAB_API_KEY`). `sheet` builds a contact sheet, `accept <id> <seed>` copies a take in, and `validate` checks the hashes.
+
 Generator implementation standards are documented in `docs/GENERATOR_IMPLEMENTATION_GUIDELINES.md`.
 
 ## Repository structure
@@ -27,6 +31,8 @@ generators/ Question generators by topic, plus shared helpers in core.js
 visuals/    Diagram renderers added alongside visual-renderers.js
 src/types/  Shared TypeScript content-model definitions
 tests/      Coverage, correctness, and generator-diversity checks
+assets/     Achievement badges
+tools/      Badge generation pipeline
 ```
 
 ## Validate generators
@@ -48,6 +54,7 @@ question shapes in direct-calculation skills.
 errors and low wording variety. Pass a module name, such as `geometry`, to audit one topic.
 `tests/validate-solutions.mjs` checks every step-by-step solution, and
 `tests/validate-written-methods.mjs` checks the written calculation layouts.
+`tests/validate-achievements.mjs` checks the achievement rules and that every badge exists.
 
 ## Run locally
 
