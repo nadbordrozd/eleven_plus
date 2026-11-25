@@ -178,6 +178,48 @@ function renderCoordinateGrid(container,visual,format){
   container.append(svg);
 }
 
+// Bar model: one or more bars split into equal parts, some shaded.
+// {type:'bar_model', bars:[{parts, shaded, length?:1, widths?:[per part], name?, labels?:[per part], total?}]}
+// length scales a bar against the longest (for comparing amounts); widths gives parts relative sizes (default equal);
+// shaded is a count from the left or a list of part indexes; total puts a bracket and label above the bar.
+function renderBarModel(container,visual){
+  const bars=visual.bars||[],named=bars.some(bar=>bar.name),left=named?120:30,full=600-left-30,rowHeight=bars.some(bar=>bar.total)?92:62;
+  const svg=makeSvg(visual.label||'Bar model',`0 0 600 ${20+bars.length*rowHeight}`);
+  bars.forEach((bar,index)=>{
+    const width=full*(bar.length??1),sizes=bar.widths?.length===bar.parts?bar.widths:Array(bar.parts).fill(1),scale=width/sizes.reduce((a,b)=>a+b,0),starts=sizes.map((_,i)=>left+sizes.slice(0,i).reduce((a,b)=>a+b,0)*scale),top=12+index*rowHeight+(bar.total?32:0),height=40,shaded=typeof bar.shaded==='number'?Array.from({length:bar.shaded},(_,i)=>i):(bar.shaded||[]);
+    if(bar.total){
+      const y=top-12;
+      svg.append(line(left,y,left+width,y,{'stroke-width':2,stroke:MUTED}),line(left,y-6,left,y+6,{'stroke-width':2,stroke:MUTED}),line(left+width,y-6,left+width,y+6,{'stroke-width':2,stroke:MUTED}),text(left+width/2,y-9,bar.total,{'font-size':16,'font-weight':800,...HALO}));
+    }
+    if(bar.name)svg.append(text(left-12,top+height/2+6,bar.name,{'text-anchor':'end','font-size':16,'font-weight':700}));
+    for(let i=0;i<bar.parts;i+=1){
+      const part=sizes[i]*scale;
+      svg.append(svgNode('rect',{x:starts[i],y:top,width:part,height,fill:shaded.includes(i)?'#8fa6ec':'white',stroke:INK,'stroke-width':2}));
+      if(bar.labels?.[i]!==undefined&&bar.labels[i]!=='')svg.append(text(starts[i]+part/2,top+height/2+6,bar.labels[i],{'font-size':part<34?12:15,'font-weight':700}));
+    }
+  });
+  container.append(svg);
+}
+
+// Eight-point compass rose. arcs: [{from, to, label}] in degrees anticlockwise from east (as for angles).
+function renderCompass(container,visual){
+  const svg=makeSvg(visual.label||'Eight-point compass','0 0 420 390'),cx=210,cy=195,main=128,minor=92;
+  const at=(degrees,radius)=>{const radians=degrees*Math.PI/180;return [cx+radius*Math.cos(radians),cy-radius*Math.sin(radians)];};
+  const points=[[90,'N'],[45,'NE'],[0,'E'],[-45,'SE'],[-90,'S'],[-135,'SW'],[180,'W'],[135,'NW']];
+  points.forEach(([degrees,name])=>{
+    const isMain=name.length===1,length=isMain?main:minor,[x,y]=at(degrees,length),[lx,ly]=at(degrees,length+(isMain?22:24));
+    svg.append(line(cx,cy,x,y,{'stroke-width':isMain?4:2.5,stroke:isMain?INK:MUTED}));
+    svg.append(text(lx,ly+6,name,{'font-size':isMain?20:15,'font-weight':800,fill:isMain?INK:MUTED}));
+  });
+  (visual.arcs||[]).forEach(arc=>{
+    const radius=46,sweep=arc.to-arc.from,mid=(arc.from+arc.to)/2,[x1,y1]=at(arc.from,radius),[x2,y2]=at(arc.to,radius);
+    svg.append(svgNode('path',{d:`M ${x1} ${y1} A ${radius} ${radius} 0 ${Math.abs(sweep)>180?1:0} ${sweep>0?0:1} ${x2} ${y2}`,fill:'none',stroke:ACCENT,'stroke-width':3}));
+    if(arc.label){const [x,y]=at(mid,radius+26);svg.append(text(x,y+6,arc.label,{'font-size':17,'font-weight':800,fill:ACCENT,...HALO}));}
+  });
+  svg.append(svgNode('circle',{cx,cy,r:5,fill:INK}));
+  container.append(svg);
+}
+
 function renderGrid(container,visual){
   const svg=makeSvg(visual.label||'Square grid','0 0 520 420'),cell=Math.min(48,visual.sideLabels?300/Math.max(visual.rows,visual.cols):330/Math.max(visual.rows,visual.cols)),width=visual.cols*cell,height=visual.rows*cell,left=visual.numbered||visual.sideLabels?(520-width)/2+10:70,top=visual.numbered||visual.sideLabels?48:35;
   const shaded=new Set((visual.shaded||[]).map(([row,col])=>`${row}:${col}`));
@@ -506,13 +548,20 @@ function renderVisualPattern(container,visual){
   visual.counts.slice(0,3).forEach((count,index)=>{const cols=visual.layout==='row'?Math.min(count,8):visual.layout==='columns'?Math.ceil(count/3):Math.ceil(Math.sqrt(count));for(let item=0;item<count;item++){const row=Math.floor(item/cols),col=item%cols,x=starts[index]+col*22,y=65+row*22;if(visual.motif==='square')svg.append(svgNode('rect',{x:x-7,y:y-7,width:14,height:14,rx:2,fill:'#3457d5'}));else if(visual.motif==='diamond')svg.append(svgNode('rect',{x:x-7,y:y-7,width:14,height:14,transform:`rotate(45 ${x} ${y})`,fill:'#8b4abb'}));else svg.append(svgNode('circle',{cx:x,cy:y,r:7,fill:'#3457d5'}));}svg.append(text(starts[index]+45,250,`Term ${index+1}: ${count}`,{'font-size':15,'font-weight':700}));});container.append(svg);
 }
 
+function rendererFor(type){
+  const renderers={number_line:renderNumberLine,table:renderTable,timetable:renderTable,bar_chart:renderBarChart,line_graph:renderLineGraph,pictogram:renderPictogram,pie_chart:renderPieChart,coordinate_grid:renderCoordinateGrid,grid:renderGrid,bar_model:renderBarModel,compass:renderCompass,function_machine:renderFunctionMachine,equation:renderEquation,thermometer:renderThermometer,venn:renderVenn,angle:renderAngle,shape:renderShape,parallel_lines:renderParallelLines,circle:renderCircle,cuboid:renderCuboid,painted_cuboid:renderPaintedCuboid,composite_area:renderCompositeArea,open_box_net:renderOpenBoxNet,symmetry_completion:renderSymmetryCompletion,packing_puzzle:renderPackingPuzzle,tessellation_choices:renderTessellationChoices,cube_surface_net:renderCubeSurfaceNet,cube_stack:renderCubeStack,spatial_cuboid:renderSpatialCuboid,solid:renderSolid,clock:renderClock,text_symmetry:renderTextSymmetry,visual_pattern:renderVisualPattern,scale_route:renderScaleRoute};
+  return {...renderers,...measureAlgebraRenderers,...dataLogicRenderers,...geometryRenderers,...puzzleRenderers}[type];
+}
+
+/** Whether a visual spec has a renderer (used to check Learn pages). */
+export const canRender=(visual)=>Boolean(visual&&rendererFor(visual.type));
+
 export function renderVisual(container,visual,formatNumber){
   container.replaceChildren();
   if(!visual){container.hidden=true;return;}
   container.hidden=false;
   const format=value=>formatNumber(Math.round((value+Number.EPSILON)*1000)/1000);
-  const renderers={number_line:renderNumberLine,table:renderTable,timetable:renderTable,bar_chart:renderBarChart,line_graph:renderLineGraph,pictogram:renderPictogram,pie_chart:renderPieChart,coordinate_grid:renderCoordinateGrid,grid:renderGrid,function_machine:renderFunctionMachine,equation:renderEquation,thermometer:renderThermometer,venn:renderVenn,angle:renderAngle,shape:renderShape,parallel_lines:renderParallelLines,circle:renderCircle,cuboid:renderCuboid,painted_cuboid:renderPaintedCuboid,composite_area:renderCompositeArea,open_box_net:renderOpenBoxNet,symmetry_completion:renderSymmetryCompletion,packing_puzzle:renderPackingPuzzle,tessellation_choices:renderTessellationChoices,cube_surface_net:renderCubeSurfaceNet,cube_stack:renderCubeStack,spatial_cuboid:renderSpatialCuboid,solid:renderSolid,clock:renderClock,text_symmetry:renderTextSymmetry,visual_pattern:renderVisualPattern,scale_route:renderScaleRoute};
-  const renderer={...renderers,...measureAlgebraRenderers,...dataLogicRenderers,...geometryRenderers,...puzzleRenderers}[visual.type];
+  const renderer=rendererFor(visual.type);
   if(!renderer){container.hidden=true;return;}
   renderer(container,visual,format);
 }

@@ -4,6 +4,8 @@ import { renderVisual } from './visual-renderers.js';
 import { renderSolution } from './visuals/working.js';
 import { evaluateAchievements } from './achievements.js';
 import { playSound, preloadSounds, setSoundEnabled, soundEnabled } from './sounds.js';
+import { PAGES_BY_SKILL } from './learn/pages.js';
+import { renderLearnIndex, renderLearnPage } from './learn/view.js';
 
 const CONTENT_ROOT = './data';
 const STORAGE_KEY = 'eleven_plus_maths_state_v1';
@@ -33,6 +35,7 @@ let questionCounter = 0;
 let questionAnswered = false;
 let catalogueFilter = 'all';
 let diagnosticSession = null;
+let returnTopicAfterAnswer = null;
 
 function isDeveloperMode() {
   return ['localhost', '127.0.0.1'].includes(location.hostname) || new URLSearchParams(location.search).has('dev');
@@ -95,6 +98,7 @@ function defaultState() {
     completed_tests: [],
     completions: {},
     achievements: {},
+    read: {},
   };
 }
 
@@ -104,6 +108,7 @@ function loadState() {
     const loaded = saved?.schema_version === 1 ? { ...defaultState(), ...saved } : defaultState();
     if (!loaded.completions || typeof loaded.completions !== 'object') loaded.completions = {};
     if (!loaded.achievements || typeof loaded.achievements !== 'object') loaded.achievements = {};
+    if (!loaded.read || typeof loaded.read !== 'object') loaded.read = {};
     return loaded;
   } catch {
     return defaultState();
@@ -158,8 +163,9 @@ function resetAllProgress() {
   if(!window.confirm('Reset progress for every skill? This cannot be undone. Achievements you have already earned are kept.')) return;
   const todos = [...todoSkillIds()];
   const known = [...knownSkillIds()];
-  const achievements = state.achievements;
+  const achievements = state.achievements, read = state.read;
   state=defaultState();
+  state.read = read;
   state.todo_skills = todos;
   state.known_skills = known;
   state.achievements = achievements;
@@ -240,6 +246,13 @@ function renderCatalogue() {
       topicPracticeButton.disabled = true;
     }
 
+    const topicPages = new Set(allTopicSkills.flatMap((skill) => (PAGES_BY_SKILL[skill.id] || []).map((page) => page.id)));
+    const learnCard = section.querySelector('.learn-step');
+    if (topicPages.size) {
+      section.querySelector('.topic-learn-copy').textContent = `${topicPages.size} short page${topicPages.size === 1 ? '' : 's'} explain${topicPages.size === 1 ? 's' : ''} the ideas behind these skills, with worked examples.`;
+      section.querySelector('.topic-learn-link').href = `#learn/topic/${topic.id}`;
+    } else learnCard.remove();
+
     topicSkills.forEach((skill) => grid.append(createExerciseCard(skill)));
     list.append(section);
   });
@@ -296,6 +309,15 @@ function createExerciseCard(skill) {
   todo.addEventListener('click', () => setSkillEvaluation(skill.id, evaluation === 'todo' ? 'unmarked' : 'todo', { rerender: true }));
   known.addEventListener('click', () => setSkillEvaluation(skill.id, evaluation === 'known' ? 'unmarked' : 'known', { rerender: true }));
   actions.append(todo, known);
+  const page = PAGES_BY_SKILL[skill.id]?.[0];
+  if (page) {
+    const learn = document.createElement('a');
+    learn.className = 'card-action learn-action';
+    learn.href = `#learn/${page.id}`;
+    learn.textContent = 'Learn';
+    learn.title = page.title;
+    actions.append(learn);
+  }
   if (available) {
     const practice = document.createElement('button');
     practice.type = 'button';
@@ -401,23 +423,43 @@ function openArchetypeDialog(skill) {
 function openPractice(skill, archetypeId = null) {
   currentSkill = skill;
   selectedArchetypeId = archetypeId;
+  // Coming from a Learn page or the trophy hall: leave the hash route so Back returns there.
+  if (location.hash) history.pushState(null, '', location.pathname + location.search);
+  ['#achievements-view', '#learn-view'].forEach((selector) => { document.querySelector(selector).hidden = true; });
   document.querySelector('#catalogue-view').hidden = true;
   document.querySelector('#practice-view').hidden = false;
   document.querySelector('#practice-title').textContent = skill.title;
   const topicTitle = topics.find((topic) => topic.id === skill.topic_id)?.title || '';
   const archetypeTitle = archetypes.find((item) => item.id === archetypeId)?.title;
   document.querySelector('#practice-topic').textContent = archetypeTitle ? `${topicTitle} · ${archetypeTitle}` : topicTitle;
+  const learnPage = PAGES_BY_SKILL[skill.id]?.[0], learnLink = document.querySelector('#practice-learn');
+  learnLink.hidden = !learnPage;
+  if (learnPage) learnLink.href = `#learn/${learnPage.id}`;
   updatePracticePoints();
   showNextQuestion();
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 function closePractice() {
+  const topicId = currentSkill?.topic_id;
   document.querySelector('#practice-view').hidden = true;
   document.querySelector('#catalogue-view').hidden = false;
   currentSkill = null;
   selectedArchetypeId = null;
+  returnTopicAfterAnswer = null;
   renderCatalogue();
+  if (topicId) showTopic(topicId);
+}
+
+// Opens a topic's section in the catalogue and scrolls to it.
+function showTopic(topicId) {
+  const find = () => document.querySelector(`.topic-section[data-topic-id="${topicId}"]`);
+  if (!find()) setCatalogueFilter('all');
+  const section = find();
+  if (!section) return;
+  section.querySelector('.topic-header').setAttribute('aria-expanded', 'true');
+  section.scrollIntoView({ block: 'start' });
+  requestAnimationFrame(() => section.scrollIntoView({ block: 'start' }));
 }
 
 function showNextQuestion() {
@@ -447,7 +489,10 @@ function showNextQuestion() {
   feedback.hidden = true;
   feedback.className = 'feedback';
   document.querySelector('#solution').hidden = true;
-  document.querySelector('#next-button').hidden = true;
+  const next = document.querySelector('#next-button');
+  next.hidden = true;
+  next.textContent = 'Next question →';
+  returnTopicAfterAnswer = null;
 }
 
 function renderQuestionVisual(visual) {
@@ -496,8 +541,14 @@ function markAnswer(optionId, { skipped = false } = {}) {
     : skipped ? `Question skipped. +${CORRECT_POINTS} points.`
       : correct ? `Correct! +${CORRECT_POINTS} points.`
       : `Not quite. −${WRONG_POINTS} points. The answer is ${currentQuestion.answer}: ${correctText}.`;
-  renderSolution(document.querySelector('#solution'), currentQuestion, { open: !correct });
-  document.querySelector('#next-button').hidden = false;
+  renderSolution(document.querySelector('#solution'), currentQuestion, { open: !correct, learn: learnLinks(currentSkill.id) });
+  const next = document.querySelector('#next-button');
+  next.hidden = false;
+  // Finishing a skill for the first time sends you back to its topic.
+  if (newlyCompleted) {
+    returnTopicAfterAnswer = currentSkill.topic_id;
+    next.textContent = 'Back to topic →';
+  }
   const reachedFull = progress.status === 'done' && pointsBefore < COMPLETION_POINTS;
   playSound(reachedFull ? 'skill_complete' : correct ? 'correct' : 'wrong');
   // Let the skill fanfare finish before an achievement jingle starts.
@@ -755,21 +806,43 @@ function renderAchievements() {
   });
 }
 
+const learnLinks = (skillId) => (PAGES_BY_SKILL[skillId] || []).map((page) => ({ href: `#learn/${page.id}`, title: page.title }));
+
+const learnContext = {
+  get topics() { return topics; },
+  get skills() { return skills; },
+  get generators() { return generators; },
+  get readPages() { return state.read; },
+  topicStyle: (topicId) => TOPIC_STYLES[Math.max(0, topics.findIndex((topic) => topic.id === topicId)) % TOPIC_STYLES.length],
+  markRead: (id) => { state.read[id] = new Date().toISOString(); saveState(); },
+  questionIdsFor: (skillId) => archetypes.filter((item) => item.skill_id === skillId && generators[item.id]).map((item) => item.id),
+  points: (skillId) => progressFor(skillId).points,
+  openPractice: (skill) => openPractice(skill),
+  playSound,
+};
+
+// Hash routes: '' (catalogue, practice, assessment), #achievements, #learn, #learn/topic/<id>, #learn/<page>.
 function showRoute() {
   if (!skills.length) return;
-  const wantAchievements = location.hash === '#achievements';
-  const achievementsView = document.querySelector('#achievements-view');
-  if (wantAchievements) {
+  const route = location.hash.replace(/^#/, '');
+  const achievementsView = document.querySelector('#achievements-view'), learnView = document.querySelector('#learn-view');
+  if (route === 'achievements' || route === 'learn' || route.startsWith('learn/')) {
     if (diagnosticSession) exitDiagnostic();
     document.querySelector('#practice-view').hidden = true;
     currentSkill = null;
     selectedArchetypeId = null;
+    returnTopicAfterAnswer = null;
     document.querySelector('#catalogue-view').hidden = true;
-    achievementsView.hidden = false;
-    renderAchievements();
-    window.scrollTo({ top: 0 });
-  } else if (!achievementsView.hidden) {
+    achievementsView.hidden = route !== 'achievements';
+    learnView.hidden = route === 'achievements';
+    if (route === 'achievements') { renderAchievements(); window.scrollTo({ top: 0 }); return; }
+    const root = document.querySelector('#learn-root'), [, first, second] = route.split('/');
+    if (!first) renderLearnIndex(root, learnContext);
+    else if (first === 'topic') renderLearnIndex(root, learnContext, second);
+    else renderLearnPage(root, first, learnContext);
+  } else if (!achievementsView.hidden || !learnView.hidden) {
     achievementsView.hidden = true;
+    learnView.hidden = true;
     document.querySelector('#catalogue-view').hidden = false;
     renderCatalogue();
     window.scrollTo({ top: 0 });
@@ -828,8 +901,9 @@ if (typeof document !== 'undefined' && document.querySelector('#topic-list')) {
   preloadSounds();
   window.addEventListener('hashchange', showRoute);
   document.querySelector('#achievements-back').addEventListener('click', () => { location.hash = ''; });
+  document.querySelector('#learn-back').addEventListener('click', () => { location.hash = ''; });
   document.querySelector('#reset-all-button').addEventListener('click', resetAllProgress);
-  document.querySelector('#next-button').addEventListener('click', showNextQuestion);
+  document.querySelector('#next-button').addEventListener('click', () => (returnTopicAfterAnswer ? closePractice() : showNextQuestion()));
   document.querySelector('#diagnostic-exit-button').addEventListener('click', () => exitDiagnostic());
   document.querySelector('#diagnostic-skip-question').addEventListener('click', skipDiagnosticQuestion);
   document.querySelector('#diagnostic-next-question').addEventListener('click', nextDiagnosticQuestion);

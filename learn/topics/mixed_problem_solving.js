@@ -1,0 +1,235 @@
+// Learn pages for mixed problem solving. See docs/LEARN_GUIDELINES.md.
+import { h, h3, p, list, steps, key, note, mistake, figure, tbl, example } from '../kit.js';
+
+const ordinal = (n) => `${n}${n === 1 ? 'st' : n === 2 ? 'nd' : n === 3 ? 'rd' : 'th'}`;
+
+export const pages = [
+  {
+    id: 'mixed_multistep',
+    title: 'Multi-step word problems',
+    skills: ['mixed_multistep'],
+    prereqs: ['ar_multi_step_numeric', 'ar_divide_round_up', 'pct_percent_of_amount'],
+    summary: 'Plan a word problem that needs several steps, and spot the common traps: rounding up, counting gaps, and knockout matches.',
+    body: [
+      h('The big idea'),
+      p('A <b>multi-step</b> problem needs two or more calculations, and the answer to one step feeds into the next. Each step is usually easy. The hard part is planning: deciding what to work out first.'),
+      key('Four steps for any word problem', steps([
+        '<b>Read</b> the question twice. The first time, get the story. The second time, find exactly what is being asked and underline it.',
+        '<b>Plan</b>: what do you need to know before you can answer? Work backwards from the question to the numbers you have.',
+        '<b>Do</b> one step at a time. Write each result down with its unit (ml, £, people).',
+        '<b>Check</b>: does the answer make sense, and does it answer the question that was asked?',
+      ])),
+      example('Example 1', '37 walkers on a charity walk are each given 300 ml of water. Water comes in 1000 ml bottles. How many bottles must be bought?', [
+        'Plan: find the total water needed, then how many bottles hold it.',
+        'Total water: 37 × 300 ml. Since 37 × 3 = 111, this is 111 × 100 = 11,100 ml.',
+        'Each bottle holds 1000 ml: 11,100 ÷ 1000 = 11.1 bottles.',
+        '11 bottles are not quite enough, so you must buy <b>12</b>.',
+      ], '12 bottles'),
+      mistake('rounding the usual way when you need "enough". Even 11.1 bottles means you need a 12th bottle. When the question asks how many containers, boxes or trips are needed, round <b>up</b> (see [[ar_divide_round_up]]).'),
+      example('Example 2', 'A shop assistant earns £320 a week plus 5% of the price of each coat sold. Each coat costs £20. In one week 6 coats are sold on each of 6 days. How much does the assistant earn that week?', [
+        'Number of coats: 6 × 6 = 36.',
+        '10% of £20 is £2, so 5% is £1. The assistant earns £1 per coat (see [[pct_percent_of_amount]]).',
+        'Extra pay: 36 × £1 = £36.',
+        'Total: £320 + £36 = <b>£356</b>.',
+      ], '£356'),
+      example('Example 3', 'There are 298 people at a concert. There are 22 more adults than children. How many children are there?', [
+        'Draw it: the adults’ bar is the children’s bar plus an extra 22.',
+        'Take away the extra 22 and the two groups are equal: 298 − 22 = 276.',
+        'Halve it: 276 ÷ 2 = <b>138</b> children.',
+        'Check: there are 138 + 22 = 160 adults, and 138 + 160 = 298. ✓',
+      ], '138 children', { visual: { type: 'bar_model', bars: [{ name: 'Children', parts: 1, length: 138 / 160, labels: ['?'] }, { name: 'Adults', parts: 2, widths: [138, 22], shaded: [1], labels: ['same as children', '22'] }] } }),
+      example('Example 4', 'A printing machine cost £760. It makes £120 a month. In which month does the money it has made first reach £760?', [
+        'After 6 months: 6 × £120 = £720. That is not enough yet.',
+        'After 7 months: £720 + £120 = £840. That covers the cost.',
+      ], 'Month 7'),
+      h('Posts and gaps'),
+      p('If trees stand 5 m apart along a 20 m road, with a tree at each end, the road is split into 20 ÷ 5 = 4 <b>gaps</b>. There is a tree at the start of every gap, plus one more at the far end: 5 trees.'),
+      figure({ type: 'bar_model', bars: [{ parts: 4, total: '20 m', labels: ['5 m', '5 m', '5 m', '5 m'] }] }, 'Four 5 m gaps. A tree stands on each of the 5 dividing lines, including both ends.'),
+      key('Posts and gaps', list([
+        'In a straight line with a post at each end: posts = gaps + 1.',
+        'All the way round a closed shape: posts = gaps, because the last gap ends back at the first post.',
+      ])),
+      example('Example 5', 'Lamp posts stand every 6 m along both sides of a 72 m path, with one at each end of each side. How many lamp posts are there?', [
+        'One side: 72 ÷ 6 = 12 gaps, so 12 + 1 = 13 lamp posts.',
+        'Both sides: 13 × 2 = <b>26</b>.',
+      ], '26 lamp posts'),
+      example('Example 6', 'A square field has sides of 36 m. Posts are placed every 6 m all the way round, with one at each corner. How many posts are there?', [
+        'Distance round: 4 × 36 = 144 m.',
+        '144 ÷ 6 = 24 gaps. Round a closed shape, posts = gaps: <b>24</b>.',
+      ], '24 posts'),
+      p('It works backwards too: 18 posts in a straight line, 4 m apart, make 17 gaps, so the fence is 17 × 4 = 68 m long.'),
+      h('Knockout competitions'),
+      p('In a <b>knockout</b> competition, players meet in pairs and the loser of each match is out. Each round halves the number of players. With 16 players: 16 → 8 → 4 → 2 → 1, which is 4 rounds. After round 2 there are 4 players left.'),
+      key('Knockout matches', p('Every match knocks out exactly 1 player, and all but the winner must be knocked out. So the total number of matches is the number of players − 1. With 16 players there are 16 − 1 = 15 matches.')),
+      note('in the knockout above, check by adding the matches round by round: 8 + 4 + 2 + 1 = 15. ✓'),
+    ].join(''),
+  },
+  {
+    id: 'mixed_custom_notation',
+    title: 'Made-up symbols and rules',
+    skills: ['mixed_custom_notation'],
+    prereqs: ['ar_order_operations', 'alg_substitution'],
+    summary: 'Use a rule given with a new symbol, like a ▲ b = 2a + b, to work out a value, including one symbol used inside another.',
+    body: [
+      h('The big idea'),
+      p('Some questions invent a new symbol, such as ▲ or ★, and tell you what it means with a rule. Nobody expects you to have seen the symbol before. The rule tells you everything you need.'),
+      p('In a rule like a ▲ b = 2a + b, the letter <b>a</b> stands for the number written before the symbol and <b>b</b> stands for the number written after it. To find 4 ▲ 3, put 4 in place of a and 3 in place of b. This is called <b>substituting</b> (see [[alg_substitution]]).'),
+      key('Using a made-up rule', steps([
+        'Write the rule out again with the numbers in place of the letters.',
+        'Work it out using the usual order: brackets first, then powers, then × and ÷, then + and − (see [[ar_order_operations]]).',
+        'If one symbol is inside brackets, work that part out first and use the answer as the new number.',
+      ])),
+      p('Remember what the letters mean when they are written next to numbers:'),
+      list([
+        '<b>2a</b> means 2 × a. If a = 4, then 2a = 8 (not 24).',
+        '<b>a²</b> means a × a. If a = 5, then a² = 25 (not 10).',
+        '<b>3a − b</b> means work out 3 × a first, then take away b.',
+      ]),
+      example('Example 1', 'a ▲ b = 2a + b. Work out 4 ▲ 3.', [
+        'Here a = 4 and b = 3.',
+        '2 × 4 + 3 = 8 + 3 = <b>11</b>.',
+      ], '11'),
+      example('Example 2', 'a ★ b = a² + b. Work out 5 ★ 2, and then 2 ★ 5.', [
+        '5 ★ 2: a = 5 and b = 2, so 5 × 5 + 2 = 25 + 2 = <b>27</b>.',
+        '2 ★ 5: a = 2 and b = 5, so 2 × 2 + 5 = 4 + 5 = <b>9</b>.',
+        'Swapping the numbers changed the answer, so the order matters.',
+      ], '27 and 9'),
+      h('A symbol inside a symbol'),
+      p('Harder questions put one calculation inside brackets, like (9 ◆ 5) ◆ 3. Work out the brackets first. The answer then becomes the <b>a</b> for the second step.'),
+      example('Example 3', 'a ◆ b = (a + b) × 2. Work out (9 ◆ 5) ◆ 3.', [
+        'Brackets first, with a = 9 and b = 5: (9 + 5) × 2 = 14 × 2 = 28.',
+        'Now use a = 28 and b = 3: (28 + 3) × 2 = 31 × 2 = <b>62</b>.',
+      ], '62'),
+      example('Example 4', 'a ● b = a × b − a. Work out (4 ● 3) ● 2.', [
+        'Brackets first, with a = 4 and b = 3: 4 × 3 − 4 = 12 − 4 = 8.',
+        'Now use a = 8 and b = 2: 8 × 2 − 8 = 16 − 8 = <b>8</b>.',
+      ], '8'),
+      example('Example 5', 'a ▲ b = 3a − b. Work out (10 ▲ 4) ▲ 2.', [
+        'Brackets first: 3 × 10 − 4 = 30 − 4 = 26.',
+        'Then a = 26 and b = 2: 3 × 26 − 2 = 78 − 2 = <b>76</b>.',
+      ], '76'),
+      mistake('mixing up a and b. In a ▲ b the first number is always a, even when it is smaller. In Example 2, 2 ★ 5 means a = 2, not a = 5.'),
+      mistake('working left to right instead of following the order of operations. In 2a + b, the multiplying is done before the adding: 2 × 4 + 3 is 11, not 2 × 7 = 14.'),
+      note('write the rule out in full with the numbers in it, like "3 × 26 − 2", before you calculate. It takes a few seconds and stops most mistakes.'),
+    ].join(''),
+  },
+  {
+    id: 'mixed_constraints',
+    title: 'Puzzles with totals, swaps and positions',
+    skills: ['mixed_constraints'],
+    prereqs: ['mixed_multistep', 'alg_relationship_word_problems', 'pct_percent_of_amount'],
+    summary: 'Solve puzzles about two sizes of table or boat, swapping one thing for another, filling places to a target, and positions in a queue.',
+    body: [
+      h('The big idea'),
+      p('These puzzles give you a few facts, or <b>constraints</b>, that the answer must fit. A good way in is to <b>try a number and improve it</b>, or to imagine a simpler situation first and then adjust. Always check that your answer fits every fact in the question.'),
+      h('Two sizes'),
+      example('Example 1', 'A lake centre has 13 boats. Some hold 4 passengers and the rest hold 6. Altogether they hold 70 passengers. How many boats hold 6?', [
+        '<b>Try and improve.</b> Guess how many big boats, work out the passengers, and adjust. 5 big boats gives too few, so try more:' + tbl([
+          ['big boats', 'small boats', 'passengers'],
+          ['5', '8', '30 + 32 = 62'],
+          ['7', '6', '42 + 24 = 66'],
+          ['9', '4', '54 + 16 = <b>70</b> ✓'],
+        ]),
+        '<b>Or suppose all are small.</b> 13 × 4 = 52 passengers. The real total is 70, so there are 70 − 52 = 18 extra.',
+        'Each big boat holds 2 more than a small one, so 18 ÷ 2 = <b>9</b> big boats.',
+      ], '9 boats hold 6'),
+      note('in the table, each extra big boat adds 2 passengers. Spotting a pattern like this tells you how far to jump with your next guess.'),
+      h('Swapping chains'),
+      example('Example 2', '4 small shells can be swapped for 1 medium shell. 7 medium shells can be swapped for 1 large shell. How many small shells are 2 large shells worth?', [
+        'Work along the chain from the big end: 1 large = 7 medium.',
+        'Each medium is 4 small, so 1 large = 7 × 4 = 28 small.',
+        '2 large = 2 × 28 = <b>56</b> small shells.',
+      ], '56'),
+      mistake('dividing instead of multiplying. A large shell is worth more than a small one, so you need <b>more</b> small shells: the answer should be bigger than the numbers you started with.'),
+      h('Filling places to a target'),
+      example('Example 3', 'A reading club will have 40 members, and 40% of them must be boys. 10 boys have joined so far. How many more boys are needed?', [
+        'Target: 40% of 40. 10% of 40 is 4, so 40% is 4 × 4 = 16 boys.',
+        'Already 10, so 16 − 10 = <b>6</b> more.',
+      ], '6'),
+      h('Positions in a line'),
+      p('If Tom is 6th from the left and 4th from the right, adding 6 + 4 counts Tom twice, once from each end. So the row has 6 + 4 − 1 = 9 people.'),
+      figure({ type: 'bar_model', bars: [
+        { name: 'From left', parts: 9, shaded: [5], labels: [1, 2, 3, 4, 5, 6, 7, 8, 9].map(ordinal) },
+        { name: 'From right', parts: 9, shaded: [5], labels: [9, 8, 7, 6, 5, 4, 3, 2, 1].map(ordinal) },
+      ] }, 'Tom (shaded) is 6th from the left and 4th from the right, in a row of 9.'),
+      key('Positions', list([
+        'Total = position from one end + position from the other end − 1.',
+        'Position from the other end = total − position + 1.',
+        'People between two positions = bigger position − smaller position − 1.',
+      ])),
+      example('Example 4', 'Counting from the left, Ella is 17th in a row. Counting from the right, she is 8th. How many people are in the row?', [
+        '17 + 8 counts Ella twice, so 17 + 8 − 1 = <b>24</b>.',
+      ], '24'),
+      example('Example 5', 'There are 29 people in a queue. Uma is 19th from the front. What position is she from the back?', [
+        'There are 29 − 19 = 10 people behind her, so she is the 11th from the back: 29 − 19 + 1 = <b>11</b>.',
+      ], '11th'),
+      example('Example 6', 'Counting from the front, Mo is 29th and Nia is 36th. How many people stand between them?', [
+        '36 − 29 = 7 steps from Mo to Nia, and that includes Nia herself.',
+        'So 7 − 1 = <b>6</b> people are between them.',
+      ], '6'),
+      example('Example 7', 'There are 37 people in a queue. The number of people ahead of Sam is 2 times the number behind him. How many are behind him?', [
+        'Leave Sam out: 37 − 1 = 36 other people.',
+        'Ahead is 2 parts and behind is 1 part, so 3 equal parts make 36. One part is 36 ÷ 3 = 12.',
+        'So <b>12</b> are behind and 24 are ahead. Check: 24 + 1 + 12 = 37 ✓, and 24 is 2 × 12 ✓.',
+      ], '12', { visual: { type: 'bar_model', bars: [{ parts: 3, total: '36 other people', labels: ['behind', 'ahead', 'ahead'], shaded: [1, 2] }] } }),
+      mistake('forgetting the person in the question. In Example 7, Sam is neither ahead of himself nor behind himself, so share out 36, not 37.'),
+      note('if you are unsure about a position rule, test it on a tiny line you can picture, like 3 people. The middle person is 2nd from each end, and 2 + 2 − 1 = 3. ✓'),
+    ].join(''),
+  },
+  {
+    id: 'mixed_grid_logic',
+    title: 'Grid puzzles: missing numbers and shape values',
+    skills: ['mixed_grid_logic'],
+    prereqs: ['alg_relationship_word_problems', 'ar_multi_step_numeric'],
+    summary: 'Fill in number grids where every row and column has the same total, and find the value of each shape in a grid of symbols.',
+    body: [
+      h('The big idea'),
+      p('In a grid puzzle each row and each column gives you a fact. Do not start by guessing. Look for the <b>easiest line</b> first: the one with only one thing you do not know. Each answer you find makes another line easier, so the puzzle falls like a row of dominoes.'),
+      key('Where to start', list([
+        'In a number grid: a row or column with only <b>one empty square</b>. That square is the total minus the other two numbers.',
+        'In a shape grid: a row or column made of <b>only one kind of shape</b>. Divide its total by the number of shapes.',
+      ])),
+      h('Number grids'),
+      example('Example 1', 'Every row and column adds up to 20. What number goes where the question mark is?', [
+        'The left column has two gaps, so it cannot be done yet. Look for a line with one gap.',
+        'The middle row has one gap: 20 − 5 − 7 = 8.',
+        'Now the left column has only the question mark left: 20 − 8 − 3 = <b>9</b>.',
+      ], '9', { visual: { type: 'logic_grid', cells: ['?', '', '', '', '5', '7', '3', '', '6'], total: 20 } }),
+      example('Example 2', 'Every row and column adds up to 36. What number goes where the question mark is?', [
+        'The bottom row has one gap: 36 − 13 − 8 = 15.',
+        'Now the right column has one gap: 36 − 12 − 15 = 9.',
+        'Now the top row has only the question mark left: 36 − 11 − 9 = <b>16</b>.',
+      ], '16', { visual: { type: 'logic_grid', cells: ['?', '11', '', '', '', '12', '13', '8', ''], total: 36 } }),
+      h('Shape grids'),
+      p('In a shape grid, each shape stands for a number. The same shape always has the same value. The totals of the rows and columns are written beside and below the grid.'),
+      example('Example 3', 'Each shape stands for a different whole number. What is the square worth?', [
+        'Row 1 is all circles: 3 circles make 9, so a circle is 9 ÷ 3 = 3.',
+        'Row 2 has 2 triangles and 1 circle, making 19. Take off the circle: 19 − 3 = 16, so 2 triangles make 16 and a triangle is 8.',
+        'Row 3 is a circle, a triangle and a square, making 17: 17 − 3 − 8 = <b>6</b>.',
+        'Check with column 3: circle + circle + square = 3 + 3 + 6 = 12. ✓',
+      ], '6', { visual: { type: 'symbol_grid', grid: [['circle', 'circle', 'circle'], ['triangle', 'triangle', 'circle'], ['circle', 'triangle', 'square']], rowTotals: [9, 19, 17], colTotals: [14, 19, 12] } }),
+      h3('When no line has just one kind of shape'),
+      p('Look for two lines that use the same two shapes, and compare them.'),
+      example('Example 4', 'Each shape stands for a different whole number. The star stands for a row total and a column total that are equal. What number is the star?', [
+        'Row 1 is 2 circles + 2 squares = 16. Halve it: 1 circle + 1 square = 8.',
+        'Row 4 is 3 circles + 1 square = 14. That is (1 circle + 1 square) + 2 circles, so 8 + 2 circles = 14. So 2 circles make 6, and a circle is 3.',
+        'Then a square is 8 − 3 = 5.',
+        'Column 1 is circle, triangle, square, circle = 17: the triangle is 17 − 3 − 5 − 3 = 6.',
+        'Row 2 is triangle, square, diamond, circle = 22: the diamond is 22 − 6 − 5 − 3 = 8.',
+        'The star is row 3: square + diamond + triangle + circle = 5 + 8 + 6 + 3 = <b>22</b>. Column 3 has the same four shapes, so it also makes 22. ✓',
+      ], '22', { visual: { type: 'symbol_grid', grid: [['circle', 'circle', 'square', 'square'], ['triangle', 'square', 'diamond', 'circle'], ['square', 'diamond', 'triangle', 'circle'], ['circle', 'circle', 'circle', 'square']], rowTotals: [16, 22, 'star', 14], colTotals: [17, 19, 'star', 16] } }),
+      h('Grids with diagonal products'),
+      p('The hardest grids also tell you the <b>product</b> (the answer when you multiply) of the three numbers on each diagonal. The centre square is on both diagonals, so it must divide exactly into both products. That leaves only a few choices for the centre: try each one.'),
+      example('Example 5', 'Every row and column adds up to 12, and no square is zero. The diagonal from the top left multiplies to 15. The diagonal from the top right multiplies to 6. What is X × Y?', [
+        'The centre divides into 15 and into 6, so it is 1 or 3.',
+        'The diagonal from the top right runs down to the 3 in the bottom-left corner, so 3 × centre × top-right corner = 6. If the centre were 3, that would be 9 × corner = 6, which is impossible. So the centre is <b>1</b>, and the top-right corner is 6 ÷ 3 = 2.',
+        'The bottom row: 3 + 6 + X = 12, so X = 3.',
+        'The top-left diagonal: Y × 1 × 3 = 15, so Y = 5.',
+        'X × Y = 3 × 5 = <b>15</b>.',
+        'Check by filling the whole grid: rows 5, 5, 2 / 4, 1, 7 / 3, 6, 3. Every row and column makes 12, and 5 × 1 × 3 = 15, 3 × 1 × 2 = 6. ✓',
+      ], '15', { visual: { type: 'logic_grid', cells: ['Y', '', '', '', '', '', '3', '6', 'X'], total: 12, products: { down: 15, up: 6 } } }),
+      mistake('stopping as soon as a guess fits one line. A guess is only right if it fits every row, column and diagonal. Fill in the whole grid and check.'),
+      note('read what the question asks for at the end. In Example 5 the answer is X × Y, not X or Y on its own.'),
+    ].join(''),
+  },
+];

@@ -33,7 +33,8 @@ export function renderWorking(working) {
   return figure;
 }
 
-export function renderSolution(container, question, { open = true } = {}) {
+// learn: [{ href, title }] pages to suggest under the steps.
+export function renderSolution(container, question, { open = true, learn = [] } = {}) {
   container.replaceChildren();
   const steps = question.solution?.length ? question.solution : [{ text: question.explanation }];
   const details = document.createElement('details');
@@ -51,6 +52,19 @@ export function renderSolution(container, question, { open = true } = {}) {
     list.append(item);
   }
   details.append(summary, list);
+  if (learn.length) {
+    const more = document.createElement('p');
+    more.className = 'learn-more';
+    more.append('📖 New to this? Read ');
+    learn.forEach((page, index) => {
+      if (index) more.append(' · ');
+      const link = document.createElement('a');
+      link.href = page.href;
+      link.textContent = page.title;
+      more.append(link);
+    });
+    details.append(more);
+  }
   container.append(details);
   container.hidden = false;
 }

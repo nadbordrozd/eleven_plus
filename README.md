@@ -14,7 +14,9 @@ Every skill card also has a **Question types** developer view. It lists the unde
 
 Skills carry a separate, mutually exclusive assessment tag, displayed as **Needs practice**, **Confident**, or **Not assessed**. These can be filtered independently of practice progress, and reaching 100 points automatically marks a skill **Confident**. Each collapsible topic presents a two-step assessment-and-practice workflow. Its assessment asks one automatically levelled question from every available skill in that topic, plus a second question when a first answer would otherwise award Confident or remove it from a completed skill. Skipping leaves a skill's existing tag unchanged.
 
-After a wrong answer, a **How to solve it** panel shows the method step by step, including written column, short and long methods for harder calculations. After a correct answer, the same panel is available but collapsed.
+After a wrong answer, a **How to solve it** panel shows the method step by step, including written column, short and long methods for harder calculations. After a correct answer, the same panel is available but collapsed. Finishing a skill for the first time turns the next button into **Back to topic**, which returns to that topic in the catalogue.
+
+**Learn** pages (`#learn`, linked from the header, each topic, each skill card, the practice screen and every solution) explain each skill with a key fact, worked examples, common mistakes and a question to try. Pages list the pages they build on, so a reader can step back to earlier ideas. They live in `learn/topics/<topic>.js`, built with the helpers in `learn/kit.js`; diagrams reuse the question renderers and written methods reuse `generators/working.js`. Writing rules are in `docs/LEARN_GUIDELINES.md`. `node tests/learn-preview.mjs <page> --png=<dir>` prints a page as text and saves its diagrams.
 
 The **Achievements** page (`#achievements`, linked from the header) has 28 badges: a monster for completing every skill in each topic, and relics for skill-count milestones and feats such as finishing a skill with no wrong answers. Rules live in `achievements.js`. A skill counts the first time it reaches 100 points (`completions` in the saved state), and earned achievements are kept even if progress is reset. A toast announces each new unlock.
 
@@ -31,6 +33,7 @@ data/       Taxonomy, coverage data, blueprints, and JSON schemas
 docs/       Product notes, implementation guidance, and content documentation
 generators/ Question generators by topic, plus shared helpers in core.js
 visuals/    Diagram renderers added alongside visual-renderers.js
+learn/      Learn pages by topic, their helpers, registry and view
 src/types/  Shared TypeScript content-model definitions
 tests/      Coverage, correctness, and generator-diversity checks
 assets/     Achievement badges and sound effects
@@ -57,6 +60,7 @@ errors and low wording variety. Pass a module name, such as `geometry`, to audit
 `tests/validate-solutions.mjs` checks every step-by-step solution, and
 `tests/validate-written-methods.mjs` checks the written calculation layouts.
 `tests/validate-achievements.mjs` checks the achievement rules and that every badge exists.
+`tests/validate-learn.mjs --strict` checks that every skill has a Learn page and that links, prerequisites, markup, diagrams and written methods are all valid.
 
 ## Run locally
 

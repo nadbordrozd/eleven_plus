@@ -21,6 +21,10 @@
         <button id="sound-toggle" class="sound-toggle" type="button" aria-pressed="true">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path class="speaker" d="M4 9h4l5-4v14l-5-4H4z"/><path class="waves" d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12"/><path class="mute" d="M16 9l6 6M22 9l-6 6"/></svg>
         </button>
+        <a class="learn-link" href="#learn">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5.5C5.5 4.5 8.5 4.5 12 6.5c3.5-2 6.5-2 9-1V19c-2.5-1-5.5-1-9 1-3.5-2-6.5-2-9-1z"/><path d="M12 6.5V20"/></svg>
+          <span>Learn</span>
+        </a>
         <a class="achievements-link" href="#achievements">
           <img src="assets/badges/skills_all.png" alt="" width="32" height="32">
           <span>Achievements</span>
@@ -128,6 +132,7 @@
           <span id="practice-score"></span>
         </div>
         <h1 id="practice-title"></h1>
+        <a id="practice-learn" class="practice-learn" href="#learn" hidden>📖 Learn this skill</a>
         <div class="skill-progress" aria-label="Skill completion progress">
           <div class="skill-progress-label">
             <strong>Skill progress</strong>
@@ -179,6 +184,11 @@
       </section>
     </main>
 
+    <main id="learn-view" hidden>
+      <button id="learn-back" class="back-button" type="button">← All exercises</button>
+      <div id="learn-root"></div>
+    </main>
+
     <div id="toast-stack" class="toast-stack" aria-live="polite"></div>
 
     <dialog id="archetype-dialog" class="archetype-dialog" aria-labelledby="archetype-dialog-title">
@@ -214,6 +224,12 @@
               <h3 class="topic-plan-title"></h3>
               <p class="topic-plan-copy"></p>
               <button class="topic-practice-button" type="button">Practise recommended skill →</button>
+            </div>
+            <div class="topic-workflow-card learn-step">
+              <p class="step-label">Learn</p>
+              <h3>Read how it works</h3>
+              <p class="topic-learn-copy"></p>
+              <a class="topic-learn-link" href="#learn">Open the Learn pages →</a>
             </div>
           </div>
           <div class="exercise-grid"></div>

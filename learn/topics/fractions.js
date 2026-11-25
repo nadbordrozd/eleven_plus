@@ -1,0 +1,273 @@
+// Learn pages for fractions. These are the reference pages for tone and structure: see docs/LEARN_GUIDELINES.md.
+import { h, p, list, steps, key, display, note, mistake, frac, mixed, figure, written, columns, example } from '../kit.js';
+import { divideWork } from '../../generators/working.js';
+
+const bar = (parts, shaded, extra = {}) => ({ parts, shaded, ...extra });
+
+export const pages = [
+  {
+    id: 'frac_unit_fractions',
+    title: 'What a fraction means: equal parts and fair shares',
+    skills: ['frac_unit_fractions'],
+    prereqs: ['ar_divide_equal_groups'],
+    summary: 'Understand the top and bottom of a fraction, count how many pieces make a whole, and share things out fairly.',
+    body: [
+      h('The big idea'),
+      p(
+        'A <b>fraction</b> is part of a whole that has been cut into <b>equal</b> parts. In the fraction ' + frac(3, 4) + ':',
+      ),
+      list([
+        'the bottom number, the <b>denominator</b>, says how many equal parts the whole is cut into (4);',
+        'the top number, the <b>numerator</b>, says how many of those parts you have (3).',
+      ]),
+      figure({ type: 'bar_model', bars: [bar(4, 3, { total: '1 whole', labels: ['¼', '¼', '¼', '¼'] })] }, 'Three quarters: the whole is cut into 4 equal parts and 3 are shaded.'),
+      p('A fraction with 1 on top, like ' + frac(1, 4) + ' or ' + frac(1, 6) + ', is called a <b>unit fraction</b>: it is exactly one of the equal parts.'),
+      key('Pieces in a whole', p('There are 4 quarters in 1 whole, 6 sixths in 1 whole, and so on: the denominator tells you how many pieces make one whole. So in 3 wholes there are 3 × 4 = 12 quarters.')),
+      h('Mixed numbers'),
+      p(
+        'A <b>mixed number</b> such as ' + mixed(2, 5, 6) + ' is a whole number and a fraction together. To count how many sixths it is, turn the wholes into sixths and add the extra ones:',
+      ),
+      display(`${mixed(2, 5, 6)} = 2 × 6 + 5 = 17 sixths = ${frac(17, 6)}`),
+      p('A fraction whose top is bigger than its bottom, like ' + frac(17, 6) + ', is called an <b>improper fraction</b>. It is more than one whole.'),
+      h('Sharing fairly'),
+      p('Suppose 5 pizzas are shared fairly between 6 friends. Nobody can have a whole pizza, so cut every pizza into 6 equal slices. Each friend takes one slice from each pizza: that is 5 slices, and each slice is ' + frac(1, 6) + ' of a pizza. So each friend gets ' + frac(5, 6) + ' of a pizza.'),
+      key('Fair shares', display(`<i>a</i> things shared between <i>b</i> people: each gets ${frac('<i>a</i>', '<i>b</i>')}`) + p('The number of things goes on top and the number of people goes on the bottom. If there are more things than people, the answer is more than 1, so write it as a mixed number.')),
+      example('Example 1', 'How many ' + frac(1, 4) + ' pieces make 2 wholes?', [
+        'There are 4 quarters in 1 whole.',
+        'In 2 wholes there are 2 × 4 = <b>8</b> quarters.',
+      ], '8 pieces'),
+      example('Example 2', 'A plank is ' + mixed(3, 5, 6) + ' m long. It is cut into pieces ' + frac(1, 6) + ' m long. How many pieces are there?', [
+        'Each whole metre makes 6 pieces, so 3 metres make 3 × 6 = 18 pieces.',
+        'The extra ' + frac(5, 6) + ' m makes 5 more pieces.',
+        '18 + 5 = <b>23</b>.',
+      ], '23 pieces'),
+      example('Example 3', '8 cakes are shared fairly between 5 children. How much cake does each child get?', [
+        'Things on top, people on the bottom: each child gets ' + frac(8, 5) + ' of a cake.',
+        'Turn it into a mixed number: 8 ÷ 5 = 1 remainder 3.',
+        'So each child gets 1 whole cake, and the 3 cakes left over are shared between 5: another ' + frac(3, 5) + '.',
+      ], mixed(1, 3, 5) + ' cakes'),
+      mistake('writing the fraction upside down. In "5 pizzas for 6 friends" the answer is ' + frac(5, 6) + ', not ' + frac(6, 5) + '. Ask yourself: is each share more or less than one pizza? Fewer pizzas than people means less than 1.'),
+      note('check a fair share by multiplying back: 6 friends × ' + frac(5, 6) + ' each = ' + frac(30, 6) + ' = 5 pizzas. ✓'),
+    ].join(''),
+  },
+  {
+    id: 'frac_compare_equivalence',
+    title: 'Equivalent fractions and comparing fractions',
+    skills: ['frac_compare_equivalence'],
+    prereqs: ['frac_unit_fractions', 'nm_factors_multiples_basic'],
+    summary: 'Write the same fraction with different numbers, simplify it, and decide which of several fractions is biggest.',
+    body: [
+      h('The big idea'),
+      p('Cut a chocolate bar in half and you have ' + frac(1, 2) + '. Cut each half into 4 and you have 8 pieces, 4 of them yours: ' + frac(4, 8) + '. You still have exactly the same amount of chocolate. Fractions that are worth the same are called <b>equivalent fractions</b>.'),
+      figure({ type: 'bar_model', bars: [bar(2, 1, { name: '1/2' }), bar(8, 4, { name: '4/8' })] }, frac(1, 2) + ' and ' + frac(4, 8) + ' cover the same amount of the bar.'),
+      key('Equivalent fractions', p('Multiply or divide the top <b>and</b> the bottom by the same number and the fraction keeps its value.') + display(`${frac(2, 5)} = ${frac('2 × 3', '5 × 3')} = ${frac(6, 15)}`)),
+      p('Dividing top and bottom by the same number is called <b>simplifying</b>. A fraction is in its <b>simplest form</b> when no number except 1 divides into both its top and its bottom. For example, ' + frac(12, 18) + ': divide both by 6 to get ' + frac(2, 3) + '. If you only spot 2 first, that is fine: ' + frac(12, 18) + ' = ' + frac(6, 9) + ' = ' + frac(2, 3) + '. Keep going until you cannot divide any more.'),
+      h('Comparing fractions'),
+      list([
+        '<b>Same bottom number:</b> the bigger top wins. ' + frac(5, 8) + ' is more than ' + frac(3, 8) + '.',
+        '<b>Same top number:</b> the <b>smaller</b> bottom wins, because the whole is cut into fewer, bigger pieces. ' + frac(1, 3) + ' is more than ' + frac(1, 5) + '.',
+        '<b>Neither the same:</b> make the bottom numbers the same first. Find a number that all the bottoms divide into (a <b>common denominator</b>), then rewrite each fraction.',
+      ]),
+      example('Example 1', 'Complete: ' + frac(2, 5) + ' = ' + frac(6, '□'), [
+        'The top has gone from 2 to 6, so it was multiplied by 3.',
+        'Do the same to the bottom: 5 × 3 = <b>15</b>.',
+      ], '15'),
+      example('Example 2', 'Which is the largest: ' + frac(3, 4) + ', ' + frac(5, 8) + ' or ' + frac(2, 3) + '?', [
+        '4, 8 and 3 all divide into 24, so use 24 as the common denominator.',
+        frac(3, 4) + ' = ' + frac(18, 24) + ', ' + frac(5, 8) + ' = ' + frac(15, 24) + ', ' + frac(2, 3) + ' = ' + frac(16, 24) + '.',
+        '18 is the biggest top, so ' + frac(3, 4) + ' is the largest.',
+      ], frac(3, 4)),
+      example('Example 3', 'Which is closest to ' + frac(1, 2) + ': ' + frac(1, 3) + ', ' + frac(3, 5) + ' or ' + frac(3, 4) + '?', [
+        'Compare each with a half written with the same bottom number.',
+        frac(1, 3) + ' and ' + frac(1, 2) + ': as sixths these are ' + frac(2, 6) + ' and ' + frac(3, 6) + ', a gap of ' + frac(1, 6) + '.',
+        frac(3, 5) + ' and ' + frac(1, 2) + ': as tenths these are ' + frac(6, 10) + ' and ' + frac(5, 10) + ', a gap of ' + frac(1, 10) + '.',
+        frac(3, 4) + ' and ' + frac(1, 2) + ': as quarters these are ' + frac(3, 4) + ' and ' + frac(2, 4) + ', a gap of ' + frac(1, 4) + '.',
+        'The smallest gap is ' + frac(1, 10) + '.',
+      ], frac(3, 5)),
+      example('Example 4', 'A fraction is equivalent to ' + frac(2, 3) + ' and its top and bottom add up to 25. What is its bottom number?', [
+        'In ' + frac(2, 3) + ' the top and bottom add up to 2 + 3 = 5.',
+        'Every equivalent fraction multiplies both by the same number, so the total is multiplied too: 25 ÷ 5 = 5.',
+        'Multiply by 5: ' + frac(2, 3) + ' = ' + frac(10, 15) + '. Check: 10 + 15 = 25. ✓',
+      ], '15'),
+      mistake('adding the same number to the top and bottom. ' + frac(1, 2) + ' is not equal to ' + frac(2, 3) + ' (that is 1 added to both). Only multiplying or dividing keeps a fraction the same.'),
+      note('to see whether a fraction is more or less than a half, double the top. If double the top is bigger than the bottom, the fraction is more than ' + frac(1, 2) + ': ' + frac(4, 7) + ' is more than a half because 8 is bigger than 7.'),
+    ].join(''),
+  },
+  {
+    id: 'frac_shaded_visual',
+    title: 'Fractions of shapes',
+    skills: ['frac_shaded_visual'],
+    prereqs: ['frac_unit_fractions', 'frac_compare_equivalence'],
+    summary: 'Work out what fraction of a diagram is shaded, simplify it, and find how much more to shade.',
+    body: [
+      h('The big idea'),
+      p('To find what fraction of a shape is shaded, count the equal parts. The total number of parts goes on the bottom and the number of shaded parts goes on top.'),
+      key('Fraction shaded', display(frac('number of shaded parts', 'total number of equal parts')) + p('Then simplify if you can.')),
+      example('Example 1', 'What fraction of this grid is shaded?', [
+        'There are 2 rows of 4, so 8 equal squares altogether.',
+        '3 squares are shaded.',
+        'So ' + frac(3, 8) + ' is shaded. Nothing except 1 divides into both 3 and 8, so this is the simplest form.',
+      ], frac(3, 8), { visual: { type: 'grid', rows: 2, cols: 4, shaded: [[0, 0], [1, 1], [1, 3]] } }),
+      example('Example 2', 'What fraction of this grid is shaded? Give your answer in its simplest form.', [
+        '3 rows of 4 make 12 squares, and 4 are shaded: ' + frac(4, 12) + '.',
+        'Divide the top and bottom by 4: ' + frac(4, 12) + ' = ' + frac(1, 3) + '.',
+      ], frac(1, 3), { visual: { type: 'grid', rows: 3, cols: 4, shaded: [[0, 0], [0, 1], [1, 0], [1, 1]] } }),
+      h('How many more to shade?'),
+      p('Some questions ask how many extra squares to shade so that a given fraction of the grid is shaded. Work out how many squares that fraction is, then take away the ones already shaded.'),
+      steps([
+        'Count all the squares.',
+        'Find the fraction of that number (divide by the bottom, multiply by the top). This is how many should be shaded. See [[frac_of_amount]].',
+        'Subtract the number already shaded.',
+      ]),
+      example('Example 3', 'What is the smallest number of extra squares to shade so that exactly ' + frac(2, 3) + ' of the grid is shaded?', [
+        'There are 3 × 4 = 12 squares.',
+        frac(2, 3) + ' of 12: 12 ÷ 3 = 4, and 4 × 2 = 8. So 8 squares should be shaded.',
+        '2 are shaded already, so shade 8 − 2 = <b>6</b> more.',
+      ], '6 squares', { visual: { type: 'grid', rows: 3, cols: 4, shaded: [[0, 1], [2, 2]] } }),
+      mistake('comparing shaded with unshaded. If 3 squares are shaded and 5 are not, the fraction shaded is ' + frac(3, 8) + ' (3 out of all 8), not ' + frac(3, 5) + '.'),
+      mistake('counting parts that are not equal. A fraction only works when every part is the same size. If the pieces are different sizes, split the shape into equal pieces first, for example by cutting big squares into smaller triangles.'),
+      note('two different-looking shadings can be the same fraction. Shading 2 squares out of 8 and 1 square out of 4 both give ' + frac(1, 4) + '.'),
+    ].join(''),
+  },
+  {
+    id: 'frac_of_amount',
+    title: 'Finding a fraction of an amount',
+    skills: ['frac_of_amount'],
+    prereqs: ['frac_unit_fractions', 'ar_divide_equal_groups'],
+    summary: 'Work out amounts like ⅗ of 40 cm, and use a known fraction to find the whole or another fraction.',
+    body: [
+      h('The big idea'),
+      p('To find ' + frac(1, 5) + ' of something, split it into 5 equal parts and take one of them. That is the same as dividing by 5. To find ' + frac(2, 5) + ', take two of those parts.'),
+      figure({ type: 'bar_model', bars: [bar(5, 2, { total: '40 cm', labels: ['8', '8', '8', '8', '8'] })] }, 'Split 40 cm into 5 equal parts of 8 cm. Two parts, ' + frac(2, 5) + ' of 40 cm, make 16 cm.'),
+      key('Fraction of an amount', p('<b>Divide by the bottom, multiply by the top.</b>') + display(`${frac(2, 5)} of 40 = 40 ÷ 5 × 2 = 8 × 2 = 16`)),
+      example('Example 1', 'A ribbon is 40 cm long. Quinn cuts off ' + frac(1, 5) + ' of it. How long is the piece?', [
+        'Divide by the bottom: 40 ÷ 5 = 8.',
+        'The top is 1, so that is the answer.',
+      ], '8 cm'),
+      example('Example 2', 'Work out ' + frac(3, 4) + ' of 156.', [
+        'Divide by the bottom: 156 ÷ 4. Use short division:' + written(divideWork(156, 4)),
+        'So ' + frac(1, 4) + ' of 156 is 39.',
+        'Multiply by the top: 39 × 3 = <b>117</b>.',
+      ], '117'),
+      example('Example 3', 'Work out ' + frac(3, 4) + ' of 48 + ' + frac(3, 8) + ' of 80.', [
+        frac(3, 4) + ' of 48: 48 ÷ 4 = 12, and 12 × 3 = 36.',
+        frac(3, 8) + ' of 80: 80 ÷ 8 = 10, and 10 × 3 = 30.',
+        'Add them: 36 + 30 = <b>66</b>.',
+      ], '66'),
+      note('for a fraction of a fraction, such as ' + frac(3, 5) + ' of ' + frac(3, 4) + ' of 40, work from the right: ' + frac(3, 4) + ' of 40 is 30, then ' + frac(3, 5) + ' of 30 is 18.'),
+      h('Using one fraction to find another'),
+      p('If you know what one part is worth, you can find any number of parts, including the whole.'),
+      example('Example 4', frac(1, 4) + ' of the sweets in a jar is 6 sweets. How many sweets is ' + frac(3, 4) + ' of the jar? How many sweets are in the whole jar?', [
+        'One quarter is 6, so three quarters is 3 × 6 = <b>18</b>.',
+        'The whole jar is four quarters: 4 × 6 = <b>24</b>.',
+      ], '18 sweets; 24 in the whole jar'),
+      example('Example 5', '10% of □ = ' + frac(3, 5) + ' of 25. What is the missing number?', [
+        'Work out the side you can: ' + frac(3, 5) + ' of 25 = 25 ÷ 5 × 3 = 15.',
+        '10% means ' + frac(1, 10) + ' (see [[pct_percent_of_amount|percentages of amounts]]). So ' + frac(1, 10) + ' of the missing number is 15.',
+        'The whole is ten tenths: 15 × 10 = <b>150</b>.',
+      ], '150'),
+      example('Example 6', '75% of □ = ' + frac(3, 5) + ' of 45. What is the missing number?', [
+        frac(3, 5) + ' of 45 = 45 ÷ 5 × 3 = 27.',
+        '75% is ' + frac(3, 4) + ', so ' + frac(3, 4) + ' of the missing number is 27.',
+        'Three quarters is 27, so one quarter is 27 ÷ 3 = 9, and the whole is 4 × 9 = <b>36</b>.',
+        'Check: 75% of 36 = 27. ✓',
+      ], '36'),
+      mistake('dividing by the top number. For ' + frac(3, 4) + ' of 48, divide by 4 (the number of equal parts), not by 3.'),
+      note('a fraction smaller than 1 always gives an answer smaller than the amount you started with. If ' + frac(3, 4) + ' of 156 came out bigger than 156, something has gone wrong.'),
+    ].join(''),
+  },
+  {
+    id: 'frac_operations',
+    title: 'Adding, subtracting and dividing fractions',
+    skills: ['frac_operations'],
+    prereqs: ['frac_compare_equivalence', 'frac_of_amount'],
+    summary: 'Add and subtract fractions and mixed numbers, solve "the rest" problems, and divide by a unit fraction.',
+    body: [
+      h('Adding and subtracting'),
+      p('You can only add fractions directly when the pieces are the same size, which means the same bottom number. Then add the tops and keep the bottom: 2 eighths + 3 eighths = 5 eighths.'),
+      key('Adding and subtracting fractions', steps([
+        'If the bottom numbers are different, rewrite the fractions with a common denominator ([[frac_compare_equivalence|equivalent fractions]]).',
+        'Add or subtract the tops. Keep the bottom the same.',
+        'Simplify the answer if you can.',
+      ]) + display(`${frac(1, 2)} + ${frac(1, 8)} = ${frac(4, 8)} + ${frac(1, 8)} = ${frac(5, 8)}`)),
+      mistake('adding the bottoms. ' + frac(1, 2) + ' + ' + frac(1, 4) + ' is not ' + frac(2, 6) + '. Two halves of a cake make a whole cake, not ' + frac(2, 4) + ' of one.'),
+      h('Mixed numbers'),
+      p('Add or subtract the whole numbers and the fractions separately, then tidy up.'),
+      example('Example 1', 'Tom walks ' + mixed(8, 1, 3) + ' km and then ' + mixed(2, 1, 6) + ' km. How far is that altogether?', [
+        'Wholes: 8 + 2 = 10.',
+        'Fractions: ' + frac(1, 3) + ' + ' + frac(1, 6) + ' = ' + frac(2, 6) + ' + ' + frac(1, 6) + ' = ' + frac(3, 6) + ', which simplifies to ' + frac(1, 2) + '.',
+        'Together: ' + mixed(10, 1, 2) + ' km.',
+      ], mixed(10, 1, 2) + ' km'),
+      example('Example 2', 'Work out ' + mixed(9, 1, 2) + ' − ' + mixed(3, 3, 4) + '.', [
+        'Use quarters: ' + mixed(9, 1, 2) + ' = ' + mixed(9, 2, 4) + '.',
+        'You cannot take ' + frac(3, 4) + ' from ' + frac(2, 4) + ', so exchange one whole for 4 quarters: ' + mixed(9, 2, 4) + ' = ' + mixed(8, 6, 4) + '.',
+        'Wholes: 8 − 3 = 5. Fractions: ' + frac(6, 4) + ' − ' + frac(3, 4) + ' = ' + frac(3, 4) + '.',
+      ], mixed(5, 3, 4)),
+      h('"The rest" problems'),
+      p('Many 11+ questions give a few fractions of a group and ask about <b>the rest</b>. Add the fractions you know, take them away from 1 whole, then find that fraction of the amount.'),
+      example('Example 3', 'In a bag of 24 sweets, ' + frac(1, 8) + ' are red and ' + frac(1, 2) + ' are green. The rest are yellow. How many are yellow?', [
+        'Red and green together: ' + frac(1, 8) + ' + ' + frac(4, 8) + ' = ' + frac(5, 8) + '.',
+        'Yellow is the rest: ' + frac(8, 8) + ' − ' + frac(5, 8) + ' = ' + frac(3, 8) + '.',
+        frac(3, 8) + ' of 24 = 24 ÷ 8 × 3 = <b>9</b>.',
+      ], '9 sweets'),
+      p('Read carefully for the words <b>"of the rest"</b> or <b>"of the remainder"</b>. Then the second fraction is a fraction of what is left, not of the starting amount, so work one step at a time.'),
+      example('Example 4', 'Tom has 48 stickers. He gives ' + frac(1, 3) + ' of them to a friend, then ' + frac(1, 4) + ' of the rest to his cousin. How many does he have left?', [
+        frac(1, 3) + ' of 48 = 16, so 48 − 16 = 32 are left.',
+        frac(1, 4) + ' of the rest: 32 ÷ 4 = 8.',
+        '32 − 8 = <b>24</b>.',
+      ], '24 stickers'),
+      h('Dividing by a unit fraction'),
+      p('10 ÷ ' + frac(1, 3) + ' asks: how many thirds fit into 10? Each whole holds 3 thirds, so 10 wholes hold 10 × 3 = 30 thirds. Dividing by a unit fraction is the same as multiplying by its bottom number.'),
+      figure({ type: 'bar_model', bars: [bar(3, 0, { total: '1 whole', labels: ['⅓', '⅓', '⅓'], length: 0.3 })] }, 'One whole holds three thirds, so 10 ÷ ' + frac(1, 3) + ' = 30.'),
+      example('Example 5', 'What is ' + frac(2, 3) + ' ÷ ' + frac(1, 12) + '?', [
+        'Write ' + frac(2, 3) + ' in twelfths: ' + frac(2, 3) + ' = ' + frac(8, 12) + '.',
+        'How many twelfths are in 8 twelfths? <b>8</b>.',
+      ], '8'),
+      note('dividing by a fraction smaller than 1 makes the answer <b>bigger</b>, because lots of small pieces fit in. If 10 ÷ ' + frac(1, 3) + ' gives you something smaller than 10, check again.'),
+    ].join(''),
+  },
+  {
+    id: 'frac_reverse_remainder',
+    title: 'Fraction problems: what is left, and working backwards',
+    skills: ['frac_reverse_remainder'],
+    prereqs: ['frac_of_amount', 'frac_operations'],
+    summary: 'Find what is left after fractions are used, and find the starting amount when you only know what is left.',
+    body: [
+      h('What is left?'),
+      p('If you use ' + frac(4, 5) + ' of something, the part left is the rest of the whole: 1 − ' + frac(4, 5) + ' = ' + frac(1, 5) + '. Finding that fraction straight away is often quicker than working out what was used.'),
+      example('Example 1', 'A book has 15 pages. Tom reads ' + frac(4, 5) + ' of them. How many pages are still to read?', [
+        'Fraction left: 1 − ' + frac(4, 5) + ' = ' + frac(1, 5) + '.',
+        frac(1, 5) + ' of 15 = 15 ÷ 5 = <b>3</b>.',
+      ], '3 pages'),
+      example('Example 2', 'A farmer has 80 eggs. He sells ' + frac(1, 5) + ' of them on Monday and ' + frac(7, 10) + ' on Tuesday. How many are not sold?', [
+        'Both fractions are of the 80 eggs, so add them: ' + frac(1, 5) + ' + ' + frac(7, 10) + ' = ' + frac(2, 10) + ' + ' + frac(7, 10) + ' = ' + frac(9, 10) + '.',
+        'Not sold: ' + frac(1, 10) + '. And ' + frac(1, 10) + ' of 80 = <b>8</b>.',
+      ], '8 eggs'),
+      h('Working backwards'),
+      p('Sometimes you know the amount that is left and need the amount at the start. Draw a bar for the whole, split it into the fraction’s parts, and label the part you know.'),
+      figure({ type: 'bar_model', bars: [bar(3, 2, { total: '? packets', labels: ['sold', 'sold', '12'] })] }, frac(2, 3) + ' sold, and the last third is the 12 left.'),
+      key('Working backwards', steps([
+        'Decide which fraction of the whole the number you know is.',
+        'Divide to find one part (one unit fraction).',
+        'Multiply by the bottom number to find the whole.',
+      ])),
+      example('Example 3', 'At a garden centre, ' + frac(2, 3) + ' of the seed packets were sold and the other 12 were not. How many were there at the start?', [
+        'The 12 packets are the part not sold: 1 − ' + frac(2, 3) + ' = ' + frac(1, 3) + '.',
+        'So ' + frac(1, 3) + ' of the packets is 12.',
+        'The whole is 3 thirds: 3 × 12 = <b>36</b>.',
+      ], '36 packets'),
+      example('Example 4', 'First ' + frac(1, 4) + ' of the water bottles at a club were handed out, then ' + frac(1, 3) + ' of the ones remaining. Now 18 are left. How many were there at the start?', [
+        'Work backwards from the end. In the second step ' + frac(1, 3) + ' of the remaining bottles went, so the 18 left are ' + frac(2, 3) + ' of them.',
+        frac(2, 3) + ' is 18, so ' + frac(1, 3) + ' is 9 and the remaining bottles were 3 × 9 = 27.',
+        'Those 27 were what was left after the first step, which was ' + frac(3, 4) + ' of the start. So ' + frac(1, 4) + ' is 27 ÷ 3 = 9.',
+        'The start was 4 × 9 = <b>36</b>.',
+      ], '36 bottles'),
+      columns(
+        p('<b>Check by going forwards:</b> start with 36. Hand out ' + frac(1, 4) + ': 9, leaving 27. Hand out ' + frac(1, 3) + ' of 27: 9, leaving 18. ✓'),
+        p('<b>Check the answer is sensible:</b> the starting amount must be bigger than what is left, and it must divide exactly by every denominator used.'),
+      ),
+      mistake('using the fraction that was used instead of the fraction that is left. In Example 3 the 12 packets are the third that was <b>not</b> sold, so 12 is ' + frac(1, 3) + ', not ' + frac(2, 3) + '.'),
+      mistake('treating "of the remainder" as a fraction of the start. In Example 4 the second ' + frac(1, 3) + ' is a third of 27, not a third of 36.'),
+    ].join(''),
+  },
+];
