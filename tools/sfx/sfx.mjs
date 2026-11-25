@@ -84,15 +84,23 @@ function analyse() {
   writeFileSync(join(RAW, 'sheet.html'), `<!doctype html><meta charset="utf-8"><style>body{font:12px system-ui;display:flex;flex-wrap:wrap;gap:8px}figure{margin:0}</style>${html}`);
 }
 
-function processTake(source, target, loudness) {
-  const { soundEnds, onset, peakDb } = measure(source);
+// Optional shaping per sound: `pitch` shifts by semitones (length kept), `lowpass` cuts above that many Hz.
+function shaping({ pitch = 0, lowpass = 0 }) {
+  const steps = [];
+  if (pitch) steps.push(`asetrate=${(44100 * 2 ** (pitch / 12)).toFixed(2)}`, 'aresample=44100', `atempo=${(2 ** (-pitch / 12)).toFixed(5)}`);
+  if (lowpass) steps.push(`lowpass=f=${lowpass}`);
+  return steps;
+}
+
+function processTake(source, target, sound) {
+  const { soundEnds, onset } = measure(source);
   const end = Math.max(0.1, soundEnds - onset + 0.05);
-  // Gain from the level of the sounding part, capped so peaks stay at or below -1 dBFS.
-  const trimmed = join(RAW, 'trimmed.wav');
-  execFileSync('ffmpeg', ['-v', 'error', '-y', '-i', source, '-af', `atrim=${onset.toFixed(3)}:${(onset + end).toFixed(3)}`, trimmed]);
-  const gain = Math.min(loudness - measure(trimmed).rmsDb, -1 - peakDb).toFixed(2);
+  // Trim and shape first, then set the gain from the shaped sound's level, capped so peaks stay at or below -1 dBFS.
+  const shaped = join(RAW, 'shaped.wav');
+  execFileSync('ffmpeg', ['-v', 'error', '-y', '-i', source, '-af', ['aresample=44100', `atrim=${onset.toFixed(3)}:${(onset + end).toFixed(3)}`, 'asetpts=PTS-STARTPTS', ...shaping(sound)].join(','), '-ac', '1', shaped]);
+  const level = measure(shaped), gain = Math.min((sound.loudness ?? -20) - level.rmsDb, -1 - level.peakDb).toFixed(2);
   const filter = `${FILTER.replace('DUR', Math.max(0, end - 0.06).toFixed(3))},atrim=0:${end.toFixed(3)},volume=${gain}dB`;
-  execFileSync('ffmpeg', ['-v', 'error', '-y', '-i', source, '-af', filter, '-ac', '1', '-ar', '44100', '-b:a', '96k', '-map_metadata', '-1', '-fflags', '+bitexact', '-flags:a', '+bitexact', target]);
+  execFileSync('ffmpeg', ['-v', 'error', '-y', '-i', shaped, '-af', filter, '-ac', '1', '-ar', '44100', '-b:a', '96k', '-map_metadata', '-1', '-fflags', '+bitexact', '-flags:a', '+bitexact', target]);
 }
 
 function accept(id, take) {
@@ -100,7 +108,7 @@ function accept(id, take) {
   if (!existsSync(source)) throw new Error(`No take ${source}`);
   mkdirSync(OUT, { recursive: true });
   const target = join(OUT, `${id}.mp3`);
-  processTake(source, target, config.sounds[id].loudness ?? -20);
+  processTake(source, target, config.sounds[id]);
   config.sounds[id].accepted = { take: Number(take), raw_sha256: sha(readFileSync(source)), sha256: sha(readFileSync(target)), request: JSON.parse(readFileSync(join(RAW, id, `${take}.json`), 'utf8')).request };
   save();
   const m = measure(target);
