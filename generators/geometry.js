@@ -175,6 +175,8 @@ const partnerStep = ([row, col], vertical, rows, cols) => {
 };
 const ANGLE_KEY = 'Acute is under 90°, right is 90°, obtuse is 90° to 180°, straight is 180°, reflex is over 180°.';
 const ANGLE_MARKS = [[45, 'half a right angle'], [90, 'a right angle'], [135, 'one and a half right angles'], [180, 'a straight line'], [270, 'three right angles'], [360, 'a full turn']];
+// Random orientation for a lone angle diagram, so the first ray isn't always at 3 o'clock.
+const randomTurn = (r) => integer(r, 0, 71) * 5;
 const angleName = (type) => `${type === 'acute' || type === 'obtuse' ? 'an' : 'a'} ${type} angle`;
 const angleTypeStep = (value, type) => {
   if (type === 'right' || type === 'straight') return `An angle of exactly ${value}° is ${angleName(type)}.`;
@@ -451,20 +453,20 @@ export const generators = {
     if (form === 'estimate') {
       const value = d === 'hard' ? pick(r, [...range(20, 160, 10), ...range(200, 340, 20)]) : pick(r, range(20, 160, 10)), answer = value;
       const prompt = say(r, 'Which is the best estimate of the size of this angle?', 'Roughly how big is the angle shown?', 'Estimate the marked angle.', 'About how many degrees is this angle?', 'Which of these is closest to the size of the marked angle?');
-      return { prompt, answer, distractors: near(value, [40, 60, 80, 100, 120], 10, 350), formatter: deg, solution: estimateSteps(value), explanation: `The angle is ${classify(value) === 'reflex' ? 'more than a half turn' : classify(value) === 'acute' ? 'less than a right angle' : classify(value) === 'right' ? 'exactly a right angle' : 'more than a right angle'}. The closest estimate is ${value}°.`, visual: { type: 'angle', degrees: value, displayLabel: '?' } };
+      return { prompt, answer, distractors: near(value, [40, 60, 80, 100, 120], 10, 350), formatter: deg, solution: estimateSteps(value), explanation: `The angle is ${classify(value) === 'reflex' ? 'more than a half turn' : classify(value) === 'acute' ? 'less than a right angle' : classify(value) === 'right' ? 'exactly a right angle' : 'more than a right angle'}. The closest estimate is ${value}°.`, visual: { type: 'angle', rotation: randomTurn(r), degrees: value, displayLabel: '?' } };
     }
     if (form === 'combined') {
       const first = pick(r, range(25, 120, 5)), second = pick(r, range(25, 150, 5)), total = first + second, answer = classify(total);
       const prompt = say(r, `Two angles of ${first}° and ${second}° are placed side by side. What type of angle do they make together?`, `An angle of ${first}° is added to an angle of ${second}°. What type of angle is the total?`, `Two neighbouring angles measure ${first}° and ${second}°. What kind of angle do they form together?`, `Put ${an(first)} ${first}° angle next to ${an(second)} ${second}° angle. Which word describes the combined angle?`);
-      return { prompt, answer, distractors: types.filter((type) => type !== answer), solution: [`Add the two angles: ${first}° + ${second}° = ${total}°.`, angleTypeStep(total, answer)], explanation: `${first}° + ${second}° = ${total}°, which is ${facts[answer]}, so it is ${answer === 'acute' || answer === 'obtuse' ? 'an' : 'a'} ${answer} angle.`, visual: { type: 'angle', degrees: total, rays: [0, first, total], arcs: [{ from: 0, to: first, label: `${first}°` }, { from: first, to: total, label: `${second}°` }] } };
+      return { prompt, answer, distractors: types.filter((type) => type !== answer), solution: [`Add the two angles: ${first}° + ${second}° = ${total}°.`, angleTypeStep(total, answer)], explanation: `${first}° + ${second}° = ${total}°, which is ${facts[answer]}, so it is ${answer === 'acute' || answer === 'obtuse' ? 'an' : 'a'} ${answer} angle.`, visual: { type: 'angle', rotation: randomTurn(r), degrees: total, rays: [0, first, total], arcs: [{ from: 0, to: first, label: `${first}°` }, { from: first, to: total, label: `${second}°` }] } };
     }
     const pool = d === 'easy' ? ['acute', 'right', 'obtuse'] : types, answer = pick(r, pool), value = { acute: integer(r, 4, 16) * 5, right: 90, obtuse: integer(r, 20, 34) * 5, straight: 180, reflex: integer(r, 40, 66) * 5 }[answer];
     if (form === 'number') {
       const prompt = say(r, `An angle measures ${value}°. What type of angle is it?`, `What type of angle is ${value}°?`, `Which word describes an angle of ${value}°?`, `A corner of a shape measures ${value}°. What sort of angle is this?`);
-      return { prompt, answer, distractors: types.filter((type) => type !== answer), solution: [ANGLE_KEY, angleTypeStep(value, answer)], explanation: `${value}° is ${facts[answer]}, so it is ${answer === 'acute' || answer === 'obtuse' ? 'an' : 'a'} ${answer} angle.`, visual: { type: 'angle', degrees: value, displayLabel: `${value}°`, ...(answer === 'straight' ? { context: 'straight_line' } : {}) } };
+      return { prompt, answer, distractors: types.filter((type) => type !== answer), solution: [ANGLE_KEY, angleTypeStep(value, answer)], explanation: `${value}° is ${facts[answer]}, so it is ${answer === 'acute' || answer === 'obtuse' ? 'an' : 'a'} ${answer} angle.`, visual: { type: 'angle', rotation: randomTurn(r), degrees: value, displayLabel: `${value}°`, ...(answer === 'straight' ? { context: 'straight_line' } : {}) } };
     }
     const prompt = say(r, 'What type of angle is shown?', 'Which word describes the marked angle?', 'What sort of angle is this?', 'Look at the marked angle. What type is it?', 'Name the type of angle in the diagram.');
-    return { prompt, answer, distractors: types.filter((type) => type !== answer), solution: [ANGLE_KEY, angleLookStep(answer)], explanation: `The marked angle is ${facts[answer]}, so it is ${answer === 'acute' || answer === 'obtuse' ? 'an' : 'a'} ${answer} angle.`, visual: { type: 'angle', degrees: value, displayLabel: '?', ...(answer === 'straight' ? { context: 'straight_line' } : {}) } };
+    return { prompt, answer, distractors: types.filter((type) => type !== answer), solution: [ANGLE_KEY, angleLookStep(answer)], explanation: `The marked angle is ${facts[answer]}, so it is ${answer === 'acute' || answer === 'obtuse' ? 'an' : 'a'} ${answer} angle.`, visual: { type: 'angle', rotation: randomTurn(r), degrees: value, displayLabel: '?', ...(answer === 'straight' ? { context: 'straight_line' } : {}) } };
   }),
 
   angles_on_line_around_point: gen('angles_on_line_around_point', 'geom_angle_facts', (r, d) => {

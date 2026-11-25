@@ -222,9 +222,17 @@ function renderVenn(container,visual){
 
 // Angles are measured anticlockwise from the rightward ray. A diagram can show several rays and labelled arcs.
 function renderAngle(container,visual){
-  const rays=visual.rays??[0,visual.degrees],arcs=visual.arcs??[{from:0,to:visual.degrees,label:visual.displayLabel||'?'}],below=rays.some(degrees=>{const value=((degrees%360)+360)%360;return value>180&&value<360;})||arcs.some(arc=>arc.to-arc.from>180),svg=makeSvg(visual.label||'Angle diagram','0 0 560 310'),cx=280,cy=below?155:235,length=below?130:185;
+  // visual.rotation turns the whole diagram anticlockwise, so the first ray need not point at 3 o'clock.
+  const turn=visual.rotation||0,rays=(visual.rays??[0,visual.degrees]).map(degrees=>degrees+turn),arcs=(visual.arcs??[{from:0,to:visual.degrees,label:visual.displayLabel||'?'}]).map(arc=>({...arc,from:arc.from+turn,to:arc.to+turn})),svg=makeSvg(visual.label||'Angle diagram','0 0 560 310');
+  // Fit the rays (and the space the arcs and labels need near the vertex) inside the picture, then centre it.
+  const ends=visual.context==='straight_line'?[...rays,turn,turn+180]:rays,unit=(degrees)=>[Math.cos(degrees*Math.PI/180),-Math.sin(degrees*Math.PI/180)];
+  const near=arcs.flatMap(arc=>Array.from({length:13},(_,step)=>unit(arc.from+(arc.to-arc.from)*step/12)).map(([x,y])=>[x*72,y*72]));
+  const box=(size)=>{const points=[[0,0],...near,...ends.map(degrees=>unit(degrees).map(value=>value*size))],xs=points.map(([x])=>x),ys=points.map(([,y])=>y);return {minX:Math.min(...xs),maxX:Math.max(...xs),minY:Math.min(...ys),maxY:Math.max(...ys)};};
+  let length=185,bounds=box(length);
+  while(length>90&&(bounds.maxX-bounds.minX>516||bounds.maxY-bounds.minY>270)){length-=5;bounds=box(length);}
+  const cx=280-(bounds.minX+bounds.maxX)/2,cy=155-(bounds.minY+bounds.maxY)/2,below=arcs.some(arc=>arc.to-arc.from>180)||length<150;
   const at=(degrees,radius)=>{const radians=degrees*Math.PI/180;return [cx+radius*Math.cos(radians),cy-radius*Math.sin(radians)];};
-  if(visual.context==='straight_line')svg.append(line(cx-length,cy,cx+length,cy,{'stroke-width':4.5}));
+  if(visual.context==='straight_line')svg.append(line(...at(turn,length),...at(turn+180,length),{'stroke-width':4.5}));
   for(const degrees of rays)svg.append(line(cx,cy,...at(degrees,length),{'stroke-width':4.5}));
   arcs.forEach((arc,index)=>{
     const sweep=arc.to-arc.from,mid=(arc.from+arc.to)/2,radius=(below?34:40)+(arcs.length>2&&index%2?7:0);
